@@ -652,7 +652,6 @@ let resitele = [];
 let opakovaciVyjimky = [];
 
 const els = {
-  fileInput: document.getElementById("fileInput"),
   searchInput: document.getElementById("searchInput"),
   filterAssignee: document.getElementById("filterAssignee"),
   filterState: document.getElementById("filterState"),
@@ -1224,14 +1223,6 @@ async function openFileWritable(){
   }
 }
 
-els.fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  if(!file) return;
-  fileHandle = null;
-  const buffer = await file.arrayBuffer();
-  await loadWorkbookFromArrayBuffer(buffer, file.name);
-  updateWriteStatus();
-});
 
 async function reloadWorkbook(){
   try{
@@ -1704,12 +1695,6 @@ document.addEventListener("change", (e) => {
   }
 });
 
-(async function init(){
-  renderStats();
-  renderTable();
-  updateWriteStatus();
-
-  // ── FTLoader načte data z GitHubu a předá je správě úkolů ──
 async function debugGitHub() {
   const lines = [];
   lines.push(`FT_CONFIG: ${JSON.stringify(window.FT_CONFIG || null)}`);
@@ -1738,6 +1723,13 @@ async function debugGitHub() {
   div.innerHTML = `<b>Debug info</b><br><br>${lines.map(l => `<div style="margin:3px 0;padding:3px;background:#f5f5f5;">${l}</div>`).join('')}<br><button onclick="this.parentNode.remove()">Zavřít</button>`;
   document.body.appendChild(div);
 }
+
+(async function init(){
+  renderStats();
+  renderTable();
+  updateWriteStatus();
+
+  // ── FTLoader načte data z GitHubu a předá je správě úkolů ──
 
 function loadFromRaw(raw) {
     tasks = (raw.tasks || []).map((t, i) => ({

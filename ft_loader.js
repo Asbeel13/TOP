@@ -13,13 +13,42 @@ const FTLoader = (() => {
   const POLL_MS      = 5000;
 
   // Token — uložen přímo v kódu (repozitář top-data je private)
-  const GITHUB_TOKEN = "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";
+  const TOKEN_STORAGE_KEY = "ftGithubToken";
 
   function getToken() {
-    return window.FT_CONFIG?.token || GITHUB_TOKEN;
+    return localStorage.getItem(TOKEN_STORAGE_KEY) ||
+           window.FT_CONFIG?.token || "";
   }
   function getCurrentUserFromConfig() {
-    return window.FT_CONFIG?.user || localStorage.getItem("ftCurrentUser") || "unknown";
+    return window.FT_CONFIG?.user ||
+           localStorage.getItem("ftCurrentUser") || "unknown";
+  }
+
+  function showTokenDialog(onSuccess) {
+    if (document.getElementById("ftTokenDialog")) return;
+    const div = document.createElement("div");
+    div.id = "ftTokenDialog";
+    div.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;";
+    div.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:32px;width:480px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:sans-serif;">
+        <h2 style="margin:0 0 8px;font-size:20px;">🔑 Přístup k databázi TOP</h2>
+        <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">Zadej svůj GitHub Personal Access Token. Obdržíš ho od správce systému.</p>
+        <input id="ftTokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:8px;">
+        <input id="ftUserInput" type="text" placeholder="Tvoje zkratka (např. JK, RS, LR)" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:16px;">
+        <button id="ftTokenSave" style="width:100%;padding:12px;background:#1d4ed8;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Uložit a pokračovat →</button>
+        <p style="color:#9ca3af;font-size:11px;margin:12px 0 0;text-align:center;">Token se uloží jen v tomto prohlížeči. Při příštím otevření se zadávat nemusí.</p>
+      </div>
+    `;
+    document.body.appendChild(div);
+    document.getElementById("ftTokenSave").addEventListener("click", () => {
+      const token = document.getElementById("ftTokenInput").value.trim();
+      const user = document.getElementById("ftUserInput").value.trim();
+      if (!token.startsWith("ghp_")) { alert("Token musí začínat ghp_"); return; }
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      if (user) localStorage.setItem("ftCurrentUser", user);
+      div.remove();
+      if (onSuccess) onSuccess();
+    });
   }
 
   const DATA_KEY = "ftWorkbookData";
@@ -265,8 +294,12 @@ const FTLoader = (() => {
       }
     } catch(e) {}
 
-    // 2. Načti čerstvá data z GitHubu
-    fetchFromGitHub(false);
+    // 2. Načti čerstvá data z GitHubu — nebo zobraz dialog pro token
+    if (getToken()) {
+      fetchFromGitHub(false);
+    } else {
+      showTokenDialog(() => fetchFromGitHub(false));
+    }
 
     // 3. Polling
     if (_pollTimer) clearInterval(_pollTimer);
