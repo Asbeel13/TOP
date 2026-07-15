@@ -11,8 +11,6 @@ const FTLoader = (() => {
   const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
   const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
   const FILE_ID     = "01ATLFZQQO2E5CHGULPNC24ZZR7XV4GPF6";
-  const OWNER_DRIVE = "komanek@filtration.cz"; // UPN vlastníka souboru
-
   const DATA_KEY  = "ftWorkbookData";
   const RAW_KEY   = "ftWorkbookRaw";
   const TOKEN_KEY = "ftMsalToken";
@@ -109,12 +107,44 @@ const FTLoader = (() => {
     return resp;
   }
 
-  // Přímý přístup přes ID souboru — funguje pro vlastníka i sdílené uživatele
+  let _driveId = null;
+
   function fileContentUrl() {
-    return `https://graph.microsoft.com/v1.0/users/${OWNER_DRIVE}/drive/items/${FILE_ID}/content`;
+    if (_driveId) return `https://graph.microsoft.com/v1.0/drives/${_driveId}/items/${FILE_ID}/content`;
+    return `https://graph.microsoft.com/v1.0/me/drive/items/${FILE_ID}/content`;
   }
   function fileMetaUrl() {
-    return `https://graph.microsoft.com/v1.0/users/${OWNER_DRIVE}/drive/items/${FILE_ID}`;
+    if (_driveId) return `https://graph.microsoft.com/v1.0/drives/${_driveId}/items/${FILE_ID}`;
+    return `https://graph.microsoft.com/v1.0/me/drive/items/${FILE_ID}`;
+  }
+
+  async function resolveDriveId() {
+    if (_driveId) return _driveId;
+    // Vlastník — me/drive
+    try {
+      const r = await graphRequest(`https://graph.microsoft.com/v1.0/me/drive/items/${FILE_ID}?$select=id,parentReference`);
+      if (r.ok) {
+        const j = await r.json();
+        _driveId = j.parentReference?.driveId || null;
+        if (_driveId) return _driveId;
+      }
+    } catch(e) {}
+    // Sdílený uživatel — sharedWithMe
+    try {
+      const r = await graphRequest(`https://graph.microsoft.com/v1.0/me/drive/sharedWithMe?$select=id,name,remoteItem&$top=100`);
+      if (r.ok) {
+        const j = await r.json();
+        const found = j.value?.find(i =>
+          i.remoteItem?.id === FILE_ID ||
+          i.name === "0_SEZNAM_UKOLU-GLOBAL.xlsx"
+        );
+        if (found?.remoteItem?.parentReference?.driveId) {
+          _driveId = found.remoteItem.parentReference.driveId;
+          return _driveId;
+        }
+      }
+    } catch(e) {}
+    return null;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
@@ -341,6 +371,8 @@ const FTLoader = (() => {
   async function loadFromGraph(silent) {
     if (!_accessToken) return false;
     try {
+      // Zjisti driveId pokud ho ještě nemáme
+      await resolveDriveId();
       // 1. Zkontroluj lastModifiedDateTime
       const metaResp = await graphRequest(fileMetaUrl());
       if (!metaResp.ok) {
@@ -376,7 +408,7 @@ const FTLoader = (() => {
   // ── Graph API: zápis souboru ──────────────────────────────────────────
   async function saveToGraph(buffer, fileName) {
     if (!_accessToken) throw new Error("Nejsi přihlášen — nelze uložit");
-    const uploadUrl = `https://graph.microsoft.com/v1.0/users/${OWNER_DRIVE}/drive/items/${FILE_ID}/content`;
+    const uploadUrl = fileContentUrl();
     const resp = await graphRequest(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
