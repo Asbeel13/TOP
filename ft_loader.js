@@ -8,11 +8,9 @@ const FTLoader = (() => {
   // ── Konfigurace ────────────────────────────────────────────────────────
   const CLIENT_ID   = "ae981a87-988a-4555-b47d-374ea6d1364a";
   const TENANT      = "common";
-  const REDIRECT    = window.location.origin + window.location.pathname;
   const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
-  const FILE_ID     = "233ad10e-8b9a-457b-ae67-31fdebc33cbe"; // UniqueId XLSX
   const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
-  const USER_PATH   = "personal/komanek_filtration_cz";
+  const FILE_PATH   = "/personal/komanek_filtration_cz/Documents/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx";
 
   const DATA_KEY  = "ftWorkbookData";
   const RAW_KEY   = "ftWorkbookRaw";
@@ -45,10 +43,11 @@ const FTLoader = (() => {
   }
 
   function getAuthUrl() {
+    const redirect = window.location.origin + window.location.pathname;
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
       response_type: "token",
-      redirect_uri: REDIRECT,
+      redirect_uri: redirect,
       scope: SCOPES.join(" "),
       response_mode: "fragment",
       prompt: "select_account"
@@ -90,12 +89,12 @@ const FTLoader = (() => {
     return resp;
   }
 
-  // Sestaví Graph URL pro soubor přes SharePoint site
+  // Sestaví Graph URL pro soubor přes SharePoint site + cesta
   function fileContentUrl() {
-    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/${USER_PATH}:/drive/items/${FILE_ID}/content`;
+    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/drives/root:${FILE_PATH}:/content`;
   }
   function fileMetaUrl() {
-    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/${USER_PATH}:/drive/items/${FILE_ID}`;
+    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/drives/root:${FILE_PATH}`;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
@@ -322,16 +321,22 @@ const FTLoader = (() => {
   async function loadFromGraph(silent) {
     if (!_accessToken) return false;
     try {
-      // 1. Zkontroluj lastModifiedDateTime — levný request
+      // 1. Zkontroluj lastModifiedDateTime
       const metaResp = await graphRequest(fileMetaUrl());
-      if (!metaResp.ok) throw new Error(`Meta error ${metaResp.status}`);
+      if (!metaResp.ok) {
+        const err = await metaResp.text();
+        throw new Error(`Meta ${metaResp.status}: ${err.slice(0,200)}`);
+      }
       const meta = await metaResp.json();
       const lastMod = meta.lastModifiedDateTime || "";
-      if (lastMod === _lastModified) return false; // Beze změny
+      if (lastMod === _lastModified) return false;
 
       // 2. Stáhni soubor
       const fileResp = await graphRequest(fileContentUrl());
-      if (!fileResp.ok) throw new Error(`File error ${fileResp.status}`);
+      if (!fileResp.ok) {
+        const err = await fileResp.text();
+        throw new Error(`File ${fileResp.status}: ${err.slice(0,200)}`);
+      }
       const buffer = await fileResp.arrayBuffer();
       _lastModified = lastMod;
 
@@ -343,6 +348,7 @@ const FTLoader = (() => {
       return true;
     } catch(e) {
       if (!silent) status(`Graph API chyba: ${e.message}`, true);
+      console.error("loadFromGraph:", e);
       return false;
     }
   }
