@@ -10,7 +10,8 @@ const FTLoader = (() => {
   const TENANT      = "common";
   const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
   const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
-  const FILE_PATH   = "/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx";
+  const FILE_ID     = "01ATLFZQQO2E5CHGULPNC24ZZR7XV4GPF6";
+  const OWNER_DRIVE = "komanek@filtration.cz"; // UPN vlastníka souboru
 
   const DATA_KEY  = "ftWorkbookData";
   const RAW_KEY   = "ftWorkbookRaw";
@@ -108,12 +109,12 @@ const FTLoader = (() => {
     return resp;
   }
 
-  // Sestaví Graph URL pro soubor přes OneDrive uživatele
+  // Přímý přístup přes ID souboru — funguje pro vlastníka i sdílené uživatele
   function fileContentUrl() {
-    return `https://graph.microsoft.com/v1.0/me/drive/root:${FILE_PATH}:/content`;
+    return `https://graph.microsoft.com/v1.0/users/${OWNER_DRIVE}/drive/items/${FILE_ID}/content`;
   }
   function fileMetaUrl() {
-    return `https://graph.microsoft.com/v1.0/me/drive/root:${FILE_PATH}`;
+    return `https://graph.microsoft.com/v1.0/users/${OWNER_DRIVE}/drive/items/${FILE_ID}`;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
@@ -375,7 +376,7 @@ const FTLoader = (() => {
   // ── Graph API: zápis souboru ──────────────────────────────────────────
   async function saveToGraph(buffer, fileName) {
     if (!_accessToken) throw new Error("Nejsi přihlášen — nelze uložit");
-    const uploadUrl = fileContentUrl();
+    const uploadUrl = `https://graph.microsoft.com/v1.0/users/${OWNER_DRIVE}/drive/items/${FILE_ID}/content`;
     const resp = await graphRequest(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
