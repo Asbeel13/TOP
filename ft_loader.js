@@ -10,7 +10,7 @@ const FTLoader = (() => {
   const TENANT      = "common";
   const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
   const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
-  const FILE_PATH   = "/personal/komanek_filtration_cz/Documents/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx";
+  const FILE_PATH   = "/Documents/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx";
 
   const DATA_KEY  = "ftWorkbookData";
   const RAW_KEY   = "ftWorkbookRaw";
@@ -108,12 +108,12 @@ const FTLoader = (() => {
     return resp;
   }
 
-  // Sestaví Graph URL pro soubor přes SharePoint site + cesta
+  // Sestaví Graph URL pro soubor přes OneDrive uživatele
   function fileContentUrl() {
-    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/drives/root:${FILE_PATH}:/content`;
+    return `https://graph.microsoft.com/v1.0/me/drive/root:${FILE_PATH}:/content`;
   }
   function fileMetaUrl() {
-    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/drives/root:${FILE_PATH}`;
+    return `https://graph.microsoft.com/v1.0/me/drive/root:${FILE_PATH}`;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
