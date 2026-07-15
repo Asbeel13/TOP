@@ -12,12 +12,14 @@ const FTLoader = (() => {
   const GITHUB_FILE  = "database.json";
   const POLL_MS      = 5000;
 
-  // Token a identita uživatele se načítají z lokálního config.js
+  // Token — uložen přímo v kódu (repozitář top-data je private)
+  const GITHUB_TOKEN = "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";
+
   function getToken() {
-    return window.FT_CONFIG?.token || "";
+    return window.FT_CONFIG?.token || GITHUB_TOKEN;
   }
   function getCurrentUserFromConfig() {
-    return window.FT_CONFIG?.user || "unknown";
+    return window.FT_CONFIG?.user || localStorage.getItem("ftCurrentUser") || "unknown";
   }
 
   const DATA_KEY = "ftWorkbookData";

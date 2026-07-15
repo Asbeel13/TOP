@@ -26,7 +26,6 @@ function initDarkMode() {
 initDarkMode();
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-  <script src="config.js"></script>
   <script src="ft_loader.js"></script>
   <style>
     :root{
@@ -395,6 +394,7 @@ initDarkMode();
       <div class="actions">
         <button class="success" onclick="saveWorkbook()">Uložit změny</button>
         <button onclick="openNewTaskModal()">Nový úkol</button>
+        <button id="debugBtn" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;" onclick="debugGitHub()">🔍 Debug</button>
         <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
       </div>
     </div>
@@ -1710,49 +1710,76 @@ document.addEventListener("change", (e) => {
   updateWriteStatus();
 
   // ── FTLoader načte data z GitHubu a předá je správě úkolů ──
+async function debugGitHub() {
+  const lines = [];
+  lines.push(`FT_CONFIG: ${JSON.stringify(window.FT_CONFIG || null)}`);
+  lines.push(`Token: ${window.FT_CONFIG?.token ? window.FT_CONFIG.token.slice(0,8)+'...' : 'CHYBÍ'}`);
+  lines.push(`Tasks v paměti: ${tasks.length}`);
+  lines.push(`getRawJson: ${FTLoader.getRawJson() ? 'OK' : 'null'}`);
+  lines.push(`localStorage ftWorkbookData: ${localStorage.getItem('ftWorkbookData') ? 'OK ('+localStorage.getItem('ftWorkbookData').length+' bytes)' : 'prázdný'}`);
+
+  // Zkus přímo volat GitHub API
+  try {
+    const token = window.FT_CONFIG?.token;
+    if (!token) throw new Error("Token chybí v config.js");
+    const r = await fetch('https://api.github.com/repos/asbeel13/top-data/contents/database.json', {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    const j = await r.json();
+    lines.push(`GitHub API: ${r.status} ${r.status === 200 ? '✅' : '❌'}`);
+    if (j.sha) lines.push(`SHA: ${j.sha.slice(0,12)}`);
+    if (j.message) lines.push(`Chyba: ${j.message}`);
+  } catch(e) {
+    lines.push(`GitHub API chyba: ${e.message}`);
+  }
+
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:60px;right:10px;background:white;border:2px solid #7c3aed;padding:16px;z-index:9999;width:480px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:monospace;font-size:12px;';
+  div.innerHTML = `<b>Debug info</b><br><br>${lines.map(l => `<div style="margin:3px 0;padding:3px;background:#f5f5f5;">${l}</div>`).join('')}<br><button onclick="this.parentNode.remove()">Zavřít</button>`;
+  document.body.appendChild(div);
+}
+
+function loadFromRaw(raw) {
+    tasks = (raw.tasks || []).map((t, i) => ({
+      rowIndex: i + 1,
+      id: t.id || "",
+      task: t.title || "",
+      title: t.title || "",
+      internalProject: t.internalProject || "",
+      priority: t.priority || "P3",
+      project: t.project || "",
+      sales: t.sales || "",
+      waiting: !!t.waiting,
+      state: t.state || "Nový",
+      created: t.createdDate || "",
+      planned: t.plannedDate || "",
+      finished: t.doneDate || "",
+      due: t.dueDate || "",
+      assignee: t.owner || "Nezařazeno",
+      owner: t.owner || "Nezařazeno",
+      note: t.note || "",
+      internalNote: t.internalNote || "",
+      auto: t.auto || "",
+      cancelled: !!t.cancelled,
+      selected: false,
+    }));
+    auta = raw.auta || [];
+    autaRezervace = raw.auta_rezervace || [];
+    resitele = raw.resitele || [];
+    opakovaciVyjimky = raw.vyjimky || [];
+    buildResitelSelect();
+    buildAutaDatalist();
+    renderAutaTable();
+    renderVyjimkyTable();
+    renderStats();
+    applyFilters();
+    handleUrlParams();
+  }
+
   FTLoader.init({
     onData: (parsedData) => {
-      // Naplň správu úkolů daty z GitHubu
       const raw = FTLoader.getRawJson();
-      if (!raw) return;
-
-      // Simuluj tasks strukturu kterou správa úkolů očekává
-      tasks = (raw.tasks || []).map((t, i) => ({
-        rowIndex: i + 1,
-        id: t.id || "",
-        task: t.title || "",
-        title: t.title || "",
-        internalProject: t.internalProject || "",
-        priority: t.priority || "P3",
-        project: t.project || "",
-        sales: t.sales || "",
-        waiting: !!t.waiting,
-        state: t.state || "Nový",
-        created: t.createdDate || "",
-        planned: t.plannedDate || "",
-        finished: t.doneDate || "",
-        due: t.dueDate || "",
-        assignee: t.owner || "Nezařazeno",
-        owner: t.owner || "Nezařazeno",
-        note: t.note || "",
-        internalNote: t.internalNote || "",
-        auto: t.auto || "",
-        cancelled: !!t.cancelled,
-        selected: false,
-      }));
-
-      auta = raw.auta || [];
-      autaRezervace = raw.auta_rezervace || [];
-      resitele = raw.resitele || [];
-      opakovaciVyjimky = raw.vyjimky || [];
-
-      buildResitelSelect();
-      buildAutaDatalist();
-      renderAutaTable();
-      renderVyjimkyTable();
-      renderStats();
-      applyFilters();
-      handleUrlParams();
+      if (raw) loadFromRaw(raw);
     },
     onStatus: (msg, isError) => {
       status(msg, isError);
