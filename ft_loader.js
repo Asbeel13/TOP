@@ -185,8 +185,9 @@ const FTLoader = (() => {
       if (sha === _lastSha) return false;
       _lastSha = sha;
 
-      // Dekóduj Base64 obsah
-      const jsonStr = atob(data.content.replace(/\n/g, ""));
+      // Dekóduj Base64 → UTF-8 správně
+      const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+      const jsonStr = new TextDecoder("utf-8").decode(bytes);
       const json = JSON.parse(jsonStr);
       const parsed = parseDatabase(json);
 
@@ -218,7 +219,9 @@ const FTLoader = (() => {
     json.updatedAt = new Date().toISOString();
     json.updatedBy = user;
 
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(json, null, 2))));
+    // Enkóduj JSON → UTF-8 → Base64 správně
+    const jsonBytes = new TextEncoder().encode(JSON.stringify(json, null, 2));
+    const content = btoa(String.fromCharCode(...jsonBytes));
 
     const resp = await fetch(apiUrl(), {
       method: "PUT",
