@@ -107,14 +107,19 @@ const FTLoader = (() => {
     return resp;
   }
 
-  // DriveId je pevně nastaven — funguje pro vlastníka i sdílené uživatele
-  const DRIVE_ID = "b!5V3s2tClpEa_4lcy6IrLfY8v0jcgtyxGrV-Bu-D9juLqY1-yhTnkTZ1Sic0XuOxx";
+  // Shares API — funguje pro vlastníka i sdílené uživatele přes sharing URL
+  const SHARE_ID = "u!aHR0cHM6Ly9maWx0cmF0aW9udGVjaG5vbG9neS1teS5zaGFyZXBvaW50LmNvbS86eDovZy9wZXJzb25hbC9rb21hbmVrX2ZpbHRyYXRpb25fY3ovSVFBTzBUb2ptb3Q3UmE1bk1mM3J3enktQVFKV2h3R1VtSzlyY05ETzRBdEVpeHc";
 
   function fileContentUrl() {
-    return `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/items/${FILE_ID}/content`;
+    return `https://graph.microsoft.com/v1.0/shares/${SHARE_ID}/driveItem/content`;
   }
   function fileMetaUrl() {
-    return `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/items/${FILE_ID}`;
+    return `https://graph.microsoft.com/v1.0/shares/${SHARE_ID}/driveItem`;
+  }
+  function fileUploadUrl() {
+    // Pro zápis použij přímé drives endpoint (vlastník)
+    const DRIVE_ID = "b!5V3s2tClpEa_4lcy6IrLfY8v0jcgtyxGrV-Bu-D9juLqY1-yhTnkTZ1Sic0XuOxx";
+    return `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/items/${FILE_ID}/content`;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
@@ -376,7 +381,7 @@ const FTLoader = (() => {
   // ── Graph API: zápis souboru ──────────────────────────────────────────
   async function saveToGraph(buffer, fileName) {
     if (!_accessToken) throw new Error("Nejsi přihlášen — nelze uložit");
-    const uploadUrl = fileContentUrl();
+    const uploadUrl = fileUploadUrl();
     const resp = await graphRequest(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
