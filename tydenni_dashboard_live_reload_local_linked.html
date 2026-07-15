@@ -1266,9 +1266,8 @@ async function debugGraphApi() {
 
   // Prohledej kořen a složku Dokumenty
   const urls = [
-    ["Kořen drives", "https://graph.microsoft.com/v1.0/me/drives?$select=name,id,driveType"],
-    ["Kořen root", "https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,id&$top=10"],
-    ["Dokumenty", "https://graph.microsoft.com/v1.0/me/drive/root:/Dokumenty:/children?$select=name,id&$top=20"],
+    ["TOP složka", "https://graph.microsoft.com/v1.0/me/drive/root:/TOP - Tydenni Operacni Plan:/children?$select=name,id&$top=20"],
+    ["GLOBAL soubor", "https://graph.microsoft.com/v1.0/me/drive/root:/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx"],
   ];
 
   let result = "";

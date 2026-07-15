@@ -10,7 +10,7 @@ const FTLoader = (() => {
   const TENANT      = "common";
   const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
   const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
-  const FILE_PATH   = "/Dokumenty/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx";
+  const FILE_PATH   = "/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx";
 
   const DATA_KEY  = "ftWorkbookData";
   const RAW_KEY   = "ftWorkbookRaw";
