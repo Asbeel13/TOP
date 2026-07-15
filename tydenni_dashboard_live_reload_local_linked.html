@@ -652,6 +652,7 @@
         <div class="muted" id="syncStatus" style="margin-top:4px;font-size:12px"></div>
       </div>
       <div class="week-nav" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="debugBtn" style="font-size:11px;padding:5px 10px;background:#7c3aed;color:white;border:none;border-radius:8px;cursor:pointer;" onclick="debugShared()">🔍 Debug Shared</button>
         <button id="prevWeek">← Předchozí týden</button>
         <button id="nextWeek">Další týden →</button>
       </div>
@@ -1255,6 +1256,31 @@ function applyData(nextData) {
 async function initDashboard() {
   buildPeopleFilters();
   render();
+}
+
+// ── Debug sharedWithMe ───────────────────────────────────────────────
+async function debugShared() {
+  const token = sessionStorage.getItem("ftMsalToken");
+  if (!token) { alert("Nejsi přihlášen"); return; }
+  const { token: t } = JSON.parse(token);
+
+  const urls = [
+    ["sharedWithMe", "https://graph.microsoft.com/v1.0/me/drive/sharedWithMe?$select=id,name,remoteItem&$top=50"],
+    ["me/drive/items/FILE_ID", `https://graph.microsoft.com/v1.0/me/drive/items/01ATLFZQQO2E5CHGULPNC24ZZR7XV4GPF6?$select=id,name,parentReference`],
+  ];
+
+  let html = "<div style='font-family:monospace;font-size:11px;'>";
+  for (const [label, url] of urls) {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
+    const json = await r.json();
+    html += `<b>${label} (${r.status})</b><br>`;
+    html += `<textarea style="width:100%;height:120px;">${JSON.stringify(json, null, 2)}</textarea><br>`;
+  }
+  html += "</div>";
+  const div = document.createElement("div");
+  div.style.cssText = "position:fixed;top:60px;right:10px;background:white;border:2px solid #7c3aed;padding:16px;z-index:9999;width:500px;max-height:80vh;overflow:auto;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
+  div.innerHTML = html + "<button onclick='this.parentNode.remove()'>Zavřít</button>";
+  document.body.appendChild(div);
 }
 
 // ── FTLoader integration ──────────────────────────────────────────────
