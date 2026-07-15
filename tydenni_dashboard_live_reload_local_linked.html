@@ -652,6 +652,7 @@
         <div class="muted" id="syncStatus" style="margin-top:4px;font-size:12px"></div>
       </div>
       <div class="week-nav" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="debugBtn" style="font-size:11px;padding:5px 10px;background:#7c3aed;color:white;border:none;border-radius:8px;cursor:pointer;" onclick="debugGetFileId()">🔍 Zjistit ID souboru</button>
         <button id="prevWeek">← Předchozí týden</button>
         <button id="nextWeek">Další týden →</button>
       </div>
@@ -1255,6 +1256,20 @@ function applyData(nextData) {
 async function initDashboard() {
   buildPeopleFilters();
   render();
+}
+
+// ── Debug: zjisti ID souboru ─────────────────────────────────────────
+async function debugGetFileId() {
+  const token = sessionStorage.getItem("ftMsalToken");
+  if (!token) { alert("Nejsi přihlášen"); return; }
+  const { token: t } = JSON.parse(token);
+  const url = "https://graph.microsoft.com/v1.0/me/drive/root:/TOP - Tydenni Operacni Plan/0_SEZNAM_UKOLU-GLOBAL.xlsx?$select=id,name,lastModifiedDateTime";
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
+  const json = await r.json();
+  const div = document.createElement("div");
+  div.style.cssText = "position:fixed;top:60px;right:10px;background:white;border:2px solid #7c3aed;padding:16px;z-index:9999;max-width:600px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:monospace;font-size:12px;";
+  div.innerHTML = `<b>Soubor ID:</b><br><textarea style="width:100%;height:80px;">${JSON.stringify(json, null, 2)}</textarea><br><button onclick="this.parentNode.remove()">Zavřít</button>`;
+  document.body.appendChild(div);
 }
 
 // ── FTLoader integration ──────────────────────────────────────────────
