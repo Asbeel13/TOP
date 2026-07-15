@@ -107,44 +107,14 @@ const FTLoader = (() => {
     return resp;
   }
 
-  let _driveId = null;
+  // DriveId je pevně nastaven — funguje pro vlastníka i sdílené uživatele
+  const DRIVE_ID = "b!5V3s2tClpEa_4lcy6IrLfY8v0jcgtyxGrV-Bu-D9juLqY1-yhTnkTZ1Sic0XuOxx";
 
   function fileContentUrl() {
-    if (_driveId) return `https://graph.microsoft.com/v1.0/drives/${_driveId}/items/${FILE_ID}/content`;
-    return `https://graph.microsoft.com/v1.0/me/drive/items/${FILE_ID}/content`;
+    return `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/items/${FILE_ID}/content`;
   }
   function fileMetaUrl() {
-    if (_driveId) return `https://graph.microsoft.com/v1.0/drives/${_driveId}/items/${FILE_ID}`;
-    return `https://graph.microsoft.com/v1.0/me/drive/items/${FILE_ID}`;
-  }
-
-  async function resolveDriveId() {
-    if (_driveId) return _driveId;
-    // Vlastník — me/drive
-    try {
-      const r = await graphRequest(`https://graph.microsoft.com/v1.0/me/drive/items/${FILE_ID}?$select=id,parentReference`);
-      if (r.ok) {
-        const j = await r.json();
-        _driveId = j.parentReference?.driveId || null;
-        if (_driveId) return _driveId;
-      }
-    } catch(e) {}
-    // Sdílený uživatel — sharedWithMe
-    try {
-      const r = await graphRequest(`https://graph.microsoft.com/v1.0/me/drive/sharedWithMe?$select=id,name,remoteItem&$top=100`);
-      if (r.ok) {
-        const j = await r.json();
-        const found = j.value?.find(i =>
-          i.remoteItem?.id === FILE_ID ||
-          i.name === "0_SEZNAM_UKOLU-GLOBAL.xlsx"
-        );
-        if (found?.remoteItem?.parentReference?.driveId) {
-          _driveId = found.remoteItem.parentReference.driveId;
-          return _driveId;
-        }
-      }
-    } catch(e) {}
-    return null;
+    return `https://graph.microsoft.com/v1.0/drives/${DRIVE_ID}/items/${FILE_ID}`;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
@@ -371,8 +341,6 @@ const FTLoader = (() => {
   async function loadFromGraph(silent) {
     if (!_accessToken) return false;
     try {
-      // Zjisti driveId pokud ho ještě nemáme
-      await resolveDriveId();
       // 1. Zkontroluj lastModifiedDateTime
       const metaResp = await graphRequest(fileMetaUrl());
       if (!metaResp.ok) {
