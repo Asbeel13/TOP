@@ -876,13 +876,20 @@ function updateWriteStatus() {
   const el = document.getElementById("statWriteMode");
   const fileEl = document.getElementById("statFile");
   if (!el || !fileEl) return;
+  // Graph API má přednost
+  if (typeof FTLoader !== "undefined" && FTLoader.isAuthenticated()) {
+    el.textContent = "✅ OneDrive (Graph API)";
+    el.style.color = "#15803d";
+    fileEl.style.color = "#15803d";
+    return;
+  }
   if (!fileName || fileName === "nenačteno") {
     el.textContent = "";
     fileEl.style.color = "";
     return;
   }
   if (fileHandle) {
-    el.textContent = "✅ Zápis povolen";
+    el.textContent = "✅ Zápis povolen (lokální)";
     el.style.color = "#15803d";
     fileEl.style.color = "#15803d";
   } else {
@@ -1738,18 +1745,33 @@ async function saveWorkbook(){
   }
   try{
     rebuildSheetBeforeSave();
+    const out = XLSX.write(workbook, {bookType:"xlsx", type:"array"});
 
+    // ── Varianta 1: Graph API (OneDrive přes Microsoft účet) ──
+    if (typeof FTLoader !== "undefined" && FTLoader.isAuthenticated()) {
+      try {
+        await FTLoader.saveToGraph(new Uint8Array(out).buffer, fileName);
+        FTLoader.pushWorkbook(out, fileName);
+        updateWriteStatus();
+        alert("Změny byly uloženy do OneDrive.");
+        return;
+      } catch(e) {
+        alert(`Uložení přes Graph API selhalo: ${e.message}\nZkouším záložní metodu...`);
+      }
+    }
+
+    // ── Varianta 2: File System Access API (lokální soubor) ──
     if(fileHandle){
       const writable = await fileHandle.createWritable();
-      const out = XLSX.write(workbook, {bookType:"xlsx", type:"array"});
       await writable.write(out);
       await writable.close();
       try { if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(out, fileName); } catch(_) {}
+      updateWriteStatus();
       alert("Změny byly uloženy do původního XLSX.");
       return;
     }
 
-    const out = XLSX.write(workbook, {bookType:"xlsx", type:"array"});
+    // ── Varianta 3: Stažení souboru (fallback) ──
     try { if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(out, fileName); } catch(_) {}
     const blob = new Blob([out], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     const a = document.createElement("a");
@@ -1757,10 +1779,10 @@ async function saveWorkbook(){
     a.download = fileName || DEFAULT_FILENAME;
     a.click();
     URL.revokeObjectURL(a.href);
-    alert("Prohlížeč neměl přímý přístup k zápisu. Stáhl se upravený XLSX soubor.");
+    alert("Prohlížeč neměl přímý přístup k zápisu. Stáhl se upravený XLSX soubor — nahraj ho ručně na OneDrive.");
   }catch(err){
     console.error(err);
-    alert("Uložení se nepodařilo.");
+    alert("Uložení se nepodařilo: " + err.message);
   }
 }
 
