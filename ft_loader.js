@@ -10,8 +10,15 @@ const FTLoader = (() => {
   const GITHUB_OWNER = "asbeel13";
   const GITHUB_REPO  = "top-data";
   const GITHUB_FILE  = "database.json";
-  const GITHUB_TOKEN = "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"; // read+write token
   const POLL_MS      = 5000;
+
+  // Token a identita uživatele se načítají z lokálního config.js
+  function getToken() {
+    return window.FT_CONFIG?.token || "";
+  }
+  function getCurrentUserFromConfig() {
+    return window.FT_CONFIG?.user || "unknown";
+  }
 
   const DATA_KEY = "ftWorkbookData";
   const USER_KEY = "ftCurrentUser"; // zkratka přihlášeného uživatele
@@ -28,8 +35,10 @@ const FTLoader = (() => {
   }
 
   function headers(extra = {}) {
+    const token = getToken();
+    if (!token) throw new Error("Chybí config.js s tokenem. Zkopíruj config.js do složky s HTML soubory.");
     return {
-      "Authorization": `token ${GITHUB_TOKEN}`,
+      "Authorization": `token ${token}`,
       "Accept": "application/vnd.github.v3+json",
       ...extra
     };
@@ -278,7 +287,7 @@ const FTLoader = (() => {
   return {
     init, reload, saveToGitHub, getRawJson,
     getAutoDostupnost, setFileHandle, loadRaw, pushWorkbook, isAuthenticated,
-    getCurrentUser: () => localStorage.getItem(USER_KEY) || "",
+    getCurrentUser: () => getCurrentUserFromConfig() || localStorage.getItem(USER_KEY) || "unknown",
     setCurrentUser: (u) => localStorage.setItem(USER_KEY, u),
   };
 
