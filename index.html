@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TOP — přesměrování</title>
+  <script>
+    // Pokud přišel OAuth token v hash, zpracuj ho a přesměruj zpět
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const token = params.get("access_token");
+    const returnUrl = sessionStorage.getItem("ft_returnUrl");
+
+    if (token && returnUrl) {
+      // Předej token na správnou stránku přes sessionStorage
+      sessionStorage.setItem("ft_pendingToken", hash);
+      sessionStorage.removeItem("ft_returnUrl");
+      window.location.href = returnUrl;
+    } else if (token) {
+      // Fallback — přesměruj na dashboard
+      sessionStorage.setItem("ft_pendingToken", hash);
+      window.location.href = "tydenni_dashboard_live_reload_local_linked.html";
+    } else {
+      // Žádný token — přesměruj na dashboard
+      window.location.href = "tydenni_dashboard_live_reload_local_linked.html";
+    }
+  </script>
+</head>
+<body>
+  <p>Přesměrovávám...</p>
+</body>
+</html>

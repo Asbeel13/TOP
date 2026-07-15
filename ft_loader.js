@@ -43,6 +43,8 @@ const FTLoader = (() => {
   }
 
   function getAuthUrl() {
+    // Ulož aktuální stránku do sessionStorage pro redirect po přihlášení
+    sessionStorage.setItem("ft_returnUrl", window.location.href);
     const redirect = window.location.origin + window.location.pathname;
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
@@ -56,6 +58,17 @@ const FTLoader = (() => {
   }
 
   function handleRedirect() {
+    // Zkontroluj token předaný přes index.html
+    const pending = sessionStorage.getItem("ft_pendingToken");
+    if (pending) {
+      sessionStorage.removeItem("ft_pendingToken");
+      const params = new URLSearchParams(pending);
+      const token = params.get("access_token");
+      const expiresIn = parseInt(params.get("expires_in") || "3600");
+      if (token) { saveToken(token, expiresIn); return true; }
+    }
+
+    // Zkontroluj token přímo v URL hash
     const hash = window.location.hash.substring(1);
     if (!hash) return false;
     const params = new URLSearchParams(hash);
@@ -63,8 +76,14 @@ const FTLoader = (() => {
     const expiresIn = parseInt(params.get("expires_in") || "3600");
     if (token) {
       saveToken(token, expiresIn);
-      // Vyčisti hash z URL
       history.replaceState(null, "", window.location.pathname + window.location.search);
+      const returnUrl = sessionStorage.getItem("ft_returnUrl");
+      if (returnUrl && returnUrl !== window.location.href) {
+        sessionStorage.removeItem("ft_returnUrl");
+        window.location.href = returnUrl;
+        return true;
+      }
+      sessionStorage.removeItem("ft_returnUrl");
       return true;
     }
     return false;
@@ -452,21 +471,13 @@ const FTLoader = (() => {
       hideLoginBanner();
       loadFromGraph(false);
     } else {
-      // Fallback: pokus o fetch (Live Server)
-      fetch("0_SEZNAM_UKOLU-GLOBAL.xlsx?t=" + Date.now(), { cache: "no-store" })
-        .then(r => r.ok ? r.arrayBuffer() : Promise.reject())
-        .then(buffer => {
-          const parsed = parseBuffer(buffer);
-          saveData(parsed, "0_SEZNAM_UKOLU-GLOBAL.xlsx");
-          saveRaw(buffer, "0_SEZNAM_UKOLU-GLOBAL.xlsx");
-          if (_onData) _onData(parsed);
-          status(`Načteno lokálně · ${new Date().toLocaleString("cs-CZ")}`);
-        })
-        .catch(() => {
-          // Žádné data — zobraz login banner
-          showLoginBanner();
-          status("Přihlaš se Microsoft účtem pro načtení dat", true);
-        });
+      // Bez tokenu — zobraz login banner (nebo načti z file handle)
+      if (_fileHandle) {
+        loadFromHandle(false);
+      } else {
+        showLoginBanner();
+        status("Přihlaš se Microsoft účtem pro načtení dat", true);
+      }
     }
 
     // 5. Spusť polling
