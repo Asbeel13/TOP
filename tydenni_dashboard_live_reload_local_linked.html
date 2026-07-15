@@ -1289,7 +1289,6 @@ FTLoader.init({
   onData: (parsedData) => {
     applyData(parsedData);
     // Skryj login banner pokud existuje
-    document.getElementById("ftLoginBanner")?.remove();
   },
   onStatus: (msg, isError) => { setSyncStatus(msg, isError || false); }
 });

@@ -378,13 +378,10 @@ initDarkMode();
     html.dark .footer-note { color: #475569; }
     html.dark .helper { color: #475569; }
     html.dark .field label { color: #94a3b8; }
-    html.dark #restoreBanner { background: #1d4ed8; }
 
     </style>
 </head>
 <body>
-  <div id="restoreBanner" style="display:none;position:sticky;top:0;z-index:200;background:#1d4ed8;color:white;padding:12px 20px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-    <div style="font-size:14px;font-weight:600;">🔒 Soubor vyžaduje obnovení přístupu pro zápis</div>
     <button id="restoreBannerBtn" style="background:white;color:#1d4ed8;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Obnovit přístup →</button>
   </div>
 
@@ -395,11 +392,7 @@ initDarkMode();
         <p>Přehled a editace listu <strong>ALLDATBASE</strong> z Excelu. Doporučeno otevřít v Chrome nebo Edge.</p>
       </div>
       <div class="actions">
-        <button class="primary" onclick="openFileWritable()">Otevřít XLSX se zápisem</button>
-        <label class="file-label" for="fileInput">Načíst jen pro čtení</label>
-        <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" />
-        <button class="ghost" onclick="reloadWorkbook()">Znovu načíst</button>
-        <button class="success" onclick="saveWorkbook()">Uložit změny do XLSX</button>
+        <button class="success" onclick="saveWorkbook()">Uložit změny</button>
         <button onclick="openNewTaskModal()">Nový úkol</button>
         <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
       </div>
@@ -876,27 +869,17 @@ function updateWriteStatus() {
   const el = document.getElementById("statWriteMode");
   const fileEl = document.getElementById("statFile");
   if (!el || !fileEl) return;
-  // Graph API má přednost
-  if (typeof FTLoader !== "undefined" && FTLoader.isAuthenticated()) {
-    el.textContent = "✅ OneDrive (Graph API)";
-    el.style.color = "#15803d";
-    fileEl.style.color = "#15803d";
-    return;
-  }
-  if (!fileName || fileName === "nenačteno") {
-    el.textContent = "";
-    fileEl.style.color = "";
-    return;
-  }
-  if (fileHandle) {
-    el.textContent = "✅ Zápis povolen (lokální)";
-    el.style.color = "#15803d";
-    fileEl.style.color = "#15803d";
-  } else {
-    el.textContent = "⚠ Pouze pro čtení";
-    el.style.color = "#d97706";
-    fileEl.style.color = "#d97706";
-  }
+  el.textContent = "✅ GitHub (cloud)";
+  el.style.color = "#15803d";
+  fileEl.textContent = "top-data/database.json";
+  fileEl.style.color = "#15803d";
+}
+
+function status(msg, isError) {
+  const el = document.getElementById("statWriteMode");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? "#dc2626" : "#15803d";
 }
 
 function renderTable(){
@@ -1206,105 +1189,6 @@ async function loadWorkbookFromArrayBuffer(buffer, newFileName){
   } catch(e) { console.warn("ft_loader: pushWorkbook failed", e); }
 }
 
-// ── IndexedDB: uložení a obnova fileHandle ─────────────────────────────
-
-const IDB_NAME = "ft_sprava";
-const IDB_STORE = "handles";
-const IDB_KEY = "xlsxHandle";
-
-function idbOpen() {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
-    req.onsuccess = e => res(e.target.result);
-    req.onerror = e => rej(e.target.error);
-  });
-}
-
-async function idbSaveHandle(handle) {
-  try {
-    const db = await idbOpen();
-    const tx = db.transaction(IDB_STORE, "readwrite");
-    tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
-  } catch(e) { console.warn("idbSaveHandle:", e); }
-}
-
-async function idbLoadHandle() {
-  try {
-    const db = await idbOpen();
-    return await new Promise((res, rej) => {
-      const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(IDB_KEY);
-      req.onsuccess = e => res(e.target.result || null);
-      req.onerror = e => rej(e.target.error);
-    });
-  } catch(e) { return null; }
-}
-
-async function idbClearHandle() {
-  try {
-    const db = await idbOpen();
-    const tx = db.transaction(IDB_STORE, "readwrite");
-    tx.objectStore(IDB_STORE).delete(IDB_KEY);
-  } catch(e) {}
-}
-
-async function tryRestoreFileHandle() {
-  if (!window.showOpenFilePicker) return false;
-  const handle = await idbLoadHandle();
-  if (!handle) return false;
-  try {
-    const perm = await handle.queryPermission({ mode: "readwrite" });
-    if (perm === "granted") {
-      // Oprávnění stále platí — načti bez dotazu
-      fileHandle = handle;
-      FTLoader.setFileHandle(handle);
-      const file = await handle.getFile();
-      const buffer = await file.arrayBuffer();
-      await loadWorkbookFromArrayBuffer(buffer, file.name);
-      updateWriteStatus();
-      hideBanner();
-      handleUrlParams();
-      return true;
-    } else {
-      // Oprávnění vypršelo — zobraz banner s tlačítkem (prohlížeč potřebuje klik)
-      showRestoreBanner(handle);
-      return false;
-    }
-  } catch(e) {
-    console.warn("tryRestoreFileHandle:", e);
-    await idbClearHandle();
-  }
-  return false;
-}
-
-function showRestoreBanner(handle) {
-  const banner = document.getElementById("restoreBanner");
-  if (!banner) return;
-  banner.style.display = "flex";
-  document.getElementById("restoreBannerBtn").onclick = async () => {
-    try {
-      const req = await handle.requestPermission({ mode: "readwrite" });
-      if (req === "granted") {
-        fileHandle = handle;
-        FTLoader.setFileHandle(handle);
-        const file = await handle.getFile();
-        const buffer = await file.arrayBuffer();
-        await loadWorkbookFromArrayBuffer(buffer, file.name);
-        updateWriteStatus();
-        hideBanner();
-        handleUrlParams();
-      }
-    } catch(e) {
-      console.warn("restoreBanner:", e);
-    }
-  };
-}
-
-function hideBanner() {
-  const banner = document.getElementById("restoreBanner");
-  if (banner) banner.style.display = "none";
-}
 
 async function openFileWritable(){
   if(!window.showOpenFilePicker){
@@ -1716,7 +1600,7 @@ function renderVyjimkyTable() {
 }
 
 function autoSaveIfPossible() {
-  if (fileHandle) saveWorkbook();
+  saveWorkbook();
 }
 
 function restoreTask(rowIndex) {
@@ -1738,53 +1622,57 @@ function rebuildSheetBeforeSave(){
   }
 }
 
+// ── Převod tasks na JSON pro GitHub ────────────────────────────────────
+function tasksToJson() {
+  const raw = FTLoader.getRawJson() || {};
+  const updatedTasks = tasks.map(t => ({
+    id: t.id,
+    title: t.task || t.title || "",
+    priority: t.priority || "P3",
+    project: t.project || "",
+    sales: t.sales || "",
+    waiting: !!t.waiting,
+    state: t.state || "Nový",
+    createdDate: t.created || "",
+    plannedDate: t.planned || "",
+    doneDate: t.finished || "",
+    dueDate: t.due || "",
+    owner: t.assignee || t.owner || "Nezařazeno",
+    note: t.note || "",
+    internalNote: t.internalNote || "",
+    auto: t.auto || "",
+    cancelled: !!t.cancelled,
+    internalProject: t.internalProject || "",
+  }));
+  return {
+    ...raw,
+    tasks: updatedTasks,
+    auta: auta,
+    auta_rezervace: autaRezervace,
+    vyjimky: opakovaciVyjimky,
+  };
+}
+
 async function saveWorkbook(){
-  if(!workbook){
-    alert("Nejdřív otevři Excel soubor.");
-    return;
-  }
-  try{
-    rebuildSheetBeforeSave();
-    const out = XLSX.write(workbook, {bookType:"xlsx", type:"array"});
-
-    // ── Varianta 1: Graph API (OneDrive přes Microsoft účet) ──
-    if (typeof FTLoader !== "undefined" && FTLoader.isAuthenticated()) {
-      try {
-        await FTLoader.saveToGraph(new Uint8Array(out).buffer, fileName);
-        FTLoader.pushWorkbook(out, fileName);
-        updateWriteStatus();
-        alert("Změny byly uloženy do OneDrive.");
-        return;
-      } catch(e) {
-        alert(`Uložení přes Graph API selhalo: ${e.message}\nZkouším záložní metodu...`);
+  try {
+    const json = tasksToJson();
+    const user = FTLoader.getCurrentUser() || "admin";
+    await FTLoader.saveToGitHub(json, `Uloženo uživatelem ${user}`);
+    updateWriteStatus();
+    status(`✅ Uloženo · ${new Date().toLocaleString("cs-CZ")}`, false);
+    await FTLoader.reload();
+  } catch(e) {
+    if (e.message.includes("CONFLICT")) {
+      if (confirm(`⚠ ${e.message}\n\nKliknout OK pro přenačtení dat.`)) {
+        await FTLoader.reload();
       }
+    } else {
+      alert(`Uložení se nepodařilo: ${e.message}`);
+      console.error(e);
     }
-
-    // ── Varianta 2: File System Access API (lokální soubor) ──
-    if(fileHandle){
-      const writable = await fileHandle.createWritable();
-      await writable.write(out);
-      await writable.close();
-      try { if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(out, fileName); } catch(_) {}
-      updateWriteStatus();
-      alert("Změny byly uloženy do původního XLSX.");
-      return;
-    }
-
-    // ── Varianta 3: Stažení souboru (fallback) ──
-    try { if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(out, fileName); } catch(_) {}
-    const blob = new Blob([out], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = fileName || DEFAULT_FILENAME;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    alert("Prohlížeč neměl přímý přístup k zápisu. Stáhl se upravený XLSX soubor — nahraj ho ručně na OneDrive.");
-  }catch(err){
-    console.error(err);
-    alert("Uložení se nepodařilo: " + err.message);
   }
 }
+
 
 [
   els.searchInput, els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode,
@@ -1816,43 +1704,59 @@ document.addEventListener("change", (e) => {
 });
 
 (async function init(){
-  // ── FTLoader: inicializovat — zaregistruje storage listener ──
-  FTLoader.init({
-    onData: () => {},  // sprava pracuje s vlastním workbook objektem
-    onStatus: () => {}
-  });
-
   renderStats();
   renderTable();
+  updateWriteStatus();
 
-  // ── Pokus o automatické obnovení fileHandle z IndexedDB ──
-  const restored = await tryRestoreFileHandle();
-  if (restored) return;
+  // ── FTLoader načte data z GitHubu a předá je správě úkolů ──
+  FTLoader.init({
+    onData: (parsedData) => {
+      // Naplň správu úkolů daty z GitHubu
+      const raw = FTLoader.getRawJson();
+      if (!raw) return;
 
-  // ── I bez zápisu načti data pro zobrazení ──
-  try {
-    const resp = await fetch("0_SEZNAM_UKOLU-GLOBAL.xlsx?t=" + Date.now(), { cache: "no-store" });
-    if (resp.ok) {
-      const buffer = await resp.arrayBuffer();
-      await loadWorkbookFromArrayBuffer(buffer, "0_SEZNAM_UKOLU-GLOBAL.xlsx");
+      // Simuluj tasks strukturu kterou správa úkolů očekává
+      tasks = (raw.tasks || []).map((t, i) => ({
+        rowIndex: i + 1,
+        id: t.id || "",
+        task: t.title || "",
+        title: t.title || "",
+        internalProject: t.internalProject || "",
+        priority: t.priority || "P3",
+        project: t.project || "",
+        sales: t.sales || "",
+        waiting: !!t.waiting,
+        state: t.state || "Nový",
+        created: t.createdDate || "",
+        planned: t.plannedDate || "",
+        finished: t.doneDate || "",
+        due: t.dueDate || "",
+        assignee: t.owner || "Nezařazeno",
+        owner: t.owner || "Nezařazeno",
+        note: t.note || "",
+        internalNote: t.internalNote || "",
+        auto: t.auto || "",
+        cancelled: !!t.cancelled,
+        selected: false,
+      }));
+
+      auta = raw.auta || [];
+      autaRezervace = raw.auta_rezervace || [];
+      resitele = raw.resitele || [];
+      opakovaciVyjimky = raw.vyjimky || [];
+
+      buildResitelSelect();
+      buildAutaDatalist();
+      renderAutaTable();
+      renderVyjimkyTable();
+      renderStats();
+      applyFilters();
       handleUrlParams();
-      return;
+    },
+    onStatus: (msg, isError) => {
+      status(msg, isError);
     }
-  } catch(_) {}
-
-  // ── Fallback: načti z raw cache pokud fetch selhal ──
-  const raw = FTLoader.loadRaw();
-  if (raw && raw.buffer) {
-    try {
-      await loadWorkbookFromArrayBuffer(raw.buffer, raw.fileName);
-      const dt = new Date(raw.savedAt).toLocaleString("cs-CZ");
-      const statEl = document.getElementById("statFile");
-      if (statEl) statEl.title = `Z cache · uloženo ${dt}`;
-      handleUrlParams();
-    } catch(e) {
-      console.warn("ft_loader: obnovení z cache selhalo", e);
-    }
-  }
+  });
 })();
 </script>
 
