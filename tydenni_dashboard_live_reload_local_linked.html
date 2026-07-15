@@ -1264,21 +1264,21 @@ async function debugGraphApi() {
   if (!token) { alert("Nejsi přihlášen"); return; }
   const { token: t } = JSON.parse(token);
 
-  // Zkus načíst kořen OneDrive
+  // Prohledej složku TOP na obou možných cestách
   const urls = [
-    "https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,id,webUrl&$top=20",
-    "https://graph.microsoft.com/v1.0/me/drive/root:/Documents:/children?$select=name,id&$top=20",
+    "https://graph.microsoft.com/v1.0/me/drive/root:/Dokumenty/TOP - Tydenni Operacni Plan:/children?$select=name,id&$top=20",
+    "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/TOP - Tydenni Operacni Plan:/children?$select=name,id&$top=20",
   ];
 
   let result = "";
   for (const url of urls) {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
     const json = await r.json();
-    result += `\n\nURL: ${url}\nStatus: ${r.status}\n`;
+    result += `\nStatus: ${r.status}\n`;
     if (json.value) {
-      result += json.value.map(i => `  - ${i.name} (${i.id})`).join("\n");
+      result += json.value.map(i => `  - ${i.name}`).join("\n");
     } else {
-      result += JSON.stringify(json, null, 2).slice(0, 500);
+      result += JSON.stringify(json).slice(0, 300);
     }
   }
   alert(result);
