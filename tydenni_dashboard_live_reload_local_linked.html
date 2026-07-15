@@ -1264,21 +1264,22 @@ async function debugGraphApi() {
   if (!token) { alert("Nejsi přihlášen"); return; }
   const { token: t } = JSON.parse(token);
 
-  // Prohledej složku TOP na obou možných cestách
+  // Prohledej kořen a složku Dokumenty
   const urls = [
-    "https://graph.microsoft.com/v1.0/me/drive/root:/Dokumenty/TOP - Tydenni Operacni Plan:/children?$select=name,id&$top=20",
-    "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/TOP - Tydenni Operacni Plan:/children?$select=name,id&$top=20",
+    ["Kořen drives", "https://graph.microsoft.com/v1.0/me/drives?$select=name,id,driveType"],
+    ["Kořen root", "https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,id&$top=10"],
+    ["Dokumenty", "https://graph.microsoft.com/v1.0/me/drive/root:/Dokumenty:/children?$select=name,id&$top=20"],
   ];
 
   let result = "";
-  for (const url of urls) {
+  for (const [label, url] of urls) {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
     const json = await r.json();
-    result += `\nStatus: ${r.status}\n`;
+    result += `\n--- ${label} (${r.status}) ---\n`;
     if (json.value) {
-      result += json.value.map(i => `  - ${i.name}`).join("\n");
+      result += json.value.map(i => `  ${i.name}`).join("\n");
     } else {
-      result += JSON.stringify(json).slice(0, 300);
+      result += JSON.stringify(json).slice(0, 400);
     }
   }
   alert(result);
