@@ -652,6 +652,7 @@
         <div class="muted" id="syncStatus" style="margin-top:4px;font-size:12px"></div>
       </div>
       <div class="week-nav" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="debugBtn" style="font-size:11px;padding:5px 10px;background:#7c3aed;color:white;border:none;border-radius:8px;cursor:pointer;" onclick="debugGraphApi()">🔍 Debug API</button>
         <button id="prevWeek">← Předchozí týden</button>
         <button id="nextWeek">Další týden →</button>
       </div>
@@ -1255,6 +1256,32 @@ function applyData(nextData) {
 async function initDashboard() {
   buildPeopleFilters();
   render();
+}
+
+// ── Debug Graph API ────────────────────────────────────────────────────
+async function debugGraphApi() {
+  const token = sessionStorage.getItem("ftMsalToken");
+  if (!token) { alert("Nejsi přihlášen"); return; }
+  const { token: t } = JSON.parse(token);
+
+  // Zkus načíst kořen OneDrive
+  const urls = [
+    "https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,id,webUrl&$top=20",
+    "https://graph.microsoft.com/v1.0/me/drive/root:/Documents:/children?$select=name,id&$top=20",
+  ];
+
+  let result = "";
+  for (const url of urls) {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
+    const json = await r.json();
+    result += `\n\nURL: ${url}\nStatus: ${r.status}\n`;
+    if (json.value) {
+      result += json.value.map(i => `  - ${i.name} (${i.id})`).join("\n");
+    } else {
+      result += JSON.stringify(json, null, 2).slice(0, 500);
+    }
+  }
+  alert(result);
 }
 
 // ── FTLoader integration ──────────────────────────────────────────────
