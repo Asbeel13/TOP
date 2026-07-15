@@ -1,50 +1,127 @@
 /**
- * ft_loader.js — automatické načítání 0_SEZNAM_UKOLU-GLOBAL.xlsx
- * Soubor musí být ve stejné složce jako HTML stránky.
- * Sdílení dat mezi stránkami přes localStorage (ftWorkbookData).
+ * ft_loader.js — Microsoft Graph API verze
+ * Čte 0_SEZNAM_UKOLU-GLOBAL.xlsx přímo z OneDrive přes Graph API
+ * bez závislosti na OneDrive sync klientovi.
  */
 const FTLoader = (() => {
 
-  const DATA_KEY   = "ftWorkbookData";
-  const RAW_KEY    = "ftWorkbookRaw";
-  const XLSX_FILE  = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
-  const POLL_MS    = 3000;
+  // ── Konfigurace ────────────────────────────────────────────────────────
+  const CLIENT_ID   = "ae981a87-988a-4555-b47d-374ea6d1364a";
+  const TENANT      = "common";
+  const REDIRECT    = "https://asbeel13.github.io/TOP/";
+  const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
+  const FILE_ID     = "233ad10e-8b9a-457b-ae67-31fdebc33cbe"; // UniqueId XLSX
+  const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
+  const USER_PATH   = "personal/komanek_filtration_cz";
+
+  const DATA_KEY  = "ftWorkbookData";
+  const RAW_KEY   = "ftWorkbookRaw";
+  const TOKEN_KEY = "ftMsalToken";
+  const POLL_MS   = 3000;
 
   let _onData = null, _onStatus = null;
-  let _lastHash = "", _pollTimer = null;
+  let _lastModified = "", _pollTimer = null;
+  let _accessToken = null;
+  let _fileHandle = null; // fallback pro lokální použití
+  let _lastHash = "";
 
   function status(msg, err) { if (_onStatus) _onStatus(msg, !!err); }
 
-  // ── Hash ───────────────────────────────────────────────────────────────
-  async function hashBuffer(buffer) {
-    const digest = await crypto.subtle.digest("SHA-256", buffer);
-    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,"0")).join("");
+  // ── Token management ───────────────────────────────────────────────────
+  function saveToken(token, expiresIn) {
+    const expiry = Date.now() + (expiresIn - 60) * 1000;
+    sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expiry }));
+    _accessToken = token;
+  }
+
+  function loadToken() {
+    try {
+      const s = sessionStorage.getItem(TOKEN_KEY);
+      if (!s) return null;
+      const { token, expiry } = JSON.parse(s);
+      if (Date.now() > expiry) { sessionStorage.removeItem(TOKEN_KEY); return null; }
+      return token;
+    } catch(e) { return null; }
+  }
+
+  function getAuthUrl() {
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID,
+      response_type: "token",
+      redirect_uri: REDIRECT,
+      scope: SCOPES.join(" "),
+      response_mode: "fragment",
+      prompt: "select_account"
+    });
+    return `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize?${params}`;
+  }
+
+  function handleRedirect() {
+    const hash = window.location.hash.substring(1);
+    if (!hash) return false;
+    const params = new URLSearchParams(hash);
+    const token = params.get("access_token");
+    const expiresIn = parseInt(params.get("expires_in") || "3600");
+    if (token) {
+      saveToken(token, expiresIn);
+      // Vyčisti hash z URL
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      return true;
+    }
+    return false;
+  }
+
+  // ── Graph API volání ───────────────────────────────────────────────────
+  async function graphRequest(url, options = {}) {
+    if (!_accessToken) throw new Error("Nejsi přihlášen");
+    const resp = await fetch(url, {
+      ...options,
+      headers: {
+        "Authorization": `Bearer ${_accessToken}`,
+        "Accept": "application/json",
+        ...(options.headers || {})
+      }
+    });
+    if (resp.status === 401) {
+      _accessToken = null;
+      sessionStorage.removeItem(TOKEN_KEY);
+      throw new Error("Token vypršel — přihlaš se znovu");
+    }
+    return resp;
+  }
+
+  // Sestaví Graph URL pro soubor přes SharePoint site
+  function fileContentUrl() {
+    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/${USER_PATH}:/drive/items/${FILE_ID}/content`;
+  }
+  function fileMetaUrl() {
+    return `https://graph.microsoft.com/v1.0/sites/${SITE_DOMAIN}:/${USER_PATH}:/drive/items/${FILE_ID}`;
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────
   function excelDateToISO(v) {
     if (!v) return null;
     function localISO(d) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,"0");
-      const day = String(d.getDate()).padStart(2,"0");
-      return `${y}-${m}-${day}`;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     }
     if (v instanceof Date && !isNaN(v)) return localISO(v);
     if (typeof v === "number" && isFinite(v))
       return localISO(new Date(Math.round(v - 25569) * 86400000));
     if (typeof v === "string") {
       const t = v.trim();
-      // YYYY-MM-DD — vrať přímo, bez new Date() aby se předešlo UTC posunu
       if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
-      // DD.MM.YYYY
       const mDot = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
       if (mDot) return `${mDot[3]}-${mDot[2].padStart(2,"0")}-${mDot[1].padStart(2,"0")}`;
+      const mUS = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (mUS) {
+        let y = parseInt(mUS[3], 10);
+        if (y < 100) y += y < 50 ? 2000 : 1900;
+        return `${y}-${mUS[1].padStart(2,"0")}-${mUS[2].padStart(2,"0")}`;
+      }
     }
     return null;
   }
   function pb(v) {
-    if (typeof v === "boolean") return v;
     return ["true","pravda","ano","1","yes"].includes(String(v||"").trim().toLowerCase());
   }
   function own(v) { return String(v||"").trim() || "Nezařazeno"; }
@@ -55,36 +132,31 @@ const FTLoader = (() => {
     if (!main) throw new Error('Chybí list "ALLDATBASE"');
     const rows = XLSX.utils.sheet_to_json(main, { header:1, raw:true, defval:null });
 
-    // ── Dynamicky najdi sloupce podle záhlaví ──
     const hdr = (rows[0] || []).map(h => String(h||"").trim().toLowerCase());
     const col = (names) => {
-      for (const n of names) {
-        const i = hdr.indexOf(n.toLowerCase());
-        if (i >= 0) return i;
-      }
+      for (const n of names) { const i = hdr.indexOf(n.toLowerCase()); if (i >= 0) return i; }
       return -1;
     };
-    // Pevné indexy jako fallback (struktura ALLDATBASE před přidáním RESITEL)
     const C = {
-      ID:       col(["id"])                        >= 0 ? col(["id"])                        : 0,
-      TASK:     col(["úkol","task","název"])        >= 0 ? col(["úkol","task","název"])        : 2,
-      PRIORITY: col(["priorita","priority"])        >= 0 ? col(["priorita","priority"])        : 3,
-      PROJECT:  col(["projekt","project"])          >= 0 ? col(["projekt","project"])          : 4,
-      SALES:    col(["sales","obchod"])             >= 0 ? col(["sales","obchod"])             : 5,
-      WAITING:  col(["čeká se","waiting"])          >= 0 ? col(["čeká se","waiting"])          : 6,
-      SUBTASK:  col(["podúkol","subtask"])          >= 0 ? col(["podúkol","subtask"])          : 7,
-      STATE:    col(["stav","state","status"])      >= 0 ? col(["stav","state","status"])      : 8,
-      PROGRESS: col(["progress","procent","%"])     >= 0 ? col(["progress","procent","%"])     : 9,
-      CREATED:  col(["datum zápisu","created"])     >= 0 ? col(["datum zápisu","created"])     : 10,
-      PLANNED:  col(["plánovaný","planned"])        >= 0 ? col(["plánovaný","planned"])        : 11,
-      TODAY:    col(["dnes","today","aktuální"])    >= 0 ? col(["dnes","today","aktuální"])    : 12,
-      DONE:     col(["dokončeno","done","finished"])>= 0 ? col(["dokončeno","done","finished"]): 13,
-      DUE:      col(["due","termín"])               >= 0 ? col(["due","termín"])               : 17,
-      OWNER:    col(["řešitel","owner","assignee"]) >= 0 ? col(["řešitel","owner","assignee"]) : 18,
-      NOTE:     col(["upřesnění","note","poznámka"])>= 0 ? col(["upřesnění","note","poznámka"]): 19,
-      INOTE:    col(["interní","internal"])         >= 0 ? col(["interní","internal"])         : 20,
-      AUTO:     col(["auto","spz","v auto"])        >= 0 ? col(["auto","spz","v auto"])        : 21,
-      CANCELLED:col(["zrušeno","cancelled","zruseno"]) >= 0 ? col(["zrušeno","cancelled","zruseno"]) : 22,
+      ID:        col(["id"])                          >= 0 ? col(["id"])                          : 0,
+      TASK:      col(["úkol","task","název"])          >= 0 ? col(["úkol","task","název"])          : 2,
+      PRIORITY:  col(["priorita","priority"])          >= 0 ? col(["priorita","priority"])          : 3,
+      PROJECT:   col(["projekt","project"])            >= 0 ? col(["projekt","project"])            : 4,
+      SALES:     col(["sales","obchod"])               >= 0 ? col(["sales","obchod"])               : 5,
+      WAITING:   col(["čeká se","waiting"])            >= 0 ? col(["čeká se","waiting"])            : 6,
+      SUBTASK:   col(["podúkol","subtask"])            >= 0 ? col(["podúkol","subtask"])            : 7,
+      STATE:     col(["stav","state","status"])        >= 0 ? col(["stav","state","status"])        : 8,
+      PROGRESS:  col(["progress","procent","%"])       >= 0 ? col(["progress","procent","%"])       : 9,
+      CREATED:   col(["datum zápisu","created"])       >= 0 ? col(["datum zápisu","created"])       : 10,
+      PLANNED:   col(["plánovaný","planned"])          >= 0 ? col(["plánovaný","planned"])          : 11,
+      TODAY:     col(["dnes","today","aktuální"])      >= 0 ? col(["dnes","today","aktuální"])      : 12,
+      DONE:      col(["dokončeno","done","finished"])  >= 0 ? col(["dokončeno","done","finished"])  : 13,
+      DUE:       col(["due","termín"])                 >= 0 ? col(["due","termín"])                 : 17,
+      OWNER:     col(["řešitel","owner","assignee"])   >= 0 ? col(["řešitel","owner","assignee"])   : 18,
+      NOTE:      col(["upřesnění","note","poznámka"])  >= 0 ? col(["upřesnění","note","poznámka"])  : 19,
+      INOTE:     col(["interní","internal"])           >= 0 ? col(["interní","internal"])           : 20,
+      AUTO:      col(["auto","spz","v auto"])          >= 0 ? col(["auto","spz","v auto"])          : 21,
+      CANCELLED: col(["zrušeno","cancelled","zruseno"])>= 0 ? col(["zrušeno","cancelled","zruseno"]): 22,
     };
 
     const tasks = rows.slice(1)
@@ -99,9 +171,10 @@ const FTLoader = (() => {
         todayFlag: pb(r[C.TODAY]), doneDate: excelDateToISO(r[C.DONE]), dueDate: excelDateToISO(r[C.DUE]),
         owner: own(r[C.OWNER]), note: String(r[C.NOTE]||"").trim(), internalNote: String(r[C.INOTE]||"").trim(),
         auto: String(r[C.AUTO]||"").trim(),
-        cancelled: pb(r[C.CANCELLED]),
+        cancelled: ["true","ano","1","yes"].includes(String(r[C.CANCELLED]||"").trim().toLowerCase())
       }))
       .filter(t => t.id || t.title);
+
     const backlog = [];
     ["Úkoly dílna","Externisti"].forEach(name => {
       const s = wb.Sheets[name];
@@ -116,142 +189,87 @@ const FTLoader = (() => {
           source: name
         }));
     });
-    const owners = [...new Set([...tasks.map(t=>t.owner),...backlog.map(t=>t.owner)])]
-      .filter(Boolean).sort((a,b)=>a.localeCompare(b,"cs"));
 
-    // ── List Auta ──
     const auta = [];
     const autaSheet = wb.Sheets["AUTA"];
     if (autaSheet) {
       XLSX.utils.sheet_to_json(autaSheet, {header:1, raw:false, defval:""})
         .slice(1).filter(r => r[0] || r[1]).forEach(r => {
-          auta.push({
-            popis:      String(r[0]||"").trim(),
-            spz:        String(r[1]||"").trim(),
-            zodpovedna: String(r[2]||"").trim(),
-            dostupnost: String(r[3]||"volné").trim().toLowerCase() || "volné"
-          });
+          auta.push({ popis: String(r[0]||"").trim(), spz: String(r[1]||"").trim(), zodpovedna: String(r[2]||"").trim(), dostupnost: String(r[3]||"volné").trim().toLowerCase() || "volné" });
         });
     }
 
-    // ── List Auta_rezervace ──
     const autaRezervace = [];
     const rezSheet = wb.Sheets["AUTA_REZERVACE"];
     if (rezSheet) {
       XLSX.utils.sheet_to_json(rezSheet, {header:1, raw:false, defval:""})
         .slice(1).filter(r => r[0] && r[1]).forEach(r => {
-          autaRezervace.push({
-            spz:      String(r[0]||"").trim(),
-            datum:    excelDateToISO(r[1]) || String(r[1]||"").trim(),
-            stav:     String(r[2]||"používané").trim().toLowerCase() || "používané",
-            poznamka: String(r[3]||"").trim()
-          });
+          autaRezervace.push({ spz: String(r[0]||"").trim(), datum: excelDateToISO(r[1]) || String(r[1]||"").trim(), stav: String(r[2]||"používané").trim().toLowerCase() || "používané", poznamka: String(r[3]||"").trim() });
         });
     }
 
-    // ── List RESITEL ──
     const resitele = [];
     const resSheet = wb.Sheets["RESITEL"];
     if (resSheet) {
       XLSX.utils.sheet_to_json(resSheet, {header:1, raw:false, defval:""})
         .slice(1).filter(r => r[0]).forEach(r => {
-          resitele.push({
-            zkratka:  String(r[0]||"").trim(),
-            jmeno:    String(r[1]||"").trim(),
-            prijmeni: String(r[2]||"").trim()
-          });
+          resitele.push({ zkratka: String(r[0]||"").trim(), jmeno: String(r[1]||"").trim(), prijmeni: String(r[2]||"").trim() });
         });
     }
 
-    // ── List OPAKOVACI ──
     const opakovaci = [];
     const opSheet = wb.Sheets["OPAKOVACI"];
     if (opSheet) {
       XLSX.utils.sheet_to_json(opSheet, {header:1, raw:false, defval:""})
         .slice(1).filter(r => r[0] && r[1]).forEach(r => {
-          opakovaci.push({
-            id:       String(r[0]||"").trim(),
-            title:    String(r[1]||"").trim(),
-            owner:    String(r[2]||"").trim(),
-            typ:      String(r[3]||"weekly").trim().toLowerCase(),
-            hodnota:  String(r[4]||"1").trim(),
-            aktivni:  String(r[5]||"ANO").trim().toUpperCase() === "ANO",
-            note:     String(r[6]||"").trim()
-          });
+          opakovaci.push({ id: String(r[0]||"").trim(), title: String(r[1]||"").trim(), owner: String(r[2]||"").trim(), typ: String(r[3]||"weekly").trim().toLowerCase(), hodnota: String(r[4]||"1").trim(), aktivni: String(r[5]||"ANO").trim().toUpperCase() === "ANO", note: String(r[6]||"").trim() });
         });
     }
 
-    // ── List OPAKOVACI_VYJIMKY ──
     const opakovaciVyjimky = [];
-    const opvSheet = wb.Sheets["OPAKOVACI_VYJIMKY"];
+    const opvSheet = wb.Sheets["OPAKUJICI_VYJIMKY"];
     if (opvSheet) {
       XLSX.utils.sheet_to_json(opvSheet, {header:1, raw:false, defval:""})
         .slice(1).filter(r => r[0] && r[1]).forEach(r => {
-          opakovaciVyjimky.push({
-            id:     String(r[0]||"").trim(),
-            datum:  excelDateToISO(r[1]) || String(r[1]||"").trim(),
-            duvod:  String(r[2]||"").trim()
-          });
+          opakovaciVyjimky.push({ id: String(r[0]||"").trim(), datum: excelDateToISO(r[1]) || String(r[1]||"").trim(), duvod: String(r[2]||"").trim() });
         });
     }
 
-    // ── Generuj výskyty opakujících se úkolů pro ±4 týdny ──
+    function localISO(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+
     function generateRecurring(opakovaci, opakovaciVyjimky, tasks) {
       const vyjimkySet = new Set(opakovaciVyjimky.map(v => `${v.id}|${v.datum}`));
-      // Index existujících úkolů v ALLDATBASE: id|datum → task
       const taskIndex = new Map();
       tasks.forEach(t => { if (t.id && t.plannedDate) taskIndex.set(`${t.id}|${t.plannedDate}`, t); });
-
       const today = new Date(); today.setHours(0,0,0,0);
       const fromDate = new Date(today); fromDate.setDate(today.getDate() - 28);
       const toDate   = new Date(today); toDate.setDate(today.getDate() + 28);
-
       const result = [];
       opakovaci.filter(o => o.aktivni).forEach(o => {
         const dates = [];
+        const val = parseInt(o.hodnota, 10) || 1;
         if (o.typ === "weekly") {
-          // hodnota = číslo dne 1=Po..7=Ne
-          const targetDay = parseInt(o.hodnota, 10);
-          const d = new Date(fromDate);
-          // Posuň na první výskyt targetDay
-          const diff = (targetDay - d.getDay() + 7) % 7 || 7;
-          d.setDate(d.getDate() + (diff === 7 && d.getDay() === targetDay % 7 ? 0 : diff));
-          // Pro JS: 0=Ne,1=Po...6=So; převod: 1=Po→1, 7=Ne→0
-          const jsDay = targetDay === 7 ? 0 : targetDay;
-          const start = new Date(fromDate);
-          for (let dd = new Date(start); dd <= toDate; dd.setDate(dd.getDate() + 1)) {
+          const jsDay = val === 7 ? 0 : val;
+          for (let dd = new Date(fromDate); dd <= toDate; dd.setDate(dd.getDate() + 1)) {
             if (dd.getDay() === jsDay) dates.push(new Date(dd));
           }
         } else if (o.typ === "interval") {
-          // hodnota = každých N dní od referenčního data (epoch)
-          const n = parseInt(o.hodnota, 10) || 1;
-          const ref = new Date("2025-01-01"); // referenční bod
+          const ref = new Date("2025-01-01");
           for (let dd = new Date(fromDate); dd <= toDate; dd.setDate(dd.getDate() + 1)) {
-            const diff = Math.round((dd - ref) / 86400000);
-            if (diff % n === 0) dates.push(new Date(dd));
+            if (Math.round((dd - ref) / 86400000) % val === 0) dates.push(new Date(dd));
           }
         } else if (o.typ === "monthly") {
-          // hodnota = den v měsíci
-          const dayOfMonth = parseInt(o.hodnota, 10);
           for (let dd = new Date(fromDate); dd <= toDate; dd.setDate(dd.getDate() + 1)) {
-            if (dd.getDate() === dayOfMonth) dates.push(new Date(dd));
+            if (dd.getDate() === val) dates.push(new Date(dd));
           }
         }
-
         dates.forEach(d => {
-          const iso = d.toISOString().slice(0,10);
-          // Přeskočit výjimky
+          const iso = localISO(d);
           if (vyjimkySet.has(`${o.id}|${iso}`)) return;
-          // Pokud existuje v ALLDATBASE → použij ten (už je v tasks)
           if (taskIndex.has(`${o.id}|${iso}`)) return;
-          // Jinak přidej jako recurring šablonu
-          result.push({
-            id: o.id, title: o.title, owner: o.owner,
-            plannedDate: iso, priority: "P3", project: "",
-            status: "Opakující se", note: o.note, internalNote: "",
-            auto: "", waiting: false, subtask: false,
-            recurring: true
-          });
+          result.push({ id: o.id, title: o.title, owner: o.owner, plannedDate: iso, priority: "P3", project: "", status: "Opakující se", note: o.note || "", internalNote: "", auto: "", waiting: false, subtask: false, recurring: true });
         });
       });
       return result;
@@ -266,30 +284,20 @@ const FTLoader = (() => {
   }
 
   // ── localStorage ───────────────────────────────────────────────────────
-  function saveData(parsed, fileName, hash) {
+  function saveData(parsed, fileName) {
     try {
-      localStorage.setItem(DATA_KEY, JSON.stringify({
-        parsedData: parsed, fileName, hash, savedAt: new Date().toISOString()
-      }));
-    } catch(e) { console.warn("ft_loader: saveData failed", e); }
-  }
-
-  function loadData() {
-    try { const s = localStorage.getItem(DATA_KEY); return s ? JSON.parse(s) : null; }
-    catch(e) { return null; }
+      localStorage.setItem(DATA_KEY, JSON.stringify({ parsedData: parsed, fileName, savedAt: new Date().toISOString() }));
+    } catch(e) {}
   }
 
   function saveRaw(buffer, fileName) {
     try {
       const uint8 = new Uint8Array(buffer);
-      const CHUNK = 8192;
-      let binary = "";
+      const CHUNK = 8192; let binary = "";
       for (let i = 0; i < uint8.length; i += CHUNK)
         binary += String.fromCharCode(...uint8.subarray(i, i + CHUNK));
-      localStorage.setItem(RAW_KEY, JSON.stringify({
-        b64: btoa(binary), fileName, savedAt: new Date().toISOString()
-      }));
-    } catch(e) { console.warn("ft_loader: saveRaw failed", e); }
+      localStorage.setItem(RAW_KEY, JSON.stringify({ b64: btoa(binary), fileName, savedAt: new Date().toISOString() }));
+    } catch(e) {}
   }
 
   function loadRaw() {
@@ -304,37 +312,72 @@ const FTLoader = (() => {
     } catch(e) { return null; }
   }
 
-  // ── Apply ──────────────────────────────────────────────────────────────
-  function applyData(c) {
-    if (_onData) _onData(c.parsedData);
-    const dt = new Date(c.savedAt).toLocaleString("cs-CZ");
-    status(`Načteno · ${c.fileName} · ${dt}`);
+  function applyParsed(parsed, fileName) {
+    saveData(parsed, fileName);
+    if (_onData) _onData(parsed);
+    status(`Načteno · ${fileName} · ${new Date().toLocaleString("cs-CZ")}`);
   }
 
-  // ── File Handle (OneDrive / lokální disk) ─────────────────────────────
-  let _fileHandle = null;
-  let _lastModified = 0;
+  // ── Graph API: načtení souboru ────────────────────────────────────────
+  async function loadFromGraph(silent) {
+    if (!_accessToken) return false;
+    try {
+      // 1. Zkontroluj lastModifiedDateTime — levný request
+      const metaResp = await graphRequest(fileMetaUrl());
+      if (!metaResp.ok) throw new Error(`Meta error ${metaResp.status}`);
+      const meta = await metaResp.json();
+      const lastMod = meta.lastModifiedDateTime || "";
+      if (lastMod === _lastModified) return false; // Beze změny
 
+      // 2. Stáhni soubor
+      const fileResp = await graphRequest(fileContentUrl());
+      if (!fileResp.ok) throw new Error(`File error ${fileResp.status}`);
+      const buffer = await fileResp.arrayBuffer();
+      _lastModified = lastMod;
+
+      const parsed = parseBuffer(buffer);
+      saveData(parsed, meta.name || "0_SEZNAM_UKOLU-GLOBAL.xlsx");
+      saveRaw(buffer, meta.name || "0_SEZNAM_UKOLU-GLOBAL.xlsx");
+      if (_onData) _onData(parsed);
+      status(`Načteno · ${meta.name} · ${new Date(lastMod).toLocaleString("cs-CZ")}`);
+      return true;
+    } catch(e) {
+      if (!silent) status(`Graph API chyba: ${e.message}`, true);
+      return false;
+    }
+  }
+
+  // ── Graph API: zápis souboru ──────────────────────────────────────────
+  async function saveToGraph(buffer, fileName) {
+    if (!_accessToken) throw new Error("Nejsi přihlášen — nelze uložit");
+    const uploadUrl = fileContentUrl();
+    const resp = await graphRequest(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      body: buffer
+    });
+    if (!resp.ok) throw new Error(`Upload error ${resp.status}`);
+    const meta = await resp.json();
+    _lastModified = meta.lastModifiedDateTime || _lastModified;
+    return meta;
+  }
+
+  // ── File Handle fallback (lokální použití) ────────────────────────────
+  let _lastHandleModified = 0;
   function setFileHandle(handle) {
     _fileHandle = handle;
-    _lastModified = 0; // Reset — přinutí přenačtení při příštím pollingu
+    _lastHandleModified = 0;
   }
 
-  // ── Načtení přes fileHandle ────────────────────────────────────────────
   async function loadFromHandle(silent) {
     if (!_fileHandle) return false;
     try {
       const file = await _fileHandle.getFile();
-      if (file.lastModified === _lastModified) {
-        return false; // Soubor se nezměnil
-      }
-      _lastModified = file.lastModified;
+      if (file.lastModified === _lastHandleModified) return false;
+      _lastHandleModified = file.lastModified;
       const buffer = await file.arrayBuffer();
-      const hash = await hashBuffer(buffer);
-      if (hash === _lastHash) return false;
-      _lastHash = hash;
       const parsed = parseBuffer(buffer);
-      saveData(parsed, file.name, hash);
+      saveData(parsed, file.name);
       saveRaw(buffer, file.name);
       if (_onData) _onData(parsed);
       status(`Načteno · ${file.name} · ${new Date().toLocaleString("cs-CZ")}`);
@@ -345,96 +388,109 @@ const FTLoader = (() => {
     }
   }
 
-  // ── Fetch ze serveru (fallback bez fileHandle) ─────────────────────────
-  async function fetchAndLoad(silent) {
-    // Pokud máme fileHandle, použij ho místo fetch
-    if (_fileHandle) return loadFromHandle(silent);
-
-    let buffer;
-    try {
-      const resp = await fetch(XLSX_FILE + "?t=" + Date.now(), { cache: "no-store" });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      buffer = await resp.arrayBuffer();
-    } catch(e) {
-      if (!silent) status(`Soubor ${XLSX_FILE} nelze načíst: ${e.message}`, true);
-      return false;
+  // ── Polling ────────────────────────────────────────────────────────────
+  async function poll() {
+    if (_accessToken) {
+      await loadFromGraph(true);
+    } else if (_fileHandle) {
+      await loadFromHandle(true);
     }
-
-    const hash = await hashBuffer(buffer);
-    if (hash === _lastHash) {
-      return false;
-    }
-
-    _lastHash = hash;
-    const parsed = parseBuffer(buffer);
-    saveData(parsed, XLSX_FILE, hash);
-    saveRaw(buffer, XLSX_FILE);
-    if (_onData) _onData(parsed);
-    status(`Načteno · ${XLSX_FILE} · ${new Date().toLocaleString("cs-CZ")}`);
-    return true;
   }
 
-  // ── Public API ─────────────────────────────────────────────────────────
+  // ── UI: přihlašovací banner ───────────────────────────────────────────
+  function showLoginBanner() {
+    const existing = document.getElementById("ftLoginBanner");
+    if (existing) return;
+    const banner = document.createElement("div");
+    banner.id = "ftLoginBanner";
+    banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#1d4ed8;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:sans-serif;";
+    banner.innerHTML = `
+      <span style="font-size:14px;font-weight:600;">🔐 Přihlaš se Microsoft účtem pro přístup k OneDrive databázi</span>
+      <button id="ftLoginBtn" style="background:white;color:#1d4ed8;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;">Přihlásit se →</button>
+    `;
+    document.body.prepend(banner);
+    document.getElementById("ftLoginBtn").addEventListener("click", () => {
+      window.location.href = getAuthUrl();
+    });
+  }
+
+  function hideLoginBanner() {
+    document.getElementById("ftLoginBanner")?.remove();
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────
   function init({ onData, onStatus }) {
     _onData   = onData;
     _onStatus = onStatus;
 
-    // 1. Okamžitě zobraz data z cache
-    const c = loadData();
-    if (c && c.parsedData) {
-      _lastHash = c.hash || "";
-      applyData(c);
+    // 1. Zpracuj OAuth redirect (token v URL hash)
+    const fromRedirect = handleRedirect();
+
+    // 2. Zkus načíst token ze session
+    _accessToken = loadToken();
+
+    // 3. Zobraz data z cache okamžitě
+    try {
+      const cached = localStorage.getItem(DATA_KEY);
+      if (cached) {
+        const { parsedData, fileName, savedAt } = JSON.parse(cached);
+        if (parsedData && _onData) {
+          _onData(parsedData);
+          status(`Z cache · ${fileName} · ${new Date(savedAt).toLocaleString("cs-CZ")}`);
+        }
+      }
+    } catch(e) {}
+
+    // 4. Pokud máme token → načti čerstvá data z Graph API
+    if (_accessToken) {
+      hideLoginBanner();
+      loadFromGraph(false);
+    } else {
+      // Fallback: pokus o fetch (Live Server)
+      fetch("0_SEZNAM_UKOLU-GLOBAL.xlsx?t=" + Date.now(), { cache: "no-store" })
+        .then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+        .then(buffer => {
+          const parsed = parseBuffer(buffer);
+          saveData(parsed, "0_SEZNAM_UKOLU-GLOBAL.xlsx");
+          saveRaw(buffer, "0_SEZNAM_UKOLU-GLOBAL.xlsx");
+          if (_onData) _onData(parsed);
+          status(`Načteno lokálně · ${new Date().toLocaleString("cs-CZ")}`);
+        })
+        .catch(() => {
+          // Žádné data — zobraz login banner
+          showLoginBanner();
+          status("Přihlaš se Microsoft účtem pro načtení dat", true);
+        });
     }
 
-    // 2. Načti čerstvá data ze souboru
-    fetchAndLoad(false);
+    // 5. Spusť polling
+    if (_pollTimer) clearInterval(_pollTimer);
+    _pollTimer = setInterval(poll, POLL_MS);
 
-    // 3. Poslouchej změny z jiných záložek (např. správa po uložení)
+    // 6. Storage event — propagace mezi záložkami
     window.addEventListener("storage", e => {
       if (e.key !== DATA_KEY || !e.newValue) return;
       try {
-        const nc = JSON.parse(e.newValue);
-        if (nc && nc.parsedData && nc.hash !== _lastHash) {
-          _lastHash = nc.hash || "";
-          applyData(nc);
-        }
+        const { parsedData } = JSON.parse(e.newValue);
+        if (parsedData && _onData) _onData(parsedData);
       } catch(_) {}
     });
-
-    // 4. Polling — každých 5 s kontroluj změny souboru
-    if (_pollTimer) clearInterval(_pollTimer);
-    _pollTimer = setInterval(() => fetchAndLoad(true), POLL_MS);
   }
 
   async function reload() {
-    await fetchAndLoad(false);
+    if (_accessToken) await loadFromGraph(false);
+    else if (_fileHandle) await loadFromHandle(false);
   }
 
-  /**
-   * Správa úkolů: zavolej po načtení nebo uložení souboru.
-   * buffer = ArrayBuffer nebo Uint8Array
-   */
   function pushWorkbook(buffer, fileName) {
     try {
-      let ab = buffer;
-      if (buffer instanceof Uint8Array) {
-        ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-      }
-      const parsed = parseBuffer(ab);
-      // Použij náhodný hash aby storage event vždy proběhl
-      const hash = "push-" + Date.now();
-      saveData(parsed, fileName, hash);
-      saveRaw(ab, fileName);
-      _lastHash = hash;
-    } catch(e) {
-      console.warn("ft_loader: pushWorkbook failed", e);
-    }
+      const parsed = parseBuffer(buffer instanceof Uint8Array ? buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) : buffer);
+      saveData(parsed, fileName);
+      saveRaw(buffer instanceof Uint8Array ? buffer.buffer : buffer, fileName);
+      _lastModified = ""; // Vynutí přenačtení při příštím pollingu
+    } catch(e) { console.warn("ft_loader: pushWorkbook failed", e); }
   }
 
-  /**
-   * Vrátí stav auta pro daný den.
-   * Priorita: rezervace pro konkrétní den > trvalý stav z listu Auta > "volné"
-   */
   function getAutoDostupnost(spz, datum, auta, autaRezervace) {
     const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
     if (rez) return rez.stav;
@@ -443,6 +499,6 @@ const FTLoader = (() => {
     return "volné";
   }
 
-  return { init, reload, loadRaw, pushWorkbook, getAutoDostupnost, setFileHandle };
+  return { init, reload, loadRaw, pushWorkbook, getAutoDostupnost, setFileHandle, saveToGraph, isAuthenticated: () => !!_accessToken };
 
 })();
