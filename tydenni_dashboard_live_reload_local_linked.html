@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Týdenní rozvrh úkolů</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #1f2937;
+      --muted: #6b7280;
+      --green: #9acd5a;
+      --green-strong: #8bc34a;
+      --yellow: #f4ef49;
+      --orange: #f1c49b;
+      --blue: #c8d8ef;
+      --blue-dark: #b8c9e5;
+      --weekend: #bfbfbf;
+      --person: #ececec;
+      --grid: #cfcfcf;
+      --p0: #8bc34a;
+      --p1: #b8df79;
+      --p2: #f2e87b;
+      --p3: #e7e7e7;
+      --px: #fde047;
+      --wait: #f7d24d;
+      --done: #d8d8d8;
+      --danger: #cc1f1a;
+      --shadow: 0 8px 22px rgba(0,0,0,0.08);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: #111827;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .brand p {
+      margin: 6px 0 0;
+      color: #cbd5e1;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .control-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .control-card h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #cbd5e1;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    label {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    input, select, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #0b1222;
+      color: white;
+    }
+    button {
+      cursor: pointer;
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+      font-weight: 700;
+    }
+    button.secondary {
+      background: transparent;
+      border-color: #475569;
+    }
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #e2e8f0;
+    }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+    .main {
+      padding: 12px;
+      overflow: auto;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .topbar h2 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .week-nav {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .week-nav button {
+      width: auto;
+      padding: 10px 14px;
+      background: white;
+      color: #0f172a;
+      border-color: #d1d5db;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid #e5e7eb;
+    }
+    .stat .label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .stat .value {
+      font-size: 28px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .dual-schedule-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .week-block {
+      background: var(--panel);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border: 1px solid #d1d5db;
+      min-width: 0;
+    }
+    .week-block-title {
+      padding: 7px 12px;
+      font-weight: 700;
+      font-size: 12px;
+      background: #0f172a;
+      color: #94a3b8;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .schedule {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(72px, 100px) repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.67fr));
+      font-size: clamp(8px, 0.9vw, 11px);
+    }
+    .head {
+      border-right: 1px solid var(--line);
+      border-bottom: 2px solid var(--line);
+      padding: 5px 3px;
+      font-weight: 700;
+      text-align: center;
+      font-size: clamp(7px, 0.85vw, 10px);
+    }
+    .head small {
+      display: block;
+      margin-top: 2px;
+      font-size: clamp(7px, 0.8vw, 10px);
+      font-weight: 700;
+    }
+    .head.blank {
+      background: white;
+    }
+    .head.d0 { background: var(--blue-dark); }
+    .head.d1 { background: var(--blue); }
+    .head.d2 { background: var(--orange); }
+    .head.d3 { background: #ecd88e; }
+    .head.d4 { background: #bfd5a6; }
+    .head.d5, .head.d6 { background: var(--weekend); }
+    .person {
+      background: var(--person);
+      border-right: 2px solid var(--line);
+      border-bottom: 2px solid var(--line);
+      padding: 5px 3px;
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .person .code {
+      font-weight: 700;
+      font-size: clamp(9px, 1vw, 13px);
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .person .name {
+      line-height: 1.3;
+      font-size: clamp(7px, 0.75vw, 10px);
+    }
+    .cell {
+      border-right: 1px solid var(--line);
+      border-bottom: 2px solid var(--line);
+      min-height: 70px;
+      position: relative;
+      padding: 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .cell.weekend {
+      background-color: #d0d0d0;
+    }
+    .task {
+      border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 0;
+      padding: 3px 4px 2px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+      cursor: pointer;
+      font-size: clamp(7px, 0.82vw, 10px);
+      line-height: 1.25;
+      min-height: 18px;
+    }
+    .task .title {
+      font-size: clamp(7px, 0.82vw, 10px);
+      margin-bottom: 2px;
+    }
+    .task .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 3px;
+      color: #111827;
+      font-size: clamp(6px, 0.72vw, 9px);
+      font-weight: 700;
+    }
+    .task.p0 { background: var(--p0); }
+    .task.p1 { background: var(--p1); }
+    .task.p2 { background: var(--p2); }
+    .task.p3 { background: var(--p3); }
+    .task.px { background: var(--px); border-left-color: #ca8a04; }
+    .task.waiting { background: var(--wait); }
+    .task.done { background: var(--done); color: #374151; }
+    .task .danger { color: var(--danger); font-weight: 700; }
+    .task .spz { color: #cc1f1a; font-weight: 700; font-size: clamp(6px, 0.72vw, 9px); margin-top: 1px; }
+    .task.recurring { background: #f0f4ff; border-left: 3px solid #6366f1; opacity: 0.92; }
+    .task.recurring .title { color: #3730a3; }
+    .task .recurring-icon { font-size: 9px; color: #6366f1; margin-bottom: 1px; }
+    .backlog {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+    }
+    .panel h3 {
+      margin: 0;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 16px;
+    }
+    .panel .content {
+      padding: 12px;
+      max-height: 320px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+    }
+    .list-item {
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fafafa;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .list-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .muted { color: var(--muted); }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.58);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      background: white;
+      max-width: 760px;
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .modal-card header {
+      padding: 18px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+    .modal-card main {
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      background: #eef2ff;
+      color: #3730a3;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    /* People assignment controls */
+    .people-list label {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      color: white;
+      font-size: 13px;
+    }
+    .people-list input[type=checkbox] {
+      width: auto;
+      transform: scale(1.1);
+      accent-color: #3b82f6;
+    }
+    .person-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .person-row:last-child { border-bottom: none; }
+    .person-row .person-name {
+      flex: 1;
+      font-size: 12px;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .person-row .side-btn {
+      width: auto;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      border: 1px solid #475569;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      flex-shrink: 0;
+    }
+    .person-row .side-btn.active-L {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+      color: white;
+    }
+    .person-row .side-btn.active-R {
+      background: #0f766e;
+      border-color: #0f766e;
+      color: white;
+    }
+    .person-row .move-btn {
+      width: auto;
+      padding: 2px 5px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .person-row .move-btn:hover { color: white; background: #334155; }
+    .person-row .move-btn:disabled { opacity: 0.25; cursor: default; }
+    .person-row .hide-btn {
+      width: auto;
+      padding: 2px 5px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      flex-shrink: 0;
+      line-height: 1;
+      transition: background .15s, color .15s;
+    }
+    .person-row .hide-btn:hover { background: #334155; color: white; }
+    .person-row.is-hidden .person-name { opacity: 0.4; text-decoration: line-through; }
+    .person-row.is-hidden .side-btn { opacity: 0.3; pointer-events: none; }
+    .person-row.is-hidden .move-btn { opacity: 0.3; pointer-events: none; }
+    .person-row .hide-btn.is-hidden { background: #475569; color: #e2e8f0; border-color: #64748b; }
+
+    @media (max-width: 1200px) {
+      .stats, .backlog { grid-template-columns: 1fr 1fr; }
+      .dual-schedule-wrap { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 820px) {
+      .stats, .backlog { grid-template-columns: 1fr; }
+    }
+  
+    .fab-nav {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 9999;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 220px;
+      width: auto;
+      padding: 14px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: #0f172a;
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .fab-nav:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.34);
+      background: #111f38;
+    }
+    .fab-nav .fab-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      opacity: .8;
+      margin-top: 2px;
+    }
+    .fab-nav .fab-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.16);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 16px;
+    }
+    @media (max-width: 720px) {
+      .fab-nav {
+        right: 14px;
+        bottom: 14px;
+        min-width: 0;
+        width: calc(100% - 28px);
+        justify-content: center;
+      }
+    }
+
+  
+    /* ── DARK MODE ── */
+    html.dark { color-scheme: dark; }
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark .sidebar { background: #020617; }
+    html.dark .control-card { background: #1e293b; border-color: #334155; }
+    html.dark .control-card h3 { color: #94a3b8; }
+    html.dark button, html.dark select, html.dark input { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+    html.dark button:hover { background: #334155; }
+    html.dark .schedule-wrap { background: #0f172a; }
+    html.dark .head { background: #1e293b; color: #94a3b8; border-color: #334155; }
+    html.dark .head.d5, html.dark .head.d6 { background: #162032; }
+    html.dark .person { background: #1e293b; color: #94a3b8; border-color: #334155; }
+    html.dark .cell { background: #0f172a; border-color: #1e293b; }
+    html.dark .cell.weekend { background: #0a1020; }
+    html.dark .task { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+    html.dark .task.p0 { background: #1a2e0a; border-left-color: #4d7c0f; }
+    html.dark .task.p1 { background: #132010; }
+    html.dark .task.p2 { background: #2a2510; }
+    html.dark .task.p3 { background: #1e293b; }
+    html.dark .task.px { background: #2a2010; border-left-color: #ca8a04; }
+    html.dark .task.done { background: #111827; opacity: 0.5; }
+    html.dark .task.waiting { border-left-color: #b45309; }
+    html.dark .task.recurring { background: #1a1f3a; border-left-color: #6366f1; }
+    html.dark .task .title { color: #e2e8f0; }
+    html.dark .task .meta { color: #64748b; }
+    html.dark .task .spz { color: #f87171; }
+    html.dark .stat { background: #1e293b; border-color: #334155; }
+    html.dark .stat .label { color: #64748b; }
+    html.dark .stat .value { color: #e2e8f0; }
+    html.dark .backlog-card { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+    html.dark .backlog { background: transparent; }
+    html.dark .week-block { background: #1e293b; border-color: #334155; }
+    html.dark .week-block-title { background: #020617; color: #64748b; }
+    html.dark .content { background: transparent; }
+    html.dark section.backlog > div { background: #1e293b; border-color: #334155; }
+    html.dark .backlog > div > h3,
+    html.dark .backlog > div > .section-title { color: #94a3b8; }
+    html.dark .panel { background: #1e293b; border-color: #334155; }
+    html.dark .panel h3 { color: #e2e8f0; border-color: #334155; }
+    html.dark .list-item { background: #162032; border-color: #334155; color: #e2e8f0; }
+    html.dark .list-item .muted { color: #64748b; }
+    html.dark .modal { background: rgba(0,0,0,0.75); }
+    html.dark .modal-card { background: #1e293b; color: #e2e8f0; }
+    html.dark .modal-card header { border-color: #334155; }
+    html.dark .chip { background: #312e81; color: #c7d2fe; }
+    html.dark .muted { color: #64748b; }
+    html.dark .person-row { border-color: #334155; }
+    html.dark .person-name { color: #94a3b8; }
+    html.dark .side-btn { background: #334155; color: #94a3b8; border-color: #475569; }
+    html.dark .side-btn.active-L { background: #1d4ed8; color: white; }
+    html.dark .side-btn.active-R { background: #9333ea; color: white; }
+    html.dark .move-btn, html.dark .hide-btn { background: #334155; color: #94a3b8; border-color: #475569; }
+    html.dark .fab-nav { background: #1e293b; color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+
+    </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Týdenní dashboard dílny</h1>
+      <p>HTML prototyp nad daty z Excelu. Rozvrh vychází z položek s vyplněným <strong>Plánovaným datem realizace</strong>. Pokud čas v Excelu chybí, úkol se zobrazí jako celodenní karta.</p>
+    </div>
+
+    <div class="control-card">
+      <h3>Filtry</h3>
+      <div class="field">
+        <label for="search">Hledat úkol / projekt / ID</label>
+        <input id="search" type="search" placeholder="např. Tatra, *0007*, Ford" />
+      </div>
+      <div class="field">
+        <label for="priority">Priorita</label>
+        <select id="priority">
+          <option value="">Všechny</option>
+          <option value="P0">P0</option>
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+          <option value="P3">P3</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>
+          <input id="waitingOnly" type="checkbox" style="width:auto" />
+          Jen úkoly čekající na něco
+        </label>
+      </div>
+      <div class="field">
+        <label>
+          <input id="hideDone" type="checkbox" checked style="width:auto" />
+          Skrýt dokončené
+        </label>
+      </div>
+      <button id="todayBtn">Aktuální týden</button>
+    </div>
+
+    <div class="control-card">
+      <h3>Lidé &amp; sloupce</h3>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
+      <div id="peopleFilters"></div>
+    </div>
+
+    <div class="control-card" style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;color:#94a3b8;">Vzhled</span>
+      <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="width:auto;padding:6px 12px;font-size:16px;border-radius:10px;" title="Tmavý režim">🌙</button>
+    </div>
+    <div class="control-card">
+      <h3>Legenda</h3>
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:var(--p0)"></span>P0</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--px)"></span>PX volno/doc</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--p1)"></span>P1</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--p2)"></span>P2</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--p3)"></span>P3</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--wait)"></span>Čeká se</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--done)"></span>Dokončeno</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="weekTitle">Týden</h2>
+        <div class="muted" id="weekSubtitle"></div>
+        <div class="muted" id="syncStatus" style="margin-top:4px;font-size:12px"></div>
+      </div>
+      <div class="week-nav" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="prevWeek">← Předchozí týden</button>
+        <button id="nextWeek">Další týden →</button>
+      </div>
+    </div>
+
+    <section class="stats">
+      <div class="stat"><div class="label">Naplánované v týdnu</div><div class="value" id="statPlanned">0</div></div>
+      <div class="stat"><div class="label">Lidé se zátěží</div><div class="value" id="statPeople">0</div></div>
+      <div class="stat"><div class="label">Čekající úkoly</div><div class="value" id="statWaiting">0</div></div>
+      <div class="stat"><div class="label">Backlog mimo týden</div><div class="value" id="statBacklog">0</div></div>
+    </section>
+
+    <section class="dual-schedule-wrap">
+      <div class="week-block">
+        <div class="week-block-title" id="weekLabel1">LEVÝ SLOUPEC</div>
+        <div class="schedule" id="scheduleL"></div>
+      </div>
+      <div class="week-block">
+        <div class="week-block-title" id="weekLabel2">PRAVÝ SLOUPEC</div>
+        <div class="schedule" id="scheduleR"></div>
+      </div>
+    </section>
+
+    <section class="backlog">
+      <div class="panel">
+        <h3>Nezařazené / bez plánovaného data</h3>
+        <div class="content" id="unscheduled"></div>
+      </div>
+      <div class="panel">
+        <h3>Dílna a externisti</h3>
+        <div class="content" id="backlog"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <header>
+      <div>
+        <div class="chips" id="modalChips"></div>
+        <h3 id="modalTitle" style="margin:10px 0 0;font-size:22px"></h3>
+      </div>
+      <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
+        <a id="modalEditBtn" href="#" target="_blank" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
+        <a id="modalCancelRecurBtn" href="#" target="_blank" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
+        <button id="modalDeleteBtn" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Smazat</button>
+        <button class="secondary" id="closeModal" style="width:auto;color:#111827;background:white">Zavřít</button>
+      </div>
+    </header>
+    <main>
+      <div><strong>Upřesnění:</strong><div id="modalNote" class="muted" style="margin-top:6px"></div></div>
+      <div><strong>Poznámka interní:</strong><div id="modalInternal" class="muted" style="margin-top:6px; white-space:pre-wrap"></div></div>
+    </main>
+  </div>
+</div>
+
+<script>
+// ── Dark mode ──────────────────────────────────────────────────────────
+const DARK_KEY = "ft_darkMode";
+function applyDarkMode(dark) {
+  document.documentElement.classList.toggle("dark", dark);
+  localStorage.setItem(DARK_KEY, dark ? "1" : "0");
+  document.querySelectorAll(".dark-mode-btn").forEach(btn => {
+    btn.textContent = dark ? "☀️" : "🌙";
+    btn.title = dark ? "Světlý režim" : "Tmavý režim";
+  });
+}
+function initDarkMode() {
+  const saved = localStorage.getItem(DARK_KEY);
+  const dark = saved !== null ? saved === "1" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyDarkMode(dark);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
+    if (localStorage.getItem(DARK_KEY) === null) applyDarkMode(e.matches);
+  });
+}
+initDarkMode();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="ft_loader.js"></script>
+<script>
+const FALLBACK_DATA = {"tasks": [{"id": "*0001*", "title": "Instalace VERA 3NINE na stroje STAMA - PO25001745", "priority": "P0", "project": "CZUB", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2025-12-10", "plannedDate": null, "doneDate": "2026-02-28", "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "2026-02-26: Včera kluci provedl instalaci VER na Stamy. Jsou tam nezapojené, protože se čeká ze strany CZUB na dodání a instalaci protipožárních klapek na které se následně separátor napojí.", "todayFlag": false}, {"id": "*0002*", "title": "TATRA - FT-PLMST-01 - PO25001804-VY26000001", "priority": "P0", "project": "VY26000001", "sales": "KN", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 0.9, "createdDate": "2026-01-02", "plannedDate": null, "doneDate": "2026-02-28", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-23: Naskladněno.; 2026-03-19: Dokončena dokumentace. Chybí spočítat náklady a naskladnit; 2026-03-16: už čtyři dny píšu přerušovaně manuál. Stojí to celé jen na tom.; 2026-03-10: Dovezen rám z lakovny. Sestavení bude otázka chvíle. Píšu manuál už druhý den; 2026-02-24: svařena šibenice, čeká se na výpalky; 2026-02-23: dovezen jäckel, čeká se na díly z SV Kovo, následně svaření a lakování; Výroba mazací stanice pro mazání ložisek. 2026-02-17: Většina dílů na skladě. Z Favexu musíme vyzvednout jäckel pro výrobu šibenice. Následně svaření a lakování", "todayFlag": false}, {"id": "*0003*", "title": "PFNonwovens PO26000017", "priority": "P0", "project": "PO26000017", "sales": "TS", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": "2026-01-07", "plannedDate": "2026-03-30", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-20: RS objednal díly. Čeká se až všechno dojde.; Oprava agregátu Kachlík - objednat díly a opravit", "todayFlag": false}, {"id": "*0004*", "title": "Hlášena poruna na ANNA GP1602 – Heller č.18 - provést diagnostiku", "priority": "P0", "project": "CZUB", "sales": "IG", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-02-18: Hlášen problém s jednotkou.", "todayFlag": false}, {"id": "*0005*", "title": "78. Oprava poškozené jednotky ANNA GP1650 – Heller č.16 ", "priority": "P0", "project": "CZUB", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": "2026-02-27", "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0007*", "title": "Tatra - zanášení 3nine LOVA - instalace labirintu", "priority": "P0", "project": "TATRA", "sales": "KN", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.75, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": "2026-04-03", "dueDate": null, "owner": "JK", "note": "Naplánovat výjezd na instalaci", "internalNote": "2026-04-08: Dovezeno z Jamiba a základ sestaven. Teď je třeba naplánovat výjezd.; 2026-03-27: vyrobeno, převezeno do Jamiba.; 2026-02-23: Výroba objednána SV KOVO dodání 3-4týdny, následně lakování; Doplnění labirintu pro odražení mech. nečistot a zamezení vstupu do samotného separátoru", "todayFlag": false}, {"id": "*0106*", "title": "Zpětná instalace ANNA 1602 Heller č.18 za servisní", "priority": "P0", "project": "CZUB", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-19", "plannedDate": "2026-04-09", "doneDate": "2026-04-09", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-09: Jednotka instalována zpět. Ještě měněna hadice na výtlak CIPu, která byla ucpaná.; 2026-04-07: s Frantou Mackem domluvena zpětná instalace na čtvrtek 9.4. 7:00 VZV zajištěno.; Podúkol č.71", "todayFlag": false}, {"id": "*0108*", "title": "Oprava ANNA 1602 Heller č.18", "priority": "P0", "project": "CZUB", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-19", "plannedDate": "2026-04-07", "doneDate": "2026-04-07", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-07: Jednotka opravena. Bude se ve čtvrtek 9.4.2026 instalovat zpět.; 2026-04-02: RS začal dělat na opravě.; 2026-04-01: čekalo se na náhradní rotory. Ty přišly. Může se montovat.; Podúkol č.71", "todayFlag": false}, {"id": "*0006*", "title": "PO26000305 - Maxion wheels - FT-OH-800", "priority": "P0", "project": "TS", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-04", "plannedDate": null, "doneDate": "2026-03-06", "dueDate": null, "owner": "JK", "note": "", "internalNote": "Jednotka VY22000002 s hadicemi a dokumentací připravena na odeslání", "todayFlag": false}, {"id": "*0008*", "title": "Výroba FT-ST-600CON01 - PO26_298 PO26_311 VY26_7", "priority": "P0", "project": "VY26000007", "sales": "IG", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.75, "createdDate": "2026-03-05", "plannedDate": "2026-04-10", "doneDate": null, "dueDate": null, "owner": "RS", "note": "Montáž", "internalNote": "2026-04-13: Dokončena montáž, čeká se na zapojení od Marka Veleckého.; 2026-04-09: začalo se na jednotce dělat.; 2026-04-08: dovezeno z lakovny. RS začal na tom dělat.; 2026-03-27: PL zavezl na lakování do Jamiba.; 2026-03-25: Vyzvednut hotový rám u Ladi. Rám se musí zavést do lakovny; 2026-03-23: Domluva s Markem Vleckým na elektrice na konci 14KT.; 2026-03-23: Laďa svařuje rám.;", "todayFlag": false}, {"id": "*0009*", "title": "PO26000317-VZ26000100-ŠA - Prostredky nakládání s hasící vodu M8", "priority": "P0", "project": "VZ26000100", "sales": "IG", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-03-06", "plannedDate": null, "doneDate": "2026-04-15", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-07: Od dodavatele info, že výrobce má problémy s dodávkou a neví, jestli stihnou potvrzený termín. Tato informace předána na ŠA.; 2026-03-10: Potvrzen termín dodání sudových čerpadel na 14.4.2026; 2026-03-06: všechny díly objednány", "todayFlag": false}, {"id": "*0010*", "title": "Innomotics - Prohlídka a zaměření pro instalaci PTU2 27/27", "priority": "P0", "project": "PO26000335", "sales": "TS", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-10", "plannedDate": "2026-04-01", "doneDate": "2026-04-01", "dueDate": "2026-04-30", "owner": "RS", "note": "kontakt p. Odehnal", "internalNote": "2026-04-01: RS provedl prohlídku. Teď je třeba příprava a po dodání zařízení se bude montovat. Odhadem je 17KT.", "todayFlag": false}, {"id": "*0011*", "title": "PO26000335 - Innomotics - Instalace PTU2 27/27", "priority": "P0", "project": "PO26000335", "sales": "TS", "waiting": true, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-10", "plannedDate": null, "doneDate": null, "dueDate": "2026-04-30", "owner": "RS", "note": "kontakt p. Odehnal", "internalNote": "2026-03-17:Termín dodání zařízení od TS 13.-17.4.", "todayFlag": false}, {"id": "*0012*", "title": "Čerpadlo nádrže H1-H4 nevypíná tlakový spínač", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-19", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "Jura v ručním režimu přečerpával olej a po dosažení max. hladiny se zavřel ventil, ale čerpadlo minutu mlátilo a nevyplo se. Vše byl v servisním režimu", "internalNote": "", "todayFlag": false}, {"id": "*0013*", "title": "CZ-AUTO vyzvednout bedny", "priority": "P0", "project": "CZUB", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-19", "plannedDate": null, "doneDate": "2026-03-19", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-19: Provedeno;", "todayFlag": false}, {"id": "*0016*", "title": "Instalace FT-PLMST-01 Tatra", "priority": "P0", "project": "VY26000001", "sales": "KN", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.4, "createdDate": "2026-03-19", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-30: Zařízení posláno se závozem do Tatry. Bez manuálu. Samotná instalace bude probíhat až po domluvě s Tatrou.; 2026-03-20: Poslána email KN a AP ohledně domluvy na instalaci v Tatře", "todayFlag": false}, {"id": "*0014*", "title": "Montáž kartuše pro Moravia Cans PO26000410 - VZ26000130", "priority": "P0", "project": "VZ26000130", "sales": "TS", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-23", "plannedDate": null, "doneDate": "2026-03-24", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-25: Dnes odesláno do Moravia Cans", "todayFlag": false}, {"id": "*0015*", "title": "ODVOZ BEDNY CZ AUTO - IVECO, kovo jandl info DH", "priority": "P0", "project": "MYLI260056", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-23", "plannedDate": "2026-03-24", "doneDate": "2026-03-24", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-23: Odvoz beden do CZUB", "todayFlag": false}, {"id": "*0017*", "title": "Vytvořit přezentaci pro Continental", "priority": "P0", "project": "Continental", "sales": "IG", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.95, "createdDate": "2026-03-23", "plannedDate": "2026-04-07", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-07: Prezentace upravena dle posledních požadavků IG. Doplněno i o dostupná data od p. Kudra. Posláno zpět na IG na kontrolu.; 2026-03-23: vytvořit přezentaci společnosti pro Continental", "todayFlag": false}, {"id": "*0019*", "title": "LR pomoc na mycí lince", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 0.0, "createdDate": "2026-03-23", "plannedDate": "2026-03-24", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0020*", "title": "On-line prezentace v AJ - Continental 9.4.2026", "priority": "P0", "project": "Continental", "sales": "IG", "waiting": true, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-23", "plannedDate": "2026-04-09", "doneDate": "2026-04-09", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-23: Online prezentace společnosti vedení Continental", "todayFlag": false}, {"id": "*0024*", "title": "Zpracování nabídky \"křoví pro IG\"", "priority": "P0", "project": "IG", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-23", "plannedDate": "2026-03-24", "doneDate": "2026-03-24", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-23: IG se má zístra stavit a vysvětlit mě co a jak", "todayFlag": false}, {"id": "*0025*", "title": "Oprava čerpadla z CZUB pro Tatru", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-24", "plannedDate": "2026-03-25", "doneDate": "2026-03-25", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-25: jednotka FT-PZ-25MEME č.103 E4001. Otestována a předáná do Tatry; 2026-03-24: Info od DH.;", "todayFlag": false}, {"id": "*0021*", "title": "Koordinace stěhování CZUB", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-26", "plannedDate": "2026-03-31", "doneDate": "2026-03-31", "dueDate": "2026-03-31", "owner": "JK", "note": "", "internalNote": "2026-03-26: koordinovat návoz věcí z CZUB.", "todayFlag": false}, {"id": "*0031*", "title": "Vyrobit koalescenční filtry na sklad", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-27", "plannedDate": null, "doneDate": "2026-03-27", "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0032*", "title": "Nachystat zboží Cabical", "priority": "P0", "project": "PO26000441", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-27", "plannedDate": "2026-03-27", "doneDate": "2026-03-27", "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0022*", "title": "Servis FT-PZ-80 z CZUB na pevném rámu pro JuM", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.75, "createdDate": "2026-03-30", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "RS", "note": "Servis, doplnit kola, Označit", "internalNote": "2026-04-07: jednotka upravena. Teď se ale čeká na závoz rámu do lakovny. Po lakování se bude montovat.; 2026-03-31: Servis, doplnění patek a osazení rámu koly. Očíslovat.", "todayFlag": false}, {"id": "*0028*", "title": "Kotel č.2 nová hala - problém s motorem", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-30", "plannedDate": "2026-03-30", "doneDate": "2026-03-30", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-30:Lukáš vyměnil opotřebované uhlíky. Vše by mělo být teď OK.; 2026-03-30: LR + RS se na to dívali a nic zatím nezjistili. Kotel jede.; 2026-03-30:Jura hlásil problém s kotlem č.2 pravděpodobně senzor otáčení motoru od rotoru spaleniště.", "todayFlag": false}, {"id": "*0029*", "title": "Cenová nabídka na pozáruční servis ANNA Heller č.16 - NA26000295", "priority": "P0", "project": "NA26000295", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-30", "plannedDate": "2026-03-30", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-31: ;2026-03-30: zpracována nabídka, Ivo upravil cenovku. Posláno na Frantu Macka, aby udělal objednávku.", "todayFlag": false}, {"id": "*0030*", "title": "Stěhování CZUB úklid a třídění materiálu", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-30", "plannedDate": "2026-03-31", "doneDate": "2026-04-02", "dueDate": "2026-04-01", "owner": "RS", "note": "", "internalNote": "2026-03-30: už se začalo navážet. Hlavní nápor je až zítra.; ", "todayFlag": false}, {"id": "*0098*", "title": "Označení vysvače č.1 TFM CZUB a výměna kol", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-30", "plannedDate": "2026-03-31", "doneDate": null, "dueDate": null, "owner": "LR", "note": "Vysavač půjde do MC", "internalNote": "Označen jako 173", "todayFlag": false}, {"id": "*0169*", "title": "Výměna sudu s odpadní vodou z laboratoře", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-31", "plannedDate": "2026-03-31", "doneDate": "2026-03-31", "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0023*", "title": "Dormer Pramet - měření DustTrack", "priority": "P0", "project": "Dormer Pramet", "sales": "VC", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-31", "plannedDate": "2026-04-08", "doneDate": "2026-04-08", "dueDate": "2026-04-07", "owner": "LR", "note": "", "internalNote": "2026-04-07:VC zapomněl, že má akce proběhnout. Přesunuto na úterý.; 2026-03-31: Volal jsem a psal Arturovi, aby poslal DustTrack k nám do Nivnice.;", "todayFlag": false}, {"id": "*0026*", "title": "Greiner assistec oprava filtračních jednotek", "priority": "P0", "project": "PO26000479", "sales": "IG", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-03-31", "plannedDate": "2026-04-13", "doneDate": null, "dueDate": null, "owner": "RS", "note": "Prohlídka a nacenění servisu", "internalNote": "2026-04-13:; 2026-04-09: Jednotky dovezeny na servis.; 2026-2026-04-01: Čekám, až se jednotky stáhnou k nám. Následovat bude oprava.", "todayFlag": false}, {"id": "*0027*", "title": "Servis vysavač č.173", "priority": "P0", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-04-01", "plannedDate": "2026-04-01", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-02: chybí zátka M18x1,5.; 2026-04-01: Lukáš kontroloval vysavač z CZUB, který má jít do MC a potřebuje servis.;", "todayFlag": false}, {"id": "*0033*", "title": "Innomotics - Příprava výjezdu", "priority": "P0", "project": "PO26000335", "sales": "TS", "waiting": false, "subtask": true, "status": "Probíhá", "progress": 0.1, "createdDate": "2026-04-01", "plannedDate": "2026-04-02", "doneDate": null, "dueDate": null, "owner": "RS", "note": "Příprava na instalaci v 17KT", "internalNote": "2026-04-01: RS byl na prohlídce u zákazníka. Teď je třeba vše připravit. Předběžná instalace 17KT", "todayFlag": false}, {"id": "*0176*", "title": "Kontrola kotle stará hala", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-02", "plannedDate": "2026-04-02", "doneDate": "2026-04-02", "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0041*", "title": "Zprovoznění TOTAL STOPu starý provoz", "priority": "P0", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": "2026-04-10", "doneDate": null, "dueDate": "2026-04-13", "owner": "Sitel", "note": "Realizace v 15KT", "internalNote": "2026-03-31: Dle p. Kotačky čekají na 400A jističe, které mají dojít tento týden. Realizaci odhaduje na 15KT; 2026-03-24: IG schválil objednávku. Objednáno VO26000381. Teď je to na Sitelu. Obj.č. VO26000381.; 2026-03-23: p. Kotačka konečně poslal cenovou nabídku. Přeposlána na Iva na schválení.; 2026-03-11: Opakovatně urgován pan Kotačka pro cenovou nabídku (předtím už několikrát). Slíbil, že se vynasnaží nabídku poslat. Samotný kabel je natažený až do zadu (uděláno v rámci akce instalace osvětlení nad vahou), ale je třeba předělat jističe v přívodní skříni celé haly a to taky nebude za pár korun.; 2026-02-25: sitel natahuje kabel. Pan Kotačka cenovou nabídku ještě neposlal; 2026-02-26:Proběhla konzultace s p. Kotačkou a p. Křenem. Dostaneme cenovou nabídku; 2026-02-17: 18. / 19.2. setkání s p. Křenem a Kotačkou - probrání možností", "todayFlag": false}, {"id": "*0178*", "title": "Zprovoznění kotle stará hala", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-07", "doneDate": "2026-04-07", "dueDate": null, "owner": "RS", "note": "Servis kotle po velikonočním volnu", "internalNote": "", "todayFlag": false}, {"id": "*0180*", "title": "Pomoc na mycí lince", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-07", "doneDate": "2026-04-07", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-07: úkol od LJ", "todayFlag": false}, {"id": "*0181*", "title": "Odvoz forda na servis k Petrovi + pneu", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-07", "doneDate": "2026-04-07", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-07: úkol od LJ", "todayFlag": false}, {"id": "*0182*", "title": "Úklid věcí z CZUB (basy atd.)", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-07", "doneDate": "2026-04-07", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-07: úkol od LJ", "todayFlag": false}, {"id": "*0042*", "title": "VY25000025 FT-ST-800FT01", "priority": "P0", "project": "VY25000025", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.9, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Podúkol 19 - Dokončit výrobní zakázku stacionární filtrační jednotky na 102", "todayFlag": false}, {"id": "*0043*", "title": "Zapojení a nastavení tenzometrů nádrže H7, H8", "priority": "P0", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": "2026-04-10", "doneDate": "2026-04-10", "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "2026-04-10: FLAP zapojil senzory. Je třeba provést ještě kalibraci. To uděláme z naší strany.; 2026-04-07: voláno s Pavlem Škrabalem, v pátek 10.4. pošle kluky, aby tenzometry zapojili.; 2026-03-26: volal jsem si se Škrabalem, jsou na montáži někde na severu (Norsko nebo jak). Podívá se na to, ale volat mu na zelený čtvrtek.; 2026-03-24: Je třeba udělat co nejdřív. Bude se tam vařit nové trafo", "todayFlag": false}, {"id": "*0189*", "title": "Vyrobit vizitky Voloch", "priority": "P0", "project": "Provozní", "sales": "IG", "waiting": true, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-10", "doneDate": "2026-04-08", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-08: vizitky dodány od p. Kadlčka.; 2026-04-07: Vizitky schváleny od Volocha a objednánty u Kadlčka VO26000436", "todayFlag": false}, {"id": "*0184*", "title": "Nabídka NA26000326", "priority": "P0", "project": "NA26000326", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-08", "plannedDate": "2026-04-08", "doneDate": "2026-04-08", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-09: Došla ofiko objednávka.; 2026-04-08: IG upravil ceny a nabídka poslána na Frantu Macka. Kluci 9.4. jedou instalovat Annu zpákty.; 2026-04-08: vypracovaná nabídka na opravu ANNy GP1602 Heller č.18. POsláno na schválení na IG.", "todayFlag": false}, {"id": "*0186*", "title": "Pomoc na mycí lince", "priority": "P0", "project": "Operativní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-08", "plannedDate": "2026-04-08", "doneDate": "2026-04-08", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-08: požadavek LJ na pomoc na lince", "todayFlag": false}, {"id": "*0187*", "title": "Vypodložit H7 a H8", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-08", "plannedDate": "2026-04-10", "doneDate": "2026-04-08", "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0190*", "title": "Zapojení vzduchu doplněného ventilu u H9", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-08", "plannedDate": "2026-04-08", "doneDate": "2026-04-08", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-08: RS instaloval.; 2026-04-08: MiH zapojil jen jeden ze dvou ventilů. JuM potřebuje ovládat i druhý ventil. Proto rychlá akce dopojení.", "todayFlag": false}, {"id": "*0195*", "title": "Odvoz Ford 3012 na přezutí", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-09", "plannedDate": "2026-04-09", "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "Ford odvezen k Petrovi na přezují", "todayFlag": false}, {"id": "*0045*", "title": "Repase rotorů ANNA", "priority": "P0", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-02: IMSK souhlasilo s cenou 650Eur. Poslal jsem jim proto upravenou objednávku. Termín dodání by měli ještě potvrdit; 2026-04-01: s IG řeším snížení ceny za kterou můžu rotory nechat opravit. Snažím se Němce stáhnout na aspoň 650Eur.; 2026-03-30: Konečně jsem se dostal k emailu z IMSK. Potvrdili přijetí rotorů a poslali nabídku na opravu 700Eur/ks +250Eur doprava. Doprava tak byla i minule, ale minule jsme měli cenu 450Eur. Napsal jsem jim, jestli je možné s cenou něco udělat.; 2026-03-26: Aktuální stav je, že rotory jsme 9.3.2026 odesílali do německa. Nebo jsem tam aspoň posílal objednávku. Nemám z jejich strany potvrzení o obdržení rotorů ani potvrzení objednávky. Dneska jsem je urgoval.", "todayFlag": false}, {"id": "*0049*", "title": "Úprava vypouštění nádrží hala 102 - výdejní systém VZ25000519", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.9, "createdDate": "2025-09-16", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-24: chybí dopočítat náklady.; Dokončeno, následně instalována jednotak FT-ST-800FT01; 2025-09-16: ústně schválil IG úpravy pro HiH. Ze spodu se bude dávat koleno, šroubení a trubkama TR35 hydraulika, se povedou od každé nádrže rozvody", "todayFlag": false}, {"id": "*0018*", "title": "Technotrade - PO26000067 - VY26000003", "priority": "P0", "project": "VY26000003", "sales": "TS", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": "2026-02-28", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-02-26: jednotka odeslána; 2026-02-23: Proveden test zařízení (max. 20 bar), udělán manuál; 2026-02-17: Elektrika bude zapojena na začátku 9KT, Šulák výroba poslední komponenty následně svaření Laďa, vytvořit předávácí dokumentaci - do konce ÚNORA!", "todayFlag": false}, {"id": "*0052*", "title": "Continental VZ26000020 PLN-CON02", "priority": "P1", "project": "VZ26000020", "sales": "IG", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.75, "createdDate": "2026-01-16", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-20: Chybí naskladnit. Jinak je to hotové. Ještě bych chtěl osadit rychlospojky před instalací v Conti, ale je otázka, kdy dodají.; Výroba 40ks plnících rychlospojek pro další následnou instalaci", "todayFlag": false}, {"id": "*0053*", "title": "CZUB - Instalace trubek upínací věž Heller", "priority": "P1", "project": "PO26000117", "sales": "IG", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": "2026-01-28", "plannedDate": null, "doneDate": null, "dueDate": "2026-03-30", "owner": "RS", "note": "PO26000117 - VZ26000057", "internalNote": "Materiál objednán v Hydromě. Předběžně se bude realizovat v 9KT", "todayFlag": false}, {"id": "*0054*", "title": "Zapojení doplněných ventilů ve 102 + jejich označení v řízení technologie", "priority": "P1", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0057*", "title": "Oprava prostupu po protažení kabelu hala 101 - 101b", "priority": "P1", "project": "Stavba nová hala", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-02-19", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2023-03-18: asi 18. dojel z Hasteka. Má doplnit štítek č.19 a opravit průchodku. Udělá některý pátek, kdy dělají drbky.; Dát info Lence. Bude se tam dělat ještě asi víc prostupů časem", "todayFlag": false}, {"id": "*0092*", "title": "Oprava poškozené jednotky ANNA GP1602 – Heller č.18", "priority": "P0", "project": "CZUB", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": "2026-04-09", "dueDate": "2026-04-09", "owner": "RS", "note": "", "internalNote": "2026-04-09: Jednotka nainstalována zpět. Ještě se tam posílala na výměnu výstupní hadce na CIP, která je ucpaná.; viz *106* - 2026-03-06: rotory jsou skutečně zničené. Nemáme náhradní. Poškozené posílám na repas, ale budu se domlouvat s IG, jestli neobjednat nové. Bude to rychlejší.; 2026-03-04: Jednotka má rozpadlé rotory, bohužel náhradní nám už došli. Poškozené budu posílat na repas do IMSK, ale je otázka, kterou ještě proberu s IG jestli neobjenat i nové. Repas bude chvíli trvat.; 2026-02-27: Dnes kluci nainstalují servisní ANNU a stáhnout poškozenou. Oprava bude trvat ale dýl, obávám se, že nebudeme mít na skladě náhradní rotory.; 2026-02-19: Jednotka prohlédnuta. Jsou tam taky zničené rotory. Bohužel druhou servisní jednotku nemám k dispozici. Byly z ní odebrány díly na opravu Niny v Tatře.; 2026-02-18: Hlášen problém s jednotkou.", "todayFlag": false}, {"id": "*0073*", "title": "ROSMA vyzvednout krabice", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2023-03-23", "plannedDate": "2026-03-24", "doneDate": "2026-03-24", "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0060*", "title": "Dormer Pramet - poptat HEPA filtr + vytypovat jednotky", "priority": "P1", "project": "Dormer Pramet", "sales": "VC", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-02-20", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0061*", "title": "Nový počítač MiH provoz", "priority": "P1", "project": "Interní", "sales": "", "waiting": true, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-27", "plannedDate": null, "doneDate": "2026-04-09", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-09: počítač přehozen a zprovozněn. Starý  FTIT-NB008 nahrazen za FTIT-NB021 (dříve Zálešák).; 2026-03-31: Bavil jsem se s Ondrou. 2026-03-25: mám sice poptány počítače, ale čekám, co Ondra s jeho novým PC. Jestli bude Ok. Budu dělat změny. Zároveň počítače z CZUB se pravděpodobně budou přesouvat.; Vyměnit starý, pomalý počítač za nový", "todayFlag": false}, {"id": "*0062*", "title": "Výroba FT-OH-800 - VY26000008 sklad", "priority": "P1", "project": "Výroba", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.75, "createdDate": "2026-03-06", "plannedDate": null, "doneDate": "2026-04-06", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-23: Jednotka hotova. Chyní hadice a elektrika", "todayFlag": false}, {"id": "*0034*", "title": "Zapojení 3nine NINA - PO25001678", "priority": "P1", "project": "TATRA", "sales": "KN", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-16", "plannedDate": null, "doneDate": "2026-03-03", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-04: včera proveden servis, zapojeny obě NINY na samostatné zástrčky. Dle infa od Artura jedou už jednotky jak mají. Dodací listy neměl opět včera kdo podepsat, takže podpisy dnes zařizuje Artur. - To si nemůžou prostě učit člověka, co to tam přebere? Jde o to, že se může stát, že ráno k tomu přijdou a řeknou, že to chtějí jinak a to tam posílat technika znova? Osobně bych doporučoval upozornit Tatru, že pokud tam nebude nikdo, kdo by to převzal, tak následné reklamace nebudou uznávány.\n@Karel Novosád: Náklady na akci vyplněny v VZ26000092 a propojeno k předpřipravené zakázce PO26000294.; Zítra 3.3.2026 Lukáš přijede do Tatry a provede změnu přívodního kabelu pro nedávno instalované NINy. Tatra připravila nové zástrčky na rozvaděči a Artur poslal potřebné podklady pro přípravu akce. Všechno by tak mělo proběhnout bez problémů😊; Po instalaci NINA 3nine zjištěn problém, že stroj spíná přímo přívod energie. Vypíná tak jednotku !natvrdo\" a jednotka se potom sama znova nepustí. CNC nemá řídící signál, takže v automatu 3nine nejede (ani nebylo požadováno). Za nás je hotovo a řeší se teď jiné připojení, což je ale na straně Tatry. Další výjezdy samostatně placené. 17.2.2026 poslán Vochyjánovi email s potřebnými údaji pro vytvoření zástrčky pro připojení jednotky", "todayFlag": false}, {"id": "*0035*", "title": "Admin práva pro OZ", "priority": "P1", "project": "Interní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-17", "plannedDate": null, "doneDate": "2026-02-24", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-05: Práva dána.; 2026-02-23: po poradě domluveno, že na IT malého admina ano, ale do PROFITu se jen zvýší práva a admina ne, z důvodů přístupu do personalistiky.; Ondra chce práva admina na síť a PROFIT. Síť poptáni administrátoři a PROFIT musí schválit IG", "todayFlag": false}, {"id": "*0036*", "title": "Výměna ANNA 1650 Heller č.16 za servisní", "priority": "P1", "project": "CZUB", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": "2026-02-19", "dueDate": null, "owner": "JK", "note": "", "internalNote": "Podúkol 63 - JK + LR - sundání poškozené jednotky (rotory) a nasazení zálohy", "todayFlag": false}, {"id": "*0037*", "title": "Oprava ANNA 1650 Heller č.16", "priority": "P1", "project": "CZUB", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "Podúkol 63 2026-02-24: jednotka opravena", "todayFlag": false}, {"id": "*0038*", "title": "Zpětná instalace ANNA 1650 Heller č.16 za servisní", "priority": "P1", "project": "CZUB", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": "2026-02-27", "dueDate": null, "owner": "RS", "note": "", "internalNote": "Podúkol 63.Zpětná instalace plánována na 3.3.2026", "todayFlag": false}, {"id": "*0064*", "title": "Poslat nabídku na opravu MOF-200 Kovačka č.1", "priority": "P1", "project": "NA26000270", "sales": "IG", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-03-23", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-23: Nabídka vypracována a poslána IG na schválení.;", "todayFlag": false}, {"id": "*0039*", "title": "Výměna ANNA 1602 Heller č.18 za servisní", "priority": "P1", "project": "CZUB", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-19", "plannedDate": null, "doneDate": "2026-02-27", "dueDate": null, "owner": "RS", "note": "", "internalNote": "Podúkol č.71", "todayFlag": false}, {"id": "*0065*", "title": "Roztřídění / uklizení palety se šrouby ze stolu záchytky", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-23", "plannedDate": "2026-03-27", "doneDate": null, "dueDate": null, "owner": "RS", "note": "Roztřídit a uložit šrouby. Zbytečnosti vyhodit.", "internalNote": "", "todayFlag": false}, {"id": "*0066*", "title": "Osadit Šapito zámky s fabkou pro generála", "priority": "P1", "project": "Provozní", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-24", "plannedDate": null, "doneDate": "2026-04-01", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-24: Od IG schváleno a objednáno.; Poptáno v Zamknuto.cz", "todayFlag": false}, {"id": "*0040*", "title": "Instalace VERA 3NINE na stroje STAMA - PO25001745", "priority": "P1", "project": "CZUB", "sales": "IG", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-26", "plannedDate": null, "doneDate": "2026-03-10", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-17: Od Marka Veleckého mám potvrzeno, že obě VERy jsou zapojeny a fungují.; 2026-03-10: Kluci doinstalovali obě VERy. Jediné, co není, tak zapojení elektriky ze strany údržby CZUB. V 15:30 tam už nikdo nebyl. Radek říkal o zapojení už dopoledne Frantovi Mackovi. Po spuštění prosím informaci, že je vše ok. Ať si akci odškrtunu jako hotovou. Nepředpokládám, že bude třeba ještě asistence kluků.; 2026-03-04: proběhla schůzka Radka s údržbou v CZUB. Termín dopojení naplánován na 10.3.2026 (v pondělí Podškubka demontuje centrální odsávání ze strojů). Jsou objednané díly, které měly být skladem a měly tak dojít snad v pondělí. Kdyby se opozdili, budeme muset akci posunout. Budu informovat.; 2026-03-03: Info od Lukáše, že na STAMy není třeba protipožární ventily domluvena osobní schůzka na 4.3. s údržbou ohledně napojení VER. Následně příprava a dopojení.; 2026-02-26: Včera kluci provedl instalaci VER na Stamy. Jsou tam nezapojené, protože se čeká ze strany CZUB na dodání a instalaci protipožárních klapek na které se následně separátor napojí.", "todayFlag": false}, {"id": "*0067*", "title": "Osadit spodní bránu zámkem s fabkou pro generála", "priority": "P1", "project": "Provozní", "sales": "IG", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-03-24", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-24: Od IG schváleno a objednáno.; Poptáno v Zamknuto.cz", "todayFlag": false}, {"id": "*0068*", "title": "Aktualizovat výpočet výrobní ceny filtrační vložky FT-V88", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-27", "plannedDate": null, "doneDate": null, "dueDate": "2026-03-30", "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0074*", "title": "Vyměnit Helium laboratoř", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-03-27", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": "2026-04-02", "owner": "RS", "note": "", "internalNote": "2026-04-09:Potvrzeno z Metalšrotu, že helium mají připraveno. Od Káje vím, že Helium ještě mají, takže vyměníme, příležitostně.; 2026-03-07: Kajka upozornila na to, že jim dochází Helium. Objednáno v Metalšrotu. Vyzvednutí někdy v příštím týdnu (cca úterý), ale bude se čekat na potvrzení.", "todayFlag": false}, {"id": "*0044*", "title": "H9 - teče horní ventil - Zablendovat", "priority": "P1", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": "2026-03-19", "dueDate": null, "owner": "LR", "note": "Po domluvě s JuM nebudeme přetěsňovat ale zablendujeme", "internalNote": "2026-03-19: ventil zablendován; Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0063*", "title": "H7 - instalovat jímku a teplotní čidlo (jak bude prázdná nádrž)", "priority": "P1", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": "2026-03-27", "dueDate": null, "owner": "LR", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0046*", "title": "Servisní drobnosti MiH 105", "priority": "P1", "project": "", "sales": "MiH", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": "2026-03-20", "dueDate": null, "owner": "RS", "note": "Drobné servisní opravy dle seznamu MiH", "internalNote": "2026-03-23: Radek vyměnil na pár jednotkách manometry. Vše v serviskách; 2026-03-18: Michal chce nějaké drobné opravy. Je třeba to projít a buď udělat nebo objednat náhradní díly.", "todayFlag": false}, {"id": "*0047*", "title": "Revize elektických zařízení", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-23: Marek donesl revize SPINNY, Páskovačka, Revezní osmóza, Paspulátor. Datumově 10.12.2026.; 2026-03-18: Zadáno Marek Velecký bude datováno k 12/2025", "todayFlag": false}, {"id": "*0048*", "title": "VERy - Stama - drobné netěsnosti", "priority": "P1", "project": "CZUB", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "Radek hlásil problémy s těsností hadic na VERách. Třeba hned řešit", "internalNote": "2026-03-19: RS + LR udělali drobné zásahy a opravy.; 2026-03-18: Radek hlásil problémy s těsností hadic na VERách. Bude se obratem řešit, abychom porodní bolesti nové verze instalace vyřešili co nejrychleji.", "todayFlag": false}, {"id": "*0055*", "title": "Úprava zábrany hala 105", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": "2026-03-30", "doneDate": "2026-03-31", "dueDate": null, "owner": "RS", "note": "2026-03-27: Rameno dovezeno z lakovny.; 2026-03-18:Provizorní zábranu nahradit dluhodobou - vizuálně pěknou;", "internalNote": "2026-03-23: RS v pátek 20.3.2026 svařil a dnes zavezno do Jamiba na lakování.;", "todayFlag": false}, {"id": "*0050*", "title": "SV Kovo vyzvednout materiál", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-23", "plannedDate": "2026-03-24", "doneDate": "2026-03-24", "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0075*", "title": "VZV Jung - oprava startování", "priority": "P1", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-03-27", "plannedDate": null, "doneDate": null, "dueDate": "2026-04-10", "owner": "JK", "note": "", "internalNote": "2026-03-27: LR provizorně opravil vypínač. Vypínač má upadlé packy, takže se celý vypínač při startu protáčí. Objednán PIPA servis na zpravení", "todayFlag": false}, {"id": "*0076*", "title": "Sepsat a prodat přebyt IT", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-30", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-30: Hromadí se staré počítače. Prodat co půjde", "todayFlag": false}, {"id": "*0077*", "title": "Řešit systém  hlídání hladiny v sudu na odpadní vodu laboratoře", "priority": "P1", "project": "Zlepšování", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-31", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0078*", "title": "Rozvody aditivace - čerpadla a ventily", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Zpracovat návrh a realizaci rozvodů aditivace", "todayFlag": false}, {"id": "*0082*", "title": "Oprava filtračních jednotek z CZUB", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-24", "plannedDate": "2026-03-25", "doneDate": "2026-03-27", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-24: Kontrola a servis jednotek z CZUB", "todayFlag": false}, {"id": "*0084*", "title": "Roztřídit a uklidit paletu s elektromateriálem", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-24", "plannedDate": "2026-03-27", "doneDate": "2026-03-31", "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0185*", "title": "H8 - instalovat jímku a teplotní čidlo (jak bude prázdná nádrž)", "priority": "P1", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-27", "plannedDate": "2026-04-09", "doneDate": "2026-04-09", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-09: LR instaloval jímku.; 2026-04-09: nádrž včera vypuštěna.; Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0185*", "title": "H8 - instalovat jímku a teplotní čidlo (jak bude prázdná nádrž)", "priority": "P1", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-27", "plannedDate": "2026-04-09", "doneDate": "2026-04-09", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-09: LR instaloval jímku.; 2026-04-09: nádrž včera vypuštěna.; Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0079*", "title": "Kotelna - místní provozní řád - nemáme", "priority": "P1", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.15, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Má dělat Oršulík.; 2025-06-27: Oršulk může připravit v rámci školení; Jednám s Oršulíkem o vypracování", "todayFlag": false}, {"id": "*0080*", "title": "Chybí provozní knihy ve VZV", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "MHa udělal elektronické knihy; musí probíhat týdenní a roční kontrola\n", "todayFlag": false}, {"id": "*0081*", "title": "Doplnění teplotního čidla PT50J k nádrži H5", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FT", "note": "", "internalNote": "Původní senzor instalován k H12 kvůli celníkům", "todayFlag": false}, {"id": "*0083*", "title": "Ohřev jednotlivých nádrží dle určení operátora a hlídání max. a provozní teploty", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0085*", "title": "Zprovoznění H12-H16 výroba - měření hladiny pomocí vzduchu", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0175*", "title": "Strongo - vyzvednout kolečka", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-01", "plannedDate": "2026-04-02", "doneDate": "2026-04-02", "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0183*", "title": "Nákup - ucpávka M18x1,5 ", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-09", "doneDate": "2026-04-09", "dueDate": null, "owner": "RS", "note": "Materiál na opravu vysavače č.173", "internalNote": "", "todayFlag": false}, {"id": "*0183*", "title": "Nákup - ucpávka M18x1,5", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": "2026-04-09", "doneDate": "2026-04-09", "dueDate": null, "owner": "RS", "note": "Materiál na opravu vysavače č.173", "internalNote": "", "todayFlag": false}, {"id": "*0086*", "title": "konec sacího potrubí ve 102 osadit možností připojení vzduchu a případně jednosměrnou klapkou", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Kořenek", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0087*", "title": "Zapojení a zprovoznění ventilů na ovládání ohřevů (výměníků voda-olej) - 101 a 105", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0088*", "title": "3nine vykomunikovat reklamaci LED pásku", "priority": "P1", "project": "3nine", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-30: Zaslán email s otázkou na zaplazení nákladů a dodání náhradního dílu.; 2026-03-11: Poslán email do 3nine ohledně nákladů a o tom, že jsme provedli opravu.; Spočítat náklady výjezdu a požadovat po 3nine náhrady za výjezd a náhradní díly", "todayFlag": false}, {"id": "*0051*", "title": "Kotle stará a nová hala - obalení kabeláže protipožárním obalem", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": true, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": "2026-03-06", "dueDate": null, "owner": "FCH", "note": "", "internalNote": "2026-03-06: Provedl Franta Chládek; Materiál je dodán, není instalováno", "todayFlag": false}, {"id": "*0056*", "title": "Zprovoznění H12-H16 výroba - automatické dávkování základových olejů do nádrží na základě váhy / objemu", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Blokováno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0058*", "title": "Instalace osvětlení váha", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Sitel", "note": "", "internalNote": "2026-03-02: Provedeno; 2026-02-17: mělo by se řešit 18.2.", "todayFlag": false}, {"id": "*0059*", "title": "Oprava spínání venkovního nočního osvětlení nové haly", "priority": "P1", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Sitel", "note": "", "internalNote": "Sitel opravil. Bylo vadné relé.; 2026-02-17: mělo by se řešit 18.2.", "todayFlag": false}, {"id": "*0069*", "title": "Moravia Cans - Kartuše - PO26000216 - VZ26000062", "priority": "P1", "project": "VZ26000062", "sales": "TS", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": "2026-03-25", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-23: Vše sestaveno. Poslední díl dodán 20.3.2026. Čekám na naskladnění do systému, aby se mohlo vyskladnit.; 2026-02-17: urgováno dodání; Kartuše k nám na sklad. Díly objednány Maier Korduletsch VO26000195", "todayFlag": false}, {"id": "*0070*", "title": "Škoda Auto - výběrové řízení", "priority": "P1", "project": "", "sales": "IG", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-02-20: po dohodě s IG se účastnit nebudeme", "todayFlag": false}, {"id": "*0071*", "title": "CZUB Kovačka č.1 - FT-MOF-200 rachotí", "priority": "P1", "project": "CZUB", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": "2026-03-18", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-18: Radek dnes instaloval jednotku po opravě zpět. Nicméně mám od něj zprávu, že hadice by zasloužili u jednotky vyměnit, že už jsou značně styřelé. Tohole jde v rámci TFM?; 2026-03-17: Jednotka se testuje.; 2026-03-12: Odvezena jednotka na opravu. Zjištěna zničená ložiska. Ložiska vyměněna. Pri opravě zničena chladící vrtulka. Naštěsí RS našel v náhradních dílech druhou.;", "todayFlag": false}, {"id": "*0072*", "title": "Servis FT-VZ-16", "priority": "P1", "project": "Servis", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": "2026-03-24", "doneDate": "2026-03-27", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-27: zařízení dokončeno. Očištěno, dány zpět filtry a uskladněno.; 2026-03-26: proveden test, ale při vypouštění protékalo víko sacího filtru. Výměna těsnění a bude nový test.; 2026-03-24: Teče potrubí je třeba ho vyměnit.; Při testech se stává, že jak se zapne čerpadlo sníží se nátok do filtračního zařízení. Cirkulační okruh okolo ohřevů sníží účinnost nasávání. Ale jednotka jinak vysušuje dobře.; 2026-03-23: Ventil byl namontován. Provádí se test.; 2026-03-18: Vyzvednutí náhradního dílu ve Valve;", "todayFlag": false}, {"id": "*0093*", "title": "Dokončit napojení váhy na výdehový systém FT-ST-800-FT01 ve 102", "priority": "P1", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.1, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0095*", "title": "Analýza zvýšení výrobních cen filtračních zařízení", "priority": "P1", "project": "TS", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-02: provedl jsem základní analýzu. Strašně problematické jak v systému tak mimo. Identifikoval jsem základní díly a poslal info na Markétu a Toma. Nevím, co bych pro to teď měl dělat. ...; Tomášovi se zdá, že se za posledních pár let cena výroby zařízení zdvojnásobila. Spolu s Markétou zkusit snížit náklady na výrobu", "todayFlag": false}, {"id": "*0097*", "title": "Náhrada mazacího systému BEKA", "priority": "P1", "project": "Moravia Cans", "sales": "TS", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0099*", "title": "Zabezpečení 24 hod. filtrace u Jury ve 101b", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.8, "createdDate": null, "plannedDate": "2026-03-25", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-07: JuM testuje.; 2026-03-25: Hadice dodány zpět. Hadice i ventil jsou připraveny na používání.; 2026-03-24: HANSA-FLEX dovezl hadice. Osadit zpět k filtrační jednotce", "todayFlag": false}, {"id": "*0100*", "title": "Dopojit hadice pro ohřev nádrž H5 a H6", "priority": "P1", "project": "", "sales": "", "waiting": true, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0101*", "title": "Úprava jednotky C.C. Jensen HDU 15/25 - VO24000228", "priority": "P2", "project": "VO24000228", "sales": "TS", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2024-02-20", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0103*", "title": "Plnička PRESSFiT AL 15 a 25 - DLOUHODOBÉ", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2024-05-13", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0104*", "title": "Určit stabilní místo na ultrazvuk a instalovat nad to digestoř kvůli výparům", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2024-10-10", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0105*", "title": "Revidovat obrázky a popisy u filtračních těles a by-pass filtrů v PROFITU", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2025-02-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0107*", "title": "Zapojení topných spirál kotelna nová hala", "priority": "P2", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-02-19", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0109*", "title": "Vytvořit úpravu čtečky pro TFM, aby se dala aplikovat pro servisy", "priority": "P2", "project": "Zlepšování", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.1, "createdDate": "2026-02-26", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0110*", "title": "PO26000319 - Čištění IBC - Continental", "priority": "P2", "project": "IG", "sales": "IG", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.15, "createdDate": "2026-03-06", "plannedDate": null, "doneDate": "2026-03-19", "dueDate": null, "owner": "JK", "note": "", "internalNote": "Vyzvednutí 12.3. vrácení cca 19.3.", "todayFlag": false}, {"id": "*0111*", "title": "H8 prolíná olej kolem těsnění na plnícím výku na hoře na nádrži na výtlakové trubce", "priority": "P2", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-17", "plannedDate": "2026-04-10", "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-013: Dokončeno, chybělo tam úplně těsnění.; Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0112*", "title": "H5, H6 - dodělat ohřevy teplovodní", "priority": "P1", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0113*", "title": "Světla na hale 2 vypadávní jističe - řešit", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Sitel", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0114*", "title": "Oprava Vapka zelená - Jura", "priority": "P2", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.6, "createdDate": "2026-03-19", "plannedDate": "2026-03-27", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-27: Radek vyčistil celé sání a senzory, ale pořád vapka nedává tlak. Je třeba poslat na servis.; 2026-03-25: Dostal jsem odpověď o výrobce, co zkontrolovat. Naplánuju na nový servis. 2026-03-25: RS vyměnil sací vodní filtr, ale čerpadlo stejně nejede. Nebudeme s tím ztrácet čas a pošleme to na servis. .. mysím zjistit kam.; 2026-03-19: při čištění LTA filtrů přestala tlakovat.;", "todayFlag": false}, {"id": "*0116*", "title": "Spodní teplotní senzory u akumulačních nádrží vyhazují chybu už u 40°C", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.1, "createdDate": "2026-03-27", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "2026-03-27: Spodní teplotní senzory u akumulačních nádrží vyhazují chybu u 40C ikdyž jsou nastaveny na 70C max. Informoval dnes Jura, že se to děje asi měsíc.", "todayFlag": false}, {"id": "*0089*", "title": "Poptat zakrytování VZV Jung", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "2026-02-27: Bohužel se dveře na tuto VZV nedělají. Karel bude zjišťovat další možnosti.; 2026-02-17: poptáno u p. Vysloužila Pipaservis není si jistý, jestli se ještě dá sehnat, pošle nabídku nebo dá vědět, že to nejde", "todayFlag": false}, {"id": "*0090*", "title": "Dormer Pramet - zpracovat data - PO26000186", "priority": "P2", "project": "PO26000186", "sales": "VC", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-18", "plannedDate": null, "doneDate": "2026-02-25", "dueDate": null, "owner": "JK", "note": "", "internalNote": "Data zpracována a poslána VC 20.2.2025", "todayFlag": false}, {"id": "*0119*", "title": "Precizní vyčištění parou nejnovější filtr. jednotky oranové => vybere IG začít používat na zakázky. Ostatní FF půjdou na servis - lakování oranžová / šedá + generální oprava", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0091*", "title": "Natřít potrubí (venku u ventilu H9 a nové ventily na 102)", "priority": "P2", "project": "Provoz", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-19", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FCH", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0102*", "title": "Vysavač č.3 na opravu", "priority": "P2", "project": "Tatra", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-02-23", "plannedDate": "2026-03-31", "doneDate": "2026-03-31", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-31: Vyservisováno. Vysavač označen jako 174 a převezen na hromadu pro odvoz do Tatry; Vysavač opravíme, ale je teď zavřený na korbě forda u Petra Johaníka – ten má dovolenou.", "todayFlag": false}, {"id": "*0121*", "title": "Vymyslet umístění BL na webu", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "Vytvořit interní stránku bez vnějšího odkazu na kterou se bude dostávat přímým odkazem", "todayFlag": false}, {"id": "*0122*", "title": "Vytvořit základní ceník filtračních jednotek", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0123*", "title": "Sjednotit kódování filtračních jednotek", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0094*", "title": "Na všech nádržích (H1-H8) našroubovat hladinová čidla", "priority": "P2", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": "2026-04-01", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-01: původně tvrdili, že 26.3. provedl MŽ. Dnes zjištěno, že ne. LR promptně napravil.; 2026-03-26: Provedl MŽ.; Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0124*", "title": "Oprava elektrostatiky Kleentek", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.05, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "Marek se na to díval a asi poškozené trafo. Od Michala Backa jsem dostal kontatk na firmu. Originál stojí 1980eur (49000kč)", "todayFlag": false}, {"id": "*0118*", "title": "Úklid stůl elektrika", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": "2026-03-24", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-24: LR vytřídil stůl. Zůstala paleta svinstva.", "todayFlag": false}, {"id": "*0096*", "title": "Oprava vysavače Tatra", "priority": "P2", "project": "Tatra", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": "2026-03-23", "doneDate": "2026-03-23", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-03-23: Vysavač opraven.; 2026-03-18: Vysavač poslán na opravu už dávno, ale byl v autě u Petra Johaníka na servise. Vysavač se k nám dostal až dnes. Mezitím do Tatry odeslán jeden vysavač z CZUB. ", "todayFlag": false}, {"id": "*0125*", "title": "Zpracovat proces Navíječky", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0115*", "title": "Servis malého kompresoru", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-20", "plannedDate": "2026-04-07", "doneDate": "2026-04-07", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-07: kompresor vyservisován.; 2026-04-02:vyzvednutý kondenzátor a mont. materiál. V příštím týdnu dokončit; 2026-03-24: kondenzátor bude tak za týden/dva.; Malý kompresor - oprava po výjezdu v Danucenu, kde dostal zabrat. Bude se měnit kondenzáro (rok 2021)", "todayFlag": false}, {"id": "*0126*", "title": "Mycí linka - nastavení servisních intervalů", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0117*", "title": "Výroba patek pro otočná kola", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-27", "plannedDate": "2026-04-02", "doneDate": "2026-04-02", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-27: Jde o patky pro otočná kola pruměr. 100mm", "todayFlag": false}, {"id": "*0127*", "title": "Dopojit potrubí a označit média a směry proudění", "priority": "P2", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Kořenek", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0128*", "title": "Instalace teploměrů nádrže hala 101b", "priority": "P2", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0129*", "title": "Instalace senzorů rozhraní ", "priority": "P2", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0193*", "title": "Řešit tiskárnu MB472 u KN", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-09: po domluvě s Marcelou koupíme novou tiskránu Epson, která nahradí starou.", "todayFlag": false}, {"id": "*0193*", "title": "Řešit tiskárnu MB472 u KN", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-07", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-09: po domluvě s Marcelou koupíme novou tiskránu Epson, která nahradí starou.", "todayFlag": false}, {"id": "*0130*", "title": "Instalace změkčovače vody pro administravitu", "priority": "P2", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Kořenek", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0120*", "title": "VY26000002 - FT-OH-200", "priority": "P2", "project": "VY26000002", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": "2026-03-27", "doneDate": "2026-03-27", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-27: zaretušováno, uloženo na paletu a do skladu.; 2026-03-26: Jednotka zkontrolována a polepena a nafocena. Drobné závady k odstranění.; 2026-03-25: Jednotka otestována a připravena na zaskladnění.; 2026-03-23: Marek zapojil elektriku. Může se testovat.; 2026-03-17: Jednotka čeká na elektrické dopojení.; Výroba filtrační jednotky na sklad", "todayFlag": false}, {"id": "*0131*", "title": "Instalace osvětlení místnost 107 - polostabilka", "priority": "P2", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Sitel", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0132*", "title": "Continental VZ26000020 PLN-CON02", "priority": "P2", "project": "VZ26000020", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.75, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Původní dokončeno, ale bude se instalovat ještě dalších 40ks.", "todayFlag": false}, {"id": "*0141*", "title": "Po instalaci zapojení teplotní čidlo nádrže H5", "priority": "P2", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": true, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "Podúkol č.39", "todayFlag": false}, {"id": "*0142*", "title": "Zprovoznění tisku vážních lístků", "priority": "P1", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "Něco se k tomu už udělalo, ale co všechno nevím.", "todayFlag": false}, {"id": "*0143*", "title": "Zprovoznění řízení přes webové rozhraní, aby se nepoužívalo provizorní ANYDESK", "priority": "P2", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0144*", "title": "Zapojení komunikace a sběru dat vodoměry hala 105", "priority": "P2", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0145*", "title": "Zapojení senzorů rozhraní a jejich nastavení nádrž H1, H2, H5 a H6", "priority": "P2", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.25, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "Kabely nataženy, ale nedozapojeny", "todayFlag": false}, {"id": "*0146*", "title": "Nastavení řízení ohřevu a kooperace FVE", "priority": "P2", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "Navazující úkol k č.84", "todayFlag": false}, {"id": "*0147*", "title": "Výroba náhradních sacích košů pro vysavače (prvotní požadavek Drga)", "priority": "P2", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0148*", "title": "Změna výdejek pro výrobní zakázky (v kusovnících)", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2024-06-06", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Postupně upravuju, jak dělám nové jednotky", "todayFlag": false}, {"id": "*0149*", "title": "Moravia Cans - Agregát - PO25001204", "priority": "P3", "project": "PO25001204", "sales": "TS", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": "2025-09-04", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-02-18: Drga probere s Frajtem potřebné schémata", "todayFlag": false}, {"id": "*0151*", "title": "Osazení komínu ventilátorovou hlavicí", "priority": "P3", "project": "Provozní", "sales": "JuM", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.1, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "Instalace ventilační hlavice na druhý komín nové haly", "internalNote": "2026-03-18: Ventilatory.cz objednána hlavice;", "todayFlag": false}, {"id": "*0152*", "title": "Zvětšení obtoku čerpadla H1-H4", "priority": "P3", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0153*", "title": "Zvětšení obtoku čerpadla H5-H8", "priority": "P3", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0154*", "title": "Montáž čidel na kulové ventily", "priority": "P3", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0155*", "title": "Trubky na výtlak H1-H8 - montáž kul. ventilů a prodloužení?", "priority": "P3", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0156*", "title": "H3 na plnící trubce prolíná olej ve svaru", "priority": "P3", "project": "Provozní", "sales": "JuM", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-03-17", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Kořenek", "note": "", "internalNote": "Ze seznamu požadavků JuM na halu 101B", "todayFlag": false}, {"id": "*0158*", "title": "Opravit zavírání dveří navíjecího zařízení PLUTO III", "priority": "P3", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "Díly jsou ale je třeba řešit ještě mezikus, který je třeba navrhnout a nechat vyrobit", "todayFlag": false}, {"id": "*0159*", "title": "Řezačka PLUTO III - udělat kapsu na špatné nože", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0160*", "title": "Aktualizovat seznam ručního nářadí na dílně", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0133*", "title": "Test skimmeru od 3nine", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "Blokováno", "progress": 0.0, "createdDate": "2025-01-09", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "Realizovat se asi nebude.; Michal Kyc má vytipovat stroj v CZUB kde se bude skimmer testovat", "todayFlag": false}, {"id": "*0161*", "title": "Zavést naši navíječku do mazacího plánu", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0134*", "title": "Úprava webu firmy - udělat sekci dotační projekty", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "Blokováno", "progress": 1.0, "createdDate": "2026-03-05", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-03-09: IG úpravu nechce. Zrušeno.; Ještě jsem psal IG jeslti to bude chtít realizovat nebo ne, ať to potvrdí. Byl to můj návrh Lence, která s tím souhlasila", "todayFlag": false}, {"id": "*0162*", "title": "Označit vrata nové haly č.1, 2, 3", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0163*", "title": "Aktualizace procesu metrologie", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0164*", "title": "Dehydratační tělesa předělat na elektrostatická", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0165*", "title": "ocelová elektrostatická tělesa předělat na normální (rukávové, svíčkové aj.)", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0166*", "title": "Akvárko v zasedačce - test wifi a instalace plnící rychlospojky", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0167*", "title": "Kontrola dotažení šroubů na staré hale", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0135*", "title": "Instalace držáku dokumentů stará kotelna", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": "2026-03-20", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2023-03-20: Provedeno;", "todayFlag": false}, {"id": "*0136*", "title": "Roztřídění šroubení - pojízdný vozík", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0137*", "title": "H9 - teče horní ventil - Zablendovat", "priority": "P3", "project": "", "sales": "JuM", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": "2026-03-19", "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0139*", "title": "Posunutí držáku dokumentů kotelna nová hala", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 0.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": "2026-03-25", "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0140*", "title": "Úklid stůl záchytka 2", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-18", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FCH", "note": "", "internalNote": "Udělal Franta Chládek", "todayFlag": false}, {"id": "*0157*", "title": "Vyměnit hadice FT-SOE-4 mycí linka", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-03-31", "plannedDate": "2026-04-02", "doneDate": "2026-04-09", "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-08: LR dokončil montáž.; 2026-04-02: stihla se jedna hadice", "todayFlag": false}, {"id": "*0179*", "title": "Vyzvednout kondenzátory pro kompresor. Dokoupen potřebný spoj. mat.", "priority": "P3", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-02", "plannedDate": "2026-04-02", "doneDate": "2026-04-02", "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0138*", "title": "VZ26000006 - sloupy 3nine", "priority": "P3", "project": "VZ26000006", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-02-17: vyrobeno je třeba dokončit dokladově v PROFITu", "todayFlag": false}, {"id": "*0150*", "title": "Dopojit hadice pro ohřev nádrž H5 a H6", "priority": "P3", "project": "Stavba nová hala", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": null, "plannedDate": null, "doneDate": "2026-03-20", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-03-20: SZ26010021 a SZ26010022", "todayFlag": false}, {"id": "*0168*", "title": "Oprava poškozené dlaždic hlavní chodba stará hala u ekonom. oddělení", "priority": "P3", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Sitel", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0170*", "title": "Váha se sama nezapne po výpadku el. energie", "priority": "P3", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FT", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0171*", "title": "Izolovat potrubí teplé vody v rozvodech po halách", "priority": "P3", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Kořenek", "note": "", "internalNote": "Nevím jestli se bude dělat a kdo bude dělat", "todayFlag": false}, {"id": "*0172*", "title": "Doplnit chybějící ventil ve schématu ve velíně", "priority": "P3", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0173*", "title": "Připojit automatické odkalení vzdušníku", "priority": "P3", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FT", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0174*", "title": "VY25000023 - FT-SOE-4", "priority": "P3", "project": "VY25000023", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.9, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-02-17: jednotka vyrobena je třeba dokončit dokladově v PROFITu; Výroba separační jednotky na sklad.", "todayFlag": false}, {"id": "*0177*", "title": "Servis kryt Viscomat FT-MOF-200 č.102 VY18000015", "priority": "P2", "project": "VY18000015", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": "2026-04-02", "plannedDate": "2026-04-28", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-07: objednávka zrušena u Profo HF a objednáno v Hydromě. Třetinová cena. Teď se čeká teda na dodání. (2-3 týdny); 2026-04-02: oprava jednotky z CZUB. Má rozbytý kryt rozvodné skříňky. Objednána nová, čeká se až dojde (odání 2-3 týdny.)", "todayFlag": false}, {"id": "*0188*", "title": "Založení emailu Voloch", "priority": "P0", "project": "Provozní", "sales": "IG", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-04-07", "plannedDate": "2026-04-10", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-08: požadavek poslán na p. Šponara s tím, že účet office bude univerzální.; 2026-04-07: založit email. S IG jsem se domluvil, že použiju obecný kvůli licenci a nechám tam jen alias", "todayFlag": false}, {"id": "*0191*", "title": "Změna emailu LJ z tfm-ub na vedouci@filtration.cz", "priority": "P0", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Dokončeno", "progress": 0.5, "createdDate": "2026-04-02", "plannedDate": "2026-04-07", "doneDate": "2026-04-10", "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-10: emial změněn. DFunguje jak na tfm@filtration, tak na tfm-ub@filtration i vedouci@filtration.cz; 2026-04-08: opětovné urgování, žádná zpětná vazba. Nevím, jestli můj návrh vůbec jde (zruší se schránka, vytvoří nová, ale licence office zůstane stejná.); 2026-04-07: poslán požadavek na p. Šponara.;", "todayFlag": false}, {"id": "*0192*", "title": "Výměna toneru a obrazového válce MC861", "priority": "P2", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-04-07", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-08: Marcela objednala nový válec. Výměna jak dorazí.;", "todayFlag": false}, {"id": "*0194*", "title": "H9 - teče spodní boční ventil - je třeba vyměnit", "priority": "P1", "project": "Provozní", "sales": "", "waiting": true, "subtask": false, "status": "Probíhá", "progress": 0.1, "createdDate": "2026-04-09", "plannedDate": null, "doneDate": "2026-04-17", "dueDate": null, "owner": "RS", "note": "", "internalNote": "2026-04-10: Objednán náhradní ventil. Provedení teda někdy v příštím týdnu.; 2026-04-09: Nádrž vypuštěna, může se ventil vyměnit.; 2026-04-09: Je třeba vypustit nádrž a ventil vyměnit.", "todayFlag": false}, {"id": "*0196*", "title": "Servis Moravia Cans linka 8", "priority": "P0", "project": "TFMC260132", "sales": "TS", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2026-04-09", "plannedDate": "2026-04-10", "doneDate": "2026-04-10", "dueDate": null, "owner": "RS", "note": "Linka 8 - kontrola a přetěsnění holendrů potiskovacího stroje", "internalNote": "2026-04-10:dneska proběhla prohlídka linky 8 od Radka. Jak jsme se domlouvali, tak jsem založil zakázku TFMC260132. Nicméně na základě prohlídky bude, dle informací od RS, potřeba přetěsnit linku. Předběžně je tedy domluveno, že při celodenní odstávce, která je aktuálně plánována na 5.5.2026 Radek provede servisní zásah. \nZakázku TFMC260132 proto nechávám otevřenou a budou se hodiny účtovat v dalším měsíci (teď 2hod. a dopravní náklady). \n; 2026-04-09: servis hydrauliky dle požadavku Pepy Drgy", "todayFlag": false}, {"id": "*0197*", "title": "Výměna plynových bomb - 2xSP", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-09", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "LR", "note": "Vyměnit bomby", "internalNote": "2026-04-09: SP dovezl prázdnou bombu na výměnu a ještě jednu doveze v pondělí.", "todayFlag": false}, {"id": "*0198*", "title": "Vyzvednout ford 3012 od Petra", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Dokončeno", "progress": 1.0, "createdDate": "2029-04-10", "plannedDate": "2026-04-10", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0199*", "title": "Poptávka hadice pro Tatru - lapovací pasta", "priority": "P0", "project": "Provozní", "sales": "KN", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": "2026-04-10", "plannedDate": "2026-04-10", "doneDate": null, "dueDate": null, "owner": "JK", "note": "Na lapovací pastu, 2m, volný výtok", "internalNote": "2026-04-10: Artur posílal na Whatsup fotky hadice, kterou potřebuje pro Tatru popta. Kája má poslat nabídku na p. Kudličku. Poptal jsem Hansa-Flex, Tubes a GMS", "todayFlag": false}, {"id": "*0200*", "title": "Cyklické vypínání čerpadla - chyba na senzoru ventilu pro IBC", "priority": "P0", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.5, "createdDate": "2026-04-09", "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "FLAP", "note": "", "internalNote": "2026-04-09: MiH opět blbne čerpadlo pro nové oleje. Spíná a vypíná se v cyklech a to způsobuje rázy. Dle Pavla Šrabala způsobeno chybou na senzoru ventilu pro vypouštění IBC", "todayFlag": false}, {"id": "*0201*", "title": "Servis Moravia Cans linka 8", "priority": "P0", "project": "TFMC260132", "sales": "TS", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-10", "plannedDate": "2026-05-05", "doneDate": null, "dueDate": null, "owner": "RS", "note": "Linka 8 - výměna filtrů a přetěsnění", "internalNote": "2026-04-10: na základě dnešní prohlídky naplánovan zásah při delší odstávce linky, který by měl být 5.5.2026. Pepa Drga bude ještě potvrzovat termín. Budou se hydrauliky přetěsňovat a měnit filtry.", "todayFlag": false}, {"id": "*0202*", "title": "Kalibrace tenzometrů nádrže H7, H8", "priority": "P0", "project": "Stavba nové haly", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-10", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-10: Je třeba napustit známé množství hmotnosti a provést kalibraci senzorů.", "todayFlag": false}, {"id": "*0203*", "title": "Dormer Pramet - zpracovat naměřená data", "priority": "P0", "project": "PO26000474", "sales": "VC", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.1, "createdDate": "2026-04-09", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "JK", "note": "Zpracovat výsledky měření", "internalNote": "", "todayFlag": false}, {"id": "*0204*", "title": "Osadit komín nové haly ventilátorem", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-13", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0205*", "title": "Vývoz železa", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-13", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "RS", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0206*", "title": "Rozpadlá hadice mycí linka Tatra - reklamace GMS", "priority": "P0", "project": "Tatra", "sales": "KN", "waiting": false, "subtask": false, "status": "Probíhá", "progress": 0.25, "createdDate": "2026-04-13", "plannedDate": "2026-04-14", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "2026-04-13: Artur volal a posílal fotky rozpadlé hadice, která se instalovala necelé tři měsíce zpět. Bohužel nevydržela chemii, když jsem hadici poptával, tak jsem o chemii asi nevěděl, protože jsem poptával jen na prací vodu a teploty. Poslány data na p. Galáře, aby vytypoval vhodnější hadici.", "todayFlag": true}, {"id": "*0207*", "title": "CZ-AUTO vyzvednout bedýnky - Iveco 6219", "priority": "P0", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-14", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-14: Vyzvednout nedýnky na mytí", "todayFlag": false}, {"id": "*0208*", "title": "Čištění chladiče", "priority": "P1", "project": "PO26000129", "sales": "TS", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": null, "plannedDate": "2026-04-16", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "2026-04-13: Volal Pega Drga, že by měli ve čtvrtek 16.4.2026 dovést chladič na čištění", "todayFlag": false}, {"id": "*0209*", "title": "Zavést Iveco 6219 na přezutí Petr Johaník", "priority": "P1", "project": "Provozní", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-14", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "LR", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0210*", "title": "Vyrobit rychlospojky FT-CNV08-H19 a FT-CPV08-12 ", "priority": "P0", "project": "VZ26000164", "sales": "", "waiting": false, "subtask": false, "status": "Nezahájeno", "progress": 0.0, "createdDate": "2026-04-14", "plannedDate": "2026-04-15", "doneDate": null, "dueDate": null, "owner": "JK", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0211*", "title": "", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "", "progress": null, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0212*", "title": "", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "", "progress": null, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0213*", "title": "", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "", "progress": null, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0214*", "title": "", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "", "progress": null, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0215*", "title": "", "priority": "P3", "project": "", "sales": "", "waiting": false, "subtask": false, "status": "", "progress": null, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "Nezařazeno", "note": "", "internalNote": "", "todayFlag": false}, {"id": "*0216*", "title": "Na daný den není plán", "priority": "P0", "project": "Pomocná funkce", "sales": "", "waiting": false, "subtask": false, "status": "", "progress": null, "createdDate": null, "plannedDate": null, "doneDate": null, "dueDate": null, "owner": "RS", "note": "Řeší kontingenční tabulku, když není plán pro daný den", "internalNote": "", "todayFlag": false}], "backlog": [{"source": "Úkoly dílna", "priority": "P0", "id": "*0022*", "title": "Servis FT-PZ-80 z CZUB na pevném rámu pro JuM", "owner": "RS", "note": "Servis, doplnit kola, Označit"}, {"source": "Úkoly dílna", "priority": "P0", "id": "*0026*", "title": "Greiner assistec oprava filtračních jednotek", "owner": "RS", "note": "Prohlídka a nacenění servisu"}, {"source": "Úkoly dílna", "priority": "P0", "id": "*0033*", "title": "Innomotics - Příprava výjezdu", "owner": "RS", "note": "Příprava na instalaci v 17KT"}, {"source": "Úkoly dílna", "priority": "P0", "id": "*0201*", "title": "Servis Moravia Cans linka 8", "owner": "RS", "note": "Linka 8 - výměna filtrů a přetěsnění"}, {"source": "Úkoly dílna", "priority": "P0", "id": "*0207*", "title": "CZ-AUTO vyzvednout bedýnky - Iveco 6219", "owner": "LR", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0065*", "title": "Roztřídění / uklizení palety se šrouby ze stolu záchytky", "owner": "RS", "note": "Roztřídit a uložit šrouby. Zbytečnosti vyhodit."}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0074*", "title": "Vyměnit Helium laboratoř", "owner": "RS", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0112*", "title": "H5, H6 - dodělat ohřevy teplovodní", "owner": "LR", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0197*", "title": "Výměna plynových bomb - 2xSP", "owner": "LR", "note": "Vyměnit bomby"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0204*", "title": "Osadit komín nové haly ventilátorem", "owner": "RS", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0205*", "title": "Vývoz železa", "owner": "RS", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0208*", "title": "Čištění chladiče", "owner": "LR", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0209*", "title": "Zavést Iveco 6219 na přezutí Petr Johaník", "owner": "LR", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P3", "id": "*0159*", "title": "Řezačka PLUTO III - udělat kapsu na špatné nože", "owner": "RS", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P3", "id": "*0160*", "title": "Aktualizovat seznam ručního nářadí na dílně", "owner": "RS", "note": "(prázdné)"}, {"source": "Úkoly dílna", "priority": "P0", "id": "*0026*", "title": "Greiner assistec oprava filtračních jednotek", "owner": "RS", "note": "Prohlídka a nacenění servisu"}, {"source": "Úkoly dílna", "priority": "P0", "id": "*0033*", "title": "Innomotics - Příprava výjezdu", "owner": "RS", "note": "Příprava na instalaci v 17KT"}, {"source": "Úkoly dílna", "priority": "P1", "id": "*0065*", "title": "Roztřídění / uklizení palety se šrouby ze stolu záchytky", "owner": "RS", "note": "Roztřídit a uložit šrouby. Zbytečnosti vyhodit."}, {"source": "Externisti", "priority": "P0", "id": "*0200*", "title": "Cyklické vypínání čerpadla - chyba na senzoru ventilu pro IBC", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P1", "id": "*0054*", "title": "Zapojení doplněných ventilů ve 102 + jejich označení v řízení technologie", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P1", "id": "*0083*", "title": "Ohřev jednotlivých nádrží dle určení operátora a hlídání max. a provozní teploty", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P1", "id": "*0085*", "title": "Zprovoznění H12-H16 výroba - měření hladiny pomocí vzduchu", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P1", "id": "*0087*", "title": "Zapojení a zprovoznění ventilů na ovládání ohřevů (výměníků voda-olej) - 101 a 105", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P1", "id": "*0142*", "title": "Zprovoznění tisku vážních lístků", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0107*", "title": "Zapojení topných spirál kotelna nová hala", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0116*", "title": "Spodní teplotní senzory u akumulačních nádrží vyhazují chybu už u 40°C", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0128*", "title": "Instalace teploměrů nádrže hala 101b", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0129*", "title": "Instalace senzorů rozhraní ", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0141*", "title": "Po instalaci zapojení teplotní čidlo nádrže H5", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0143*", "title": "Zprovoznění řízení přes webové rozhraní, aby se nepoužívalo provizorní ANYDESK", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0144*", "title": "Zapojení komunikace a sběru dat vodoměry hala 105", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P2", "id": "*0145*", "title": "Zapojení senzorů rozhraní a jejich nastavení nádrž H1, H2, H5 a H6", "owner": "FLAP", "note": "(prázdné)"}, {"source": "Externisti", "priority": "P3", "id": "*0172*", "title": "Doplnit chybějící ventil ve schématu ve velíně", "owner": "FLAP", "note": "(prázdné)"}], "owners": ["RS", "LR", "JK", "FLAP", "FCH", "FT", "Kořenek", "Sitel"], "generatedAt": "2026-04-20T04:44:15.168502"};
+let PEOPLE_LABELS = {};
+
+function buildPeopleLabels(resitele) {
+  PEOPLE_LABELS = {};
+  (resitele || []).forEach(r => {
+    PEOPLE_LABELS[r.zkratka] = `${r.jmeno} ${r.prijmeni}`.trim();
+  });
+}
+
+// People assignment: side (L/R) and order per side
+const STORAGE_KEY = "ftDashboardPeopleLayout";
+
+function loadPeopleLayout(owners) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (saved && Array.isArray(saved)) {
+      // Merge saved with any new owners not yet in saved
+      const savedOwners = saved.map(e => e.owner);
+      const newOwners = owners.filter(o => !savedOwners.includes(o));
+      const merged = [...saved.filter(e => owners.includes(e.owner))];
+      newOwners.forEach((o, i) => {
+        merged.push({ owner: o, side: i < Math.ceil(newOwners.length / 2) ? "L" : "R" });
+      });
+      return merged;
+    }
+  } catch(e) {}
+  // Default: split in half
+  return owners.map((o, i) => ({ owner: o, side: i < Math.ceil(owners.length / 2) ? "L" : "R" }));
+}
+
+function savePeopleLayout() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.peopleLayout));
+  } catch(e) {}
+}
+
+// peopleLayout: [{owner, side}] — order within the array = order within that side
+
+const XLSX_FILE = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
+const LOCAL_WATCH_INTERVAL_MS = 5000;
+let DATA = JSON.parse(JSON.stringify(FALLBACK_DATA));
+
+const state = {
+  weekStart: getWeekStart(new Date()),
+  search: "",
+  priority: "",
+  waitingOnly: false,
+  hideDone: true,
+  selectedPeople: new Set(DATA.owners),
+  peopleLayout: loadPeopleLayout(DATA.owners)
+};
+
+const els = {
+  scheduleL: document.getElementById("scheduleL"),
+  scheduleR: document.getElementById("scheduleR"),
+  weekLabel1: document.getElementById("weekLabel1"),
+  weekLabel2: document.getElementById("weekLabel2"),
+  weekTitle: document.getElementById("weekTitle"),
+  weekSubtitle: document.getElementById("weekSubtitle"),
+  peopleFilters: document.getElementById("peopleFilters"),
+  search: document.getElementById("search"),
+  priority: document.getElementById("priority"),
+  waitingOnly: document.getElementById("waitingOnly"),
+  hideDone: document.getElementById("hideDone"),
+  unscheduled: document.getElementById("unscheduled"),
+  backlog: document.getElementById("backlog"),
+  statPlanned: document.getElementById("statPlanned"),
+  statPeople: document.getElementById("statPeople"),
+  statWaiting: document.getElementById("statWaiting"),
+  statBacklog: document.getElementById("statBacklog"),
+  modal: document.getElementById("modal"),
+  modalTitle: document.getElementById("modalTitle"),
+  modalNote: document.getElementById("modalNote"),
+  modalInternal: document.getElementById("modalInternal"),
+  modalChips: document.getElementById("modalChips"),
+  modalEditBtn: document.getElementById("modalEditBtn"),
+  modalCancelRecurBtn: document.getElementById("modalCancelRecurBtn"),
+  modalDeleteBtn: document.getElementById("modalDeleteBtn"),
+  syncStatus: document.getElementById("syncStatus"),
+};
+
+function getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function toISO(date) {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function fmtDate(date) {
+  return new Intl.DateTimeFormat("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
+function fmtDayLabel(date) {
+  return new Intl.DateTimeFormat("cs-CZ", { weekday: "long" }).format(date).toUpperCase();
+}
+
+function normalizeText(v) {
+  return String(v || "").toLowerCase();
+}
+
+function taskMatches(task) {
+  if (state.priority && task.priority !== state.priority) return false;
+  if (state.waitingOnly && !task.waiting) return false;
+  if (state.hideDone && normalizeText(task.status).includes("dokončeno")) return false;
+  if (!state.selectedPeople.has(task.owner)) return false;
+  if (state.search) {
+    const hay = [task.id, task.title, task.project, task.sales, task.note, task.internalNote].map(normalizeText).join(" ");
+    if (!hay.includes(normalizeText(state.search))) return false;
+  }
+  return true;
+}
+
+function weekDates() {
+  return Array.from({length: 7}, (_, i) => addDays(state.weekStart, i));
+}
+
+function buildPeopleFilters() {
+  els.peopleFilters.innerHTML = "";
+
+  state.peopleLayout.forEach((entry, idx) => {
+    const { owner, side, hidden } = entry;
+    const label = PEOPLE_LABELS[owner] || owner;
+    const sideOwners = state.peopleLayout.filter(e => e.side === side);
+    const posInSide = sideOwners.indexOf(entry);
+
+    const row = document.createElement("div");
+    row.className = "person-row" + (hidden ? " is-hidden" : "");
+
+    // Up button
+    const upBtn = document.createElement("button");
+    upBtn.className = "move-btn";
+    upBtn.textContent = "↑";
+    upBtn.disabled = posInSide === 0;
+    upBtn.title = "Posunout výše";
+    upBtn.addEventListener("click", () => {
+      const prevIdx = state.peopleLayout.slice(0, idx).map((e,i)=>({e,i})).filter(x=>x.e.side===side).pop();
+      if (prevIdx !== undefined) {
+        [state.peopleLayout[idx], state.peopleLayout[prevIdx.i]] = [state.peopleLayout[prevIdx.i], state.peopleLayout[idx]];
+        savePeopleLayout();
+        buildPeopleFilters();
+        render();
+      }
+    });
+
+    // Down button
+    const downBtn = document.createElement("button");
+    downBtn.className = "move-btn";
+    downBtn.textContent = "↓";
+    downBtn.disabled = posInSide === sideOwners.length - 1;
+    downBtn.title = "Posunout níže";
+    downBtn.addEventListener("click", () => {
+      const nextIdx = state.peopleLayout.slice(idx+1).map((e,i)=>({e,i:i+idx+1})).filter(x=>x.e.side===side).shift();
+      if (nextIdx !== undefined) {
+        [state.peopleLayout[idx], state.peopleLayout[nextIdx.i]] = [state.peopleLayout[nextIdx.i], state.peopleLayout[idx]];
+        savePeopleLayout();
+        buildPeopleFilters();
+        render();
+      }
+    });
+
+    // Name
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "person-name";
+    nameSpan.title = label;
+    nameSpan.textContent = `${owner} – ${label}`;
+
+    // L button
+    const lBtn = document.createElement("button");
+    lBtn.className = `side-btn ${side === "L" ? "active-L" : ""}`;
+    lBtn.textContent = "L";
+    lBtn.title = "Levý sloupec";
+    lBtn.addEventListener("click", () => {
+      state.peopleLayout[idx].side = "L";
+      savePeopleLayout();
+      buildPeopleFilters();
+      render();
+    });
+
+    // R button
+    const rBtn = document.createElement("button");
+    rBtn.className = `side-btn ${side === "R" ? "active-R" : ""}`;
+    rBtn.textContent = "P";
+    rBtn.title = "Pravý sloupec";
+    rBtn.addEventListener("click", () => {
+      state.peopleLayout[idx].side = "R";
+      savePeopleLayout();
+      buildPeopleFilters();
+      render();
+    });
+
+    // Hide button
+    const hideBtn = document.createElement("button");
+    hideBtn.className = "hide-btn" + (hidden ? " is-hidden" : "");
+    hideBtn.textContent = hidden ? "🚫" : "👁";
+    hideBtn.title = hidden ? "Zobrazit řádek" : "Skrýt řádek";
+    hideBtn.addEventListener("click", () => {
+      state.peopleLayout[idx].hidden = !state.peopleLayout[idx].hidden;
+      savePeopleLayout();
+      buildPeopleFilters();
+      render();
+    });
+
+    row.appendChild(upBtn);
+    row.appendChild(downBtn);
+    row.appendChild(nameSpan);
+    row.appendChild(lBtn);
+    row.appendChild(rBtn);
+    row.appendChild(hideBtn);
+    els.peopleFilters.appendChild(row);
+  });
+}
+
+function getPlannedTasks() {
+  return DATA.tasks.filter(t => t.plannedDate && taskMatches(t));
+}
+
+function getWeekTasks() {
+  const start = toISO(state.weekStart);
+  const end = toISO(addDays(state.weekStart, 6));
+  return getPlannedTasks().filter(t => t.plannedDate >= start && t.plannedDate <= end);
+}
+
+function cardClass(task) {
+  const parts = ["task", (task.priority || "P3").toLowerCase()];
+  if (task.waiting) parts.push("waiting");
+  if (normalizeText(task.status).includes("dokončeno")) parts.push("done");
+  if (task.recurring) parts.push("recurring");
+  return parts.join(" ");
+}
+
+function openModal(task) {
+  els.modalTitle.textContent = `${task.id || ""} ${task.title || ""}`.trim();
+  els.modalNote.textContent = task.note || "Bez doplňující poznámky";
+  els.modalInternal.textContent = task.internalNote || "Bez interní poznámky";
+  const chips = [
+    task.priority || "Bez priority",
+    task.owner || "Bez řešitele",
+    task.project || "Bez projektu",
+    task.plannedDate ? `Plán: ${task.plannedDate}` : "Bez data",
+    task.status || "Bez stavu"
+  ];
+  if (task.auto) chips.push(`🚗 ${task.auto}`);
+  if (task.recurring) chips.push("🔁 Opakující se");
+  els.modalChips.innerHTML = chips.map(ch => `<span class="chip">${ch}</span>`).join("");
+  if (task.id && !task.recurring) {
+    els.modalEditBtn.href = `sprava_ukolu_linked.html?id=${encodeURIComponent(task.id)}`;
+    els.modalEditBtn.style.display = "inline-block";
+    els.modalDeleteBtn.style.display = "inline-block";
+    els.modalDeleteBtn.dataset.taskId = task.id;
+  } else {
+    els.modalEditBtn.style.display = "none";
+    els.modalDeleteBtn.style.display = "none";
+  }
+  if (task.recurring && task.id && task.plannedDate) {
+    els.modalCancelRecurBtn.href = `sprava_ukolu_linked.html?vyjimka=${encodeURIComponent(task.id)}&datum=${encodeURIComponent(task.plannedDate)}`;
+    els.modalCancelRecurBtn.style.display = "inline-block";
+  } else {
+    els.modalCancelRecurBtn.style.display = "none";
+  }
+  els.modal.classList.add("open");
+}
+
+function renderScheduleForSide(targetEl, side) {
+  const dates = weekDates();
+  const tasks = getWeekTasks();
+  const byOwnerAndDate = new Map();
+  tasks.forEach(task => {
+    const key = `${task.owner}|${task.plannedDate}`;
+    if (!byOwnerAndDate.has(key)) byOwnerAndDate.set(key, []);
+    byOwnerAndDate.get(key).push(task);
+  });
+
+  const activePeople = state.peopleLayout
+    .filter(e => e.side === side && state.selectedPeople.has(e.owner) && !e.hidden)
+    .map(e => e.owner);
+
+  targetEl.innerHTML = "";
+
+  if (activePeople.length === 0) {
+    targetEl.innerHTML = `<div style="padding:16px;color:#6b7280;font-size:12px;">Žádní lidé v tomto sloupci.</div>`;
+    return;
+  }
+
+  const blank = document.createElement("div");
+  blank.className = "head blank";
+  targetEl.appendChild(blank);
+
+  dates.forEach((d, idx) => {
+    const h = document.createElement("div");
+    h.className = `head d${idx}`;
+    h.innerHTML = `${fmtDayLabel(d)}<small>${fmtDate(d)}</small>`;
+    targetEl.appendChild(h);
+  });
+
+  activePeople.forEach(person => {
+    const personCell = document.createElement("div");
+    personCell.className = "person";
+    personCell.innerHTML = `<div><div class="code">${person}</div><div class="name">${PEOPLE_LABELS[person] || person}</div></div>`;
+    targetEl.appendChild(personCell);
+
+    dates.forEach((d, idx) => {
+      const c = document.createElement("div");
+      c.className = `cell ${idx >= 5 ? "weekend" : ""}`;
+      const items = (byOwnerAndDate.get(`${person}|${toISO(d)}`) || []).sort((a,b) => (a.priority || "").localeCompare(b.priority || ""));
+      items.forEach(task => {
+        const div = document.createElement("div");
+        div.className = cardClass(task);
+        div.innerHTML = `
+          ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
+          <div class="title">${task.title}</div>
+          <div class="meta">
+            <span>${task.id}</span>
+            <span class="${task.project.toLowerCase().includes("ford") ? "danger" : ""}">${task.project || ""}</span>
+          </div>${task.auto ? `<div class="spz">🚗 ${task.auto}</div>` : ""}
+        `;
+        div.addEventListener("click", () => openModal(task));
+        c.appendChild(div);
+      });
+      targetEl.appendChild(c);
+    });
+  });
+}
+
+function renderBacklog() {
+  const weekTaskIds = new Set(getWeekTasks().map(t => t.id));
+  const unscheduled = DATA.tasks
+    .filter(t => !t.plannedDate && taskMatches(t) && !weekTaskIds.has(t.id))
+    .slice(0, 80);
+
+  els.unscheduled.innerHTML = unscheduled.length ? "" : `<div class="muted">Žádné položky.</div>`;
+  unscheduled.forEach(task => {
+    const div = document.createElement("div");
+    div.className = "list-item";
+    div.innerHTML = `<strong>${task.id} · ${task.title}</strong><div class="muted">${task.owner} · ${task.priority} · ${task.project || "bez projektu"}</div>`;
+    div.addEventListener("click", () => openModal(task));
+    els.unscheduled.appendChild(div);
+  });
+
+  els.backlog.innerHTML = "";
+  DATA.backlog
+    .filter(item => state.selectedPeople.has(item.owner) && (!state.priority || item.priority === state.priority))
+    .forEach(item => {
+      const div = document.createElement("div");
+      div.className = "list-item";
+      div.innerHTML = `<strong>${item.id} · ${item.title}</strong><div class="muted">${item.owner} · ${item.priority} · ${item.source}</div>`;
+      div.addEventListener("click", () => openModal({
+        ...item,
+        internalNote: "",
+        plannedDate: "",
+        status: "Backlog"
+      }));
+      els.backlog.appendChild(div);
+    });
+}
+
+function renderStats() {
+  const weekTasks = getWeekTasks();
+  els.statPlanned.textContent = String(weekTasks.length);
+  els.statPeople.textContent = String(new Set(weekTasks.map(t => t.owner)).size);
+  els.statWaiting.textContent = String(weekTasks.filter(t => t.waiting).length);
+  els.statBacklog.textContent = String(DATA.tasks.filter(t => !t.plannedDate && taskMatches(t)).length + DATA.backlog.length);
+}
+
+function renderTitles() {
+  const start = state.weekStart;
+  const end = addDays(start, 6);
+  const weekNo = getWeekNumber(start);
+  els.weekTitle.textContent = `Týden ${weekNo}`;
+  els.weekSubtitle.textContent = `${fmtDate(start)} – ${fmtDate(end)}`;
+  const label = `TÝDEN ${weekNo}  ·  ${fmtDate(start)} – ${fmtDate(end)}`;
+  if (els.weekLabel1) els.weekLabel1.textContent = label;
+  if (els.weekLabel2) els.weekLabel2.textContent = label;
+}
+
+function getWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1)/7);
+}
+
+function render() {
+  renderTitles();
+  renderScheduleForSide(els.scheduleL, "L");
+  renderScheduleForSide(els.scheduleR, "R");
+  renderBacklog();
+  renderStats();
+}
+
+document.getElementById("prevWeek").addEventListener("click", () => {
+  state.weekStart = addDays(state.weekStart, -7);
+  render();
+});
+document.getElementById("nextWeek").addEventListener("click", () => {
+  state.weekStart = addDays(state.weekStart, 7);
+  render();
+});
+document.getElementById("todayBtn").addEventListener("click", () => {
+  state.weekStart = getWeekStart(new Date());
+  render();
+});
+els.search.addEventListener("input", e => {
+  state.search = e.target.value.trim();
+  render();
+});
+els.priority.addEventListener("change", e => {
+  state.priority = e.target.value;
+  render();
+});
+els.waitingOnly.addEventListener("change", e => {
+  state.waitingOnly = e.target.checked;
+  render();
+});
+els.hideDone.addEventListener("change", e => {
+  state.hideDone = e.target.checked;
+  render();
+});
+document.getElementById("closeModal").addEventListener("click", () => els.modal.classList.remove("open"));
+document.getElementById("modalDeleteBtn").addEventListener("click", () => {
+  const id = els.modalDeleteBtn.dataset.taskId;
+  if (!id) return;
+  if (!confirm(`Opravdu smazat úkol ${id}? Tato akce je nevratná.`)) return;
+  els.modal.classList.remove("open");
+  window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}`, "_blank");
+});
+els.modal.addEventListener("click", e => {
+  if (e.target === els.modal) els.modal.classList.remove("open");
+});
+
+
+function setSyncStatus(message, isError = false) {
+  els.syncStatus.textContent = message;
+  els.syncStatus.style.color = isError ? "#cc1f1a" : "";
+}
+
+
+function normalizeOwner(value) {
+  return String(value || "").trim() || "Nezařazeno";
+}
+
+function excelDateToISO(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0,10);
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const utcDays = Math.floor(value - 25569);
+    const utcValue = utcDays * 86400;
+    const dateInfo = new Date(utcValue * 1000);
+    return dateInfo.toISOString().slice(0,10);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const iso = new Date(trimmed);
+    if (!Number.isNaN(iso.getTime())) return iso.toISOString().slice(0,10);
+    const m = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+  }
+  return null;
+}
+
+function parseBool(value) {
+  if (typeof value === "boolean") return value;
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["true", "pravda", "ano", "1", "yes"].includes(normalized);
+}
+
+function applyData(nextData) {
+  DATA = nextData;
+  DATA.resitele = DATA.resitele || [];
+  DATA.owners   = DATA.owners   || [];
+  DATA.tasks    = DATA.tasks    || [];
+  DATA.backlog  = DATA.backlog  || [];
+
+  buildPeopleLabels(DATA.resitele);
+  DATA.owners.forEach(owner => {
+    if (!PEOPLE_LABELS[owner]) PEOPLE_LABELS[owner] = owner;
+  });
+
+  // Primární zdroj řešitelů: list RESITEL (pokud existuje), jinak owners z úkolů
+  const sourceOwners = DATA.resitele.length > 0
+    ? DATA.resitele.map(r => r.zkratka)
+    : DATA.owners;
+
+  // Načti uložený layout a zachovej strany/pořadí, ale seznam řešitelů aktualizuj dle sourceOwners
+  const saved = loadPeopleLayout(sourceOwners);
+  // Přidej ty co v saved chybí
+  const savedSet = new Set(saved.map(e => e.owner));
+  sourceOwners.forEach(o => {
+    if (!savedSet.has(o)) saved.push({ owner: o, side: "L" });
+  });
+  // Odstraň ty co nejsou v sourceOwners
+  state.peopleLayout = saved.filter(e => sourceOwners.includes(e.owner));
+  state.selectedPeople = new Set(state.peopleLayout.map(e => e.owner));
+
+  savePeopleLayout();
+  buildPeopleFilters();
+  render();
+}
+
+async function initDashboard() {
+  buildPeopleFilters();
+  render();
+}
+
+// ── FTLoader integration ──────────────────────────────────────────────
+
+FTLoader.init({
+  onData: (parsedData) => { applyData(parsedData); },
+  onStatus: (msg, isError) => { setSyncStatus(msg, isError || false); }
+});
+
+initDashboard();
+</script>
+
+<a class="fab-nav" href="tydenni_prehled.html" aria-label="Přejít do týdenního přehledu" style="bottom: 80px;">
+  <span class="fab-icon">📅</span>
+  <span>
+    Týdenní přehled
+    <span class="fab-sub">čistá dvojitá tabulka</span>
+  </span>
+</a>
+
+<a class="fab-nav" href="sprava_ukolu_linked.html" aria-label="Přejít do správy úkolů">
+  <span class="fab-icon">⚙️</span>
+  <span>
+    Správa úkolů
+    <span class="fab-sub">přehled databáze a editace</span>
+  </span>
+</a>
+
+</body>
+</html>

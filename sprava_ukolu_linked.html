@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Správa úkolů – ALLDATBASE</title>
+  <script>
+// ── Dark mode ──────────────────────────────────────────────────────────
+const DARK_KEY = "ft_darkMode";
+function applyDarkMode(dark) {
+  document.documentElement.classList.toggle("dark", dark);
+  localStorage.setItem(DARK_KEY, dark ? "1" : "0");
+  document.querySelectorAll(".dark-mode-btn").forEach(btn => {
+    btn.textContent = dark ? "☀️" : "🌙";
+    btn.title = dark ? "Světlý režim" : "Tmavý režim";
+  });
+}
+function initDarkMode() {
+  const saved = localStorage.getItem(DARK_KEY);
+  const dark = saved !== null ? saved === "1" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyDarkMode(dark);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
+    if (localStorage.getItem(DARK_KEY) === null) applyDarkMode(e.matches);
+  });
+}
+initDarkMode();
+</script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="ft_loader.js"></script>
+  <style>
+    :root{
+      --bg:#f4f7fb;
+      --panel:#ffffff;
+      --text:#17324d;
+      --muted:#6e7f92;
+      --line:#d9e3ef;
+      --accent:#2f78ff;
+      --accent-soft:#eaf2ff;
+      --ok:#1f9d57;
+      --warn:#d97706;
+      --danger:#dc2626;
+      --shadow:0 14px 28px rgba(16, 40, 73, .08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, Segoe UI, Arial, sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,#f8fbff 0%,#f2f6fb 100%);
+    }
+    .app{
+      width:100%;
+      max-width:1800px;
+      margin:0 auto;
+      padding:clamp(12px, 1.5vw, 22px);
+      box-sizing:border-box;
+    }
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+    }
+    .title-wrap h1{
+      margin:0;
+      font-size:clamp(20px, 2vw, 30px);
+      letter-spacing:.2px;
+    }
+    .title-wrap p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:clamp(12px, 1vw, 14px);
+    }
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    button, .file-label{
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      border-radius:14px;
+      padding:11px 15px;
+      font-size:clamp(12px, 1vw, 14px);
+      cursor:pointer;
+      transition:.18s ease;
+      box-shadow:0 2px 0 rgba(0,0,0,.01);
+    }
+    button:hover, .file-label:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+    .primary{background:var(--accent); border-color:var(--accent); color:#fff}
+    .success{background:var(--ok); border-color:var(--ok); color:#fff}
+    .danger{background:#fff4f4; border-color:#ffd7d7; color:var(--danger)}
+    .ghost{background:#f8fbff}
+    #fileInput{display:none}
+    .statusbar{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+      margin-bottom:18px;
+    }
+    .stat{
+      background:var(--panel);
+      border:1px solid #e7eef7;
+      border-radius:var(--radius);
+      padding:clamp(10px, 1vw, 16px) clamp(12px, 1.2vw, 18px);
+      box-shadow:var(--shadow);
+    }
+    .stat .label{color:var(--muted); font-size:clamp(11px, 0.9vw, 13px); margin-bottom:8px}
+    .stat .value{font-size:clamp(20px, 2vw, 28px); font-weight:700}
+    .panel{
+      background:var(--panel);
+      border:1px solid #e7eef7;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .panel-head{
+      padding:clamp(10px, 1vw, 16px) clamp(12px, 1.2vw, 18px);
+      border-bottom:1px solid #edf2f8;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    .panel-head h2{
+      margin:0;
+      font-size:clamp(14px, 1.2vw, 18px);
+    }
+    .panel-body{padding:clamp(10px, 1vw, 16px) clamp(12px, 1.2vw, 18px)}
+    .grid{display:grid; gap:12px}
+    .grid.two{grid-template-columns:1fr 1fr}
+    .field label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    input, select, textarea{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:11px 12px;
+      font-size:clamp(12px, 1vw, 14px);
+      background:#fff;
+      color:var(--text);
+      outline:none;
+    }
+    textarea{resize:vertical; min-height:100px}
+    input:focus, select:focus, textarea:focus{border-color:#a7c6ff; box-shadow:0 0 0 4px rgba(47,120,255,.08)}
+    .helper{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+    .filters{
+      display:grid;
+      grid-template-columns:2fr 1fr 1fr 1fr;
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .table-wrap{
+      overflow:auto;
+      border-radius:14px;
+      border:1px solid var(--line);
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:900px;
+      background:#fff;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      background:#f6f9fd;
+      z-index:2;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      color:#5c7188;
+    }
+    th, td{
+      border-bottom:1px solid #edf2f8;
+      padding:10px 10px;
+      text-align:left;
+      vertical-align:top;
+      font-size:13px;
+    }
+    tbody tr:nth-child(odd){background:#f7f8fa}
+    tbody tr:nth-child(even){background:#ffffff}
+    tbody tr:hover{background:#e8f0fe}
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border-radius:999px;
+      padding:5px 10px;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .prio-P0{background:#fff1f2;color:#be123c}
+    .prio-P1{background:#fff7ed;color:#c2410c}
+    .prio-P2{background:#eff6ff;color:#1d4ed8}
+    .prio-P3{background:#f3f4f6;color:#4b5563}
+    .state-done{background:#ecfdf3;color:#15803d}
+    .state-progress{background:#eff6ff;color:#2563eb}
+    .state-wait{background:#fff7ed;color:#b45309}
+    .actions-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .small-btn{
+      padding:7px 10px;
+      font-size:12px;
+      border-radius:10px;
+    }
+    .muted{color:var(--muted)}
+    .empty{
+      padding:28px;
+      text-align:center;
+      color:var(--muted);
+    }
+    .footer-note{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(14,25,39,.36);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:30;
+    }
+    .modal.open{display:flex}
+    .modal-card{
+      width:min(900px,100%);
+      max-height:90vh;
+      overflow:auto;
+      background:#fff;
+      border-radius:24px;
+      box-shadow:0 28px 80px rgba(10,25,48,.25);
+      border:1px solid rgba(255,255,255,.65);
+    }
+    .modal-head{
+      position:sticky;
+      top:0;
+      background:#fff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:16px 20px;
+      border-bottom:1px solid #edf2f8;
+      z-index:2;
+    }
+    .modal-body{padding:20px}
+    .pill{
+      display:inline-block;
+      background:var(--accent-soft);
+      color:var(--accent);
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+    }
+    @media (max-width:1200px){
+      .layout{grid-template-columns:1fr}
+    }
+    @media (max-width:900px){
+      .statusbar{grid-template-columns:1fr 1fr}
+      .filters{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:640px){
+      .statusbar{grid-template-columns:1fr}
+      .filters{grid-template-columns:1fr}
+      .grid.two{grid-template-columns:1fr}
+    }
+  
+    .fab-nav {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 9999;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 220px;
+      width: auto;
+      padding: 14px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: var(--accent);
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .fab-nav:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.34);
+      background: #2563eb;
+    }
+    .fab-nav .fab-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      opacity: .8;
+      margin-top: 2px;
+    }
+    .fab-nav .fab-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.16);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 16px;
+    }
+    @media (max-width: 720px) {
+      .fab-nav {
+        right: 14px;
+        bottom: 14px;
+        min-width: 0;
+        width: calc(100% - 28px);
+        justify-content: center;
+      }
+    }
+
+  
+    /* ── DARK MODE ── */
+    html.dark { color-scheme: dark; }
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark .app { background: transparent; }
+    html.dark .panel { background: #1e293b; border-color: #334155; }
+    html.dark .panel-head { border-color: #334155; }
+    html.dark .panel-head h2 { color: #e2e8f0; }
+    html.dark .stat { background: #1e293b; border-color: #334155; }
+    html.dark .stat .label { color: #64748b; }
+    html.dark .stat .value { color: #e2e8f0; }
+    html.dark .topbar { background: #1e293b; border-color: #334155; }
+    html.dark h1 { color: #e2e8f0; }
+    html.dark button, html.dark .file-label { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+    html.dark button:hover, html.dark .file-label:hover { background: #334155; }
+    html.dark .primary { background: #2563eb; border-color: #2563eb; color: white; }
+    html.dark .success { background: #15803d; border-color: #15803d; color: white; }
+    html.dark .danger { background: #7f1d1d; border-color: #991b1b; color: #fca5a5; }
+    html.dark input, html.dark select, html.dark textarea { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+    html.dark input:focus, html.dark select:focus, html.dark textarea:focus { border-color: #3b82f6; }
+    html.dark .table-wrap { border-color: #334155; }
+    html.dark table { background: #1e293b; }
+    html.dark thead th { background: #0f172a; color: #94a3b8; border-color: #334155; }
+    html.dark tbody tr:nth-child(odd) { background: #1e293b; }
+    html.dark tbody tr:nth-child(even) { background: #162032; }
+    html.dark tbody tr:hover { background: #1d3461; }
+    html.dark td { color: #e2e8f0; border-color: #334155; }
+    html.dark .muted { color: #64748b; }
+    html.dark .badge { opacity: 0.85; }
+    html.dark .modal { background: rgba(0,0,0,0.75); }
+    html.dark .modal-card, html.dark #taskModal .modal-card { background: #1e293b; color: #e2e8f0; }
+    html.dark .modal-head { border-color: #334155; }
+    html.dark .modal-head h2 { color: #e2e8f0; }
+    html.dark .pill { background: #334155; color: #94a3b8; }
+    html.dark .footer-note { color: #475569; }
+    html.dark .helper { color: #475569; }
+    html.dark .field label { color: #94a3b8; }
+    html.dark #restoreBanner { background: #1d4ed8; }
+
+    </style>
+</head>
+<body>
+  <div id="restoreBanner" style="display:none;position:sticky;top:0;z-index:200;background:#1d4ed8;color:white;padding:12px 20px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="font-size:14px;font-weight:600;">🔒 Soubor vyžaduje obnovení přístupu pro zápis</div>
+    <button id="restoreBannerBtn" style="background:white;color:#1d4ed8;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Obnovit přístup →</button>
+  </div>
+
+  <div class="app">
+    <div class="topbar">
+      <div class="title-wrap">
+        <h1>Správa úkolů</h1>
+        <p>Přehled a editace listu <strong>ALLDATBASE</strong> z Excelu. Doporučeno otevřít v Chrome nebo Edge.</p>
+      </div>
+      <div class="actions">
+        <button class="primary" onclick="openFileWritable()">Otevřít XLSX se zápisem</button>
+        <label class="file-label" for="fileInput">Načíst jen pro čtení</label>
+        <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" />
+        <button class="ghost" onclick="reloadWorkbook()">Znovu načíst</button>
+        <button class="success" onclick="saveWorkbook()">Uložit změny do XLSX</button>
+        <button onclick="openNewTaskModal()">Nový úkol</button>
+        <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <div class="stat"><div class="label">Celkem úkolů</div><div class="value" id="statTotal">0</div></div>
+      <div class="stat"><div class="label">Probíhá / otevřené</div><div class="value" id="statOpen">0</div></div>
+      <div class="stat"><div class="label">Dokončeno</div><div class="value" id="statDone">0</div></div>
+      <div class="stat"><div class="label">Vybraný soubor</div><div class="value" id="statFile" style="font-size:17px; font-weight:600;">nenačteno</div><div id="statWriteMode" style="font-size:11px;font-weight:600;margin-top:4px;letter-spacing:.04em;"></div></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px;">
+      <div class="panel-head">
+        <h2>Filtry a rychlé akce</h2>
+        <span class="pill">ALLDATBASE</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto;gap:10px;align-items:end;flex-wrap:wrap;">
+          <div class="field" style="margin:0;">
+            <label>Hledat</label>
+            <input id="searchInput" placeholder="ID, úkol, projekt, poznámka..." />
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Řešitel</label>
+            <select id="filterAssignee"></select>
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Stav</label>
+            <select id="filterState">
+              <option value="">Vše</option>
+              <option value="Dokončeno">Dokončeno</option>
+              <option value="Probíhá">Probíhá</option>
+              <option value="Čeká se">Čeká se</option>
+              <option value="Nový">Nový</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Priorita</label>
+            <select id="filterPriority">
+              <option value="">Vše</option>
+              <option value="P0">P0</option>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+              <option value="P3">P3</option>
+              <option value="PX">PX – volno/lékař</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Zobrazení</label>
+            <select id="filterDoneMode">
+              <option value="all">Všechny</option>
+              <option value="open">Jen otevřené</option>
+              <option value="done">Jen dokončené</option>
+            </select>
+          </div>
+          <button onclick="markSelectedAsDone()" style="white-space:nowrap;align-self:end;">✓ Označit jako hotové</button>
+          <button class="danger" onclick="deleteSelected()" style="white-space:nowrap;align-self:end;">🗑 Zrušit vybrané</button>
+          <label style="align-self:end;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="showCancelled" style="width:auto;" />
+            Zobrazit zrušené
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Databáze úkolů</h2>
+        <div class="muted" id="resultInfo">0 záznamů</div>
+      </div>
+      <div class="panel-body">
+        <div class="filters">
+          <input id="quickProject" placeholder="Projekt" />
+          <input id="quickFromDate" type="date" />
+          <input id="quickToDate" type="date" />
+          <button onclick="resetFilters()">Vyčistit filtry</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="selectAll" /></th>
+                <th>ID</th>
+                <th>Úkol</th>
+                <th>Priorita</th>
+                <th>Stav</th>
+                <th>Projekt</th>
+                <th>Řešitel</th>
+                <th>Plán</th>
+                <th>Dokončení</th>
+                <th>Termín</th>
+                <th>Čeká se</th>
+                <th>Auto</th>
+                <th>Poznámka</th>
+                <th>Akce</th>
+              </tr>
+            </thead>
+            <tbody id="taskTableBody"></tbody>
+          </table>
+        </div>
+        <div class="footer-note">
+          Sloupce jsou mapované na Excel: A ID, C Úkol, D Priorita, E Projekt, G Čeká se, I Stav, J %, L Plánovaný datum realizace, N Datum dokončení, S Řešitel, T Upřesnění / poznámka, U Poznámka Interní JK, V Auto.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app" style="margin-top:0;padding-top:0;">
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-head"><h2>🚗 Správa aut</h2></div>
+      <div class="panel-body" id="autaTableWrap">
+        <div style="color:#6b7280;font-size:13px;">Načítám data...</div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-head"><h2>🔁 Výjimky opakujících se úkolů</h2></div>
+      <div class="panel-body" id="vyjimkyTableWrap">
+        <div style="color:#6b7280;font-size:13px;">Načítám data...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="taskModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Editace záznamu</div>
+          <h2 id="modalTitle" style="margin:4px 0 0; font-size:24px;">Nový úkol</h2>
+        </div>
+        <div class="actions-row">
+          <button onclick="closeTaskModal()">Zavřít</button>
+          <button class="primary" onclick="saveTaskFromModal()">Uložit změny</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="grid two">
+          <div class="field"><label>ID úkolu</label><input id="m_id" /></div>
+          <div class="field"><label>Interní číslo projektu</label><input id="m_internal" /></div>
+        </div>
+        <div class="grid">
+          <div class="field"><label>Úkol</label><input id="m_task" /></div>
+        </div>
+        <div class="grid two">
+          <div class="field">
+            <label>Priorita</label>
+            <select id="m_priority">
+              <option value="PX">PX – volno/lékař</option>
+              <option value="P0">P0</option>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+              <option value="P3">P3</option>
+            </select>
+          </div>
+          <div class="field"><label>Projekt</label><input id="m_project" /></div>
+        </div>
+        <div class="grid two">
+          <div class="field"><label>Obchodní zástupce</label><input id="m_sales" /></div>
+          <div class="field"><label>Řešitel</label><select id="m_assignee"><option value="">— nevybráno —</option></select></div>
+        </div>
+        <div class="grid two">
+          <div class="field">
+            <label>Stav</label>
+            <select id="m_state">
+              <option value="Nový">Nový</option>
+              <option value="Probíhá">Probíhá</option>
+              <option value="Čeká se">Čeká se</option>
+              <option value="Dokončeno">Dokončeno</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid two">
+          <div class="field"><label>Datum zapsání</label><input id="m_created" type="date" /></div>
+          <div class="field"><label>Plánovaný datum realizace</label><input id="m_planned" type="date" /></div>
+        </div>
+        <div class="grid two">
+          <div class="field"><label>Datum dokončení</label><input id="m_finished" type="date" /></div>
+          <div class="field"><label>Datum požadovaného ukončení</label><input id="m_due" type="date" /></div>
+        </div>
+        <div class="grid two">
+          <div class="field">
+            <label>Čeká se na něco</label>
+            <select id="m_waiting">
+              <option value="false">Ne</option>
+              <option value="true">Ano</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Podúkol</label>
+            <select id="m_subtask">
+              <option value="false">Ne</option>
+              <option value="true">Ano</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="field"><label>Upřesnění / poznámka</label><textarea id="m_note"></textarea></div>
+          <div class="field"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
+        </div>
+        <div class="field">
+          <label>Auto (SPZ)</label>
+          <select id="m_auto" style="margin-bottom:4px;">
+            <option value="">— bez auta —</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+            <input id="m_auto_manual" placeholder="nebo napište SPZ ručně..." style="flex:1;" autocomplete="off" />
+            <button type="button" onclick="useManualAuto()" style="padding:8px 12px;font-size:12px;border-radius:10px;border:1px solid #d1d5db;background:#f8fbff;cursor:pointer;white-space:nowrap;">Použít</button>
+          </div>
+          <div id="m_auto_warning" style="color:#cc1f1a;font-size:12px;margin-top:4px;display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const SHEET_NAME = "ALLDATBASE";
+const DEFAULT_FILENAME = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
+
+const COL = {
+  ID: 0,
+  INTERNAL_PROJECT: 1,
+  TASK: 2,
+  PRIORITY: 3,
+  PROJECT: 4,
+  SALES: 5,
+  WAITING: 6,
+  SUBTASK: 7,
+  STATE: 8,
+  PERCENT: 9,
+  CREATED: 10,
+  PLANNED: 11,
+  CURRENT_DAY_CHECK: 12,
+  FINISHED: 13,
+  MISSED_CHECK: 14,
+  FUTURE_WORK_CHECK: 15,
+  LAST_STATUS_CHECK: 16,
+  DUE: 17,
+  ASSIGNEE: 18,
+  NOTE: 19,
+  NOTE_INTERNAL: 20,
+  AUTO: 21,
+  CANCELLED: 22
+};
+
+let workbook = null;
+let worksheetRows = []; // raw AOA including header
+let headers = [];
+let tasks = [];
+let filteredTasks = [];
+let fileHandle = null;
+let fileName = DEFAULT_FILENAME;
+let currentEditIndex = null;
+let auta = [];
+let autaRezervace = [];
+let resitele = [];
+let opakovaciVyjimky = [];
+
+const els = {
+  fileInput: document.getElementById("fileInput"),
+  searchInput: document.getElementById("searchInput"),
+  filterAssignee: document.getElementById("filterAssignee"),
+  filterState: document.getElementById("filterState"),
+  filterPriority: document.getElementById("filterPriority"),
+  filterDoneMode: document.getElementById("filterDoneMode"),
+  showCancelled: document.getElementById("showCancelled"),
+  quickProject: document.getElementById("quickProject"),
+  quickFromDate: document.getElementById("quickFromDate"),
+  quickToDate: document.getElementById("quickToDate"),
+  taskTableBody: document.getElementById("taskTableBody"),
+  resultInfo: document.getElementById("resultInfo"),
+  statTotal: document.getElementById("statTotal"),
+  statOpen: document.getElementById("statOpen"),
+  statDone: document.getElementById("statDone"),
+  statFile: document.getElementById("statFile"),
+  selectAll: document.getElementById("selectAll"),
+  taskModal: document.getElementById("taskModal"),
+  modalTitle: document.getElementById("modalTitle")
+};
+
+function excelDateToJS(value){
+  if(value == null || value === "") return null;
+  if(value instanceof Date && !isNaN(value)) return value;
+  if(typeof value === "number"){
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if(!parsed) return null;
+    return new Date(parsed.y, parsed.m - 1, parsed.d);
+  }
+  if(typeof value === "string"){
+    if(/^\d{4}-\d{2}-\d{2}$/.test(value + "")){
+      const d = new Date(value + "T00:00:00");
+      return isNaN(d) ? null : d;
+    }
+    const d = new Date(value);
+    return isNaN(d) ? null : d;
+  }
+  return null;
+}
+
+function formatDate(value){
+  const d = excelDateToJS(value);
+  if(!d) return "";
+  return d.toLocaleDateString("cs-CZ");
+}
+
+function formatDateISO(value){
+  const d = excelDateToJS(value);
+  if(!d) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function normalizeText(value){
+  return (value ?? "").toString().trim();
+}
+
+function boolToText(v){ return v ? "Ano" : "Ne"; }
+
+function parseBool(value){
+  if(value === true || value === false) return value;
+  const t = normalizeText(value).toLowerCase();
+  return ["true", "1", "ano", "yes"].includes(t);
+}
+
+function stateClass(state){
+  const s = normalizeText(state).toLowerCase();
+  if(s.includes("dokon")) return "state-done";
+  if(s.includes("ček")) return "state-wait";
+  return "state-progress";
+}
+
+function priorityClass(priority){
+  const p = normalizeText(priority).toUpperCase();
+  return `prio-${["P0","P1","P2","P3"].includes(p) ? p : "P3"}`;
+}
+
+function rowToTask(row, rowIndex){
+  const safe = idx => row[idx] ?? "";
+  return {
+    rowIndex,
+    selected: false,
+    values: row,
+    id: normalizeText(safe(COL.ID)),
+    internalProject: normalizeText(safe(COL.INTERNAL_PROJECT)),
+    task: normalizeText(safe(COL.TASK)),
+    priority: normalizeText(safe(COL.PRIORITY)) || "P2",
+    project: normalizeText(safe(COL.PROJECT)),
+    sales: normalizeText(safe(COL.SALES)),
+    waiting: parseBool(safe(COL.WAITING)),
+    subtask: parseBool(safe(COL.SUBTASK)),
+    state: normalizeText(safe(COL.STATE)) || "Nový",
+    percent: safe(COL.PERCENT) === "" ? 0 : Number(safe(COL.PERCENT) || 0),
+    created: safe(COL.CREATED),
+    planned: safe(COL.PLANNED),
+    finished: safe(COL.FINISHED),
+    due: safe(COL.DUE),
+    assignee: normalizeText(safe(COL.ASSIGNEE)),
+    note: normalizeText(safe(COL.NOTE)),
+    internalNote: normalizeText(safe(COL.NOTE_INTERNAL)),
+    auto: safe(COL.AUTO) || "",
+    cancelled: ["true","ano","1","yes"].includes(String(safe(COL.CANCELLED)||"").trim().toLowerCase())
+  };
+}
+
+function syncTaskToRow(task){
+  const row = worksheetRows[task.rowIndex] || [];
+  for(let i=0;i<21;i++){ if(typeof row[i] === "undefined") row[i] = ""; }
+
+  row[COL.ID] = task.id || "";
+  row[COL.INTERNAL_PROJECT] = task.internalProject || "";
+  row[COL.TASK] = task.task || "";
+  row[COL.PRIORITY] = task.priority || "P2";
+  row[COL.PROJECT] = task.project || "";
+  row[COL.SALES] = task.sales || "";
+  row[COL.WAITING] = !!task.waiting;
+  row[COL.SUBTASK] = !!task.subtask;
+  row[COL.STATE] = task.state || "Nový";
+  row[COL.PERCENT] = Number.isFinite(task.percent) ? task.percent : 0;
+  row[COL.CREATED] = task.created ? formatDateISO(task.created) : "";
+  row[COL.PLANNED] = task.planned ? formatDateISO(task.planned) : "";
+  row[COL.FINISHED] = task.finished ? formatDateISO(task.finished) : "";
+  row[COL.DUE] = task.due ? formatDateISO(task.due) : "";
+  row[COL.ASSIGNEE] = task.assignee || "";
+  row[COL.NOTE] = task.note || "";
+  row[COL.NOTE_INTERNAL] = task.internalNote || "";
+  row[COL.AUTO] = task.auto || "";
+  row[COL.CANCELLED] = task.cancelled ? true : false;
+
+  worksheetRows[task.rowIndex] = row;
+}
+
+function rebuildTasks(){
+  tasks = [];
+  for(let i=1; i<worksheetRows.length; i++){
+    const row = worksheetRows[i];
+    if(!row || row.every(v => v == null || v === "")) continue;
+    tasks.push(rowToTask(row, i));
+  }
+  fillAssigneeFilter();
+  applyFilters();
+}
+
+function fillAssigneeFilter(){
+  const current = els.filterAssignee.value;
+  if (resitele.length > 0) {
+    // Naplň ze seznamu RESITEL
+    els.filterAssignee.innerHTML = '<option value="">Všichni</option>';
+    resitele.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.zkratka;
+      opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
+      els.filterAssignee.appendChild(opt);
+    });
+  } else {
+    // Fallback: unikátní hodnoty z dat
+    const assignees = [...new Set(tasks.map(t => t.assignee).filter(Boolean))].sort((a,b) => a.localeCompare(b, "cs"));
+    els.filterAssignee.innerHTML = `<option value="">Všichni</option>` + assignees.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
+  }
+  els.filterAssignee.value = current;
+}
+
+function applyFilters(){
+  const search = normalizeText(els.searchInput.value).toLowerCase();
+  const assignee = els.filterAssignee.value;
+  const state = els.filterState.value;
+  const priority = els.filterPriority.value;
+  const doneMode = els.filterDoneMode.value;
+  const project = normalizeText(els.quickProject.value).toLowerCase();
+  const fromDate = els.quickFromDate.value;
+  const toDate = els.quickToDate.value;
+  const showCancelled = els.showCancelled?.checked || false;
+
+  filteredTasks = tasks.filter(task => {
+    // Filtr zrušených
+    if (task.cancelled && !showCancelled) return false;
+    if (!task.cancelled && showCancelled) return false;
+
+    const haystack = [
+      task.id, task.task, task.project, task.assignee, task.note, task.internalNote, task.internalProject
+    ].join(" ").toLowerCase();
+
+    if(search && !haystack.includes(search)) return false;
+    if(project && !task.project.toLowerCase().includes(project)) return false;
+    if(assignee && task.assignee !== assignee) return false;
+    if(state && task.state !== state) return false;
+    if(priority && task.priority !== priority) return false;
+
+    const isDone = normalizeText(task.state).toLowerCase().includes("dokon");
+    if(doneMode === "open" && isDone) return false;
+    if(doneMode === "done" && !isDone) return false;
+
+    const plannedIso = formatDateISO(task.planned);
+    if(fromDate && (!plannedIso || plannedIso < fromDate)) return false;
+    if(toDate && (!plannedIso || plannedIso > toDate)) return false;
+
+    return true;
+  });
+
+  renderStats();
+  renderTable();
+}
+
+function renderStats(){
+  const done = tasks.filter(t => normalizeText(t.state).toLowerCase().includes("dokon")).length;
+  els.statTotal.textContent = tasks.length;
+  els.statDone.textContent = done;
+  els.statOpen.textContent = tasks.length - done;
+  els.statFile.textContent = fileName || "nenačteno";
+  updateWriteStatus();
+}
+
+function updateWriteStatus() {
+  const el = document.getElementById("statWriteMode");
+  const fileEl = document.getElementById("statFile");
+  if (!el || !fileEl) return;
+  if (!fileName || fileName === "nenačteno") {
+    el.textContent = "";
+    fileEl.style.color = "";
+    return;
+  }
+  if (fileHandle) {
+    el.textContent = "✅ Zápis povolen";
+    el.style.color = "#15803d";
+    fileEl.style.color = "#15803d";
+  } else {
+    el.textContent = "⚠ Pouze pro čtení";
+    el.style.color = "#d97706";
+    fileEl.style.color = "#d97706";
+  }
+}
+
+function renderTable(){
+  els.resultInfo.textContent = `${filteredTasks.length} záznamů`;
+  if(!filteredTasks.length){
+    els.taskTableBody.innerHTML = `<tr><td colspan="13" class="empty">Žádné úkoly neodpovídají aktuálním filtrům.</td></tr>`;
+    return;
+  }
+
+  els.taskTableBody.innerHTML = filteredTasks.map(task => `
+    <tr style="${task.cancelled ? 'opacity:0.5;background:#fef2f2;text-decoration:line-through;' : ''}">
+      <td><input type="checkbox" ${task.selected ? "checked" : ""} onchange="toggleSelection(${task.rowIndex}, this.checked)" /></td>
+      <td><strong>${escapeHtml(task.id || "—")}</strong><div class="muted">${escapeHtml(task.internalProject || "")}</div></td>
+      <td>${escapeHtml(task.task || "")}</td>
+      <td><span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority || "P2")}</span></td>
+      <td><span class="badge ${stateClass(task.state)}">${escapeHtml(task.state || "Nový")}</span></td>
+      <td>${escapeHtml(task.project || "")}</td>
+      <td>${escapeHtml(task.assignee || "Nezařazeno")}</td>
+      <td>${escapeHtml(formatDate(task.planned))}</td>
+      <td>${escapeHtml(formatDate(task.finished))}</td>
+      <td>${task.due ? `<span style="color:${task.due < new Date().toISOString().slice(0,10) && !task.finished ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.due))}</span>` : ""}</td>
+      <td>${boolToText(task.waiting)}</td>
+      <td>${task.auto ? `<strong style="color:#cc1f1a">${escapeHtml(task.auto)}</strong>` : ""}</td>
+      <td>${escapeHtml(task.note || task.internalNote || "")}</td>
+      <td>
+        <div class="actions-row">
+          ${task.cancelled
+            ? `<button class="small-btn success" onclick="restoreTask(${task.rowIndex})">Obnovit</button>`
+            : `<button class="small-btn" onclick="editTask(${task.rowIndex})">Upravit</button>
+               <button class="small-btn" onclick="markAsDone(${task.rowIndex})">Hotovo</button>`
+          }
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function toggleSelection(rowIndex, checked){
+  const task = tasks.find(t => t.rowIndex === rowIndex);
+  if(task) task.selected = checked;
+}
+
+els.selectAll.addEventListener("change", (e) => {
+  const checked = e.target.checked;
+  filteredTasks.forEach(t => t.selected = checked);
+  renderTable();
+});
+
+function resetFilters(){
+  els.searchInput.value = "";
+  els.filterAssignee.value = "";
+  els.filterState.value = "";
+  els.filterPriority.value = "";
+  els.filterDoneMode.value = "all";
+  els.quickProject.value = "";
+  els.quickFromDate.value = "";
+  els.quickToDate.value = "";
+  applyFilters();
+}
+
+function markAsDone(rowIndex){
+  const task = tasks.find(t => t.rowIndex === rowIndex);
+  if(!task) return;
+  task.state = "Dokončeno";
+  task.percent = 1;
+  task.finished = new Date();
+  syncTaskToRow(task);
+  applyFilters();
+}
+
+function markSelectedAsDone(){
+  let changed = 0;
+  tasks.filter(t => t.selected).forEach(task => {
+    task.state = "Dokončeno";
+    task.percent = 1;
+    task.finished = new Date();
+    syncTaskToRow(task);
+    changed++;
+  });
+  if(!changed){
+    alert("Nejdřív vyber alespoň jeden úkol.");
+    return;
+  }
+  applyFilters();
+}
+
+function deleteSelected(){
+  const selected = tasks.filter(t => t.selected && !t.cancelled);
+  if(!selected.length){
+    alert("Nejdřív vyber alespoň jeden aktivní úkol.");
+    return;
+  }
+  if(!confirm(`Opravdu zrušit ${selected.length} úkol(y)? (lze obnovit)`)) return;
+  selected.forEach(t => {
+    t.cancelled = true;
+    syncTaskToRow(t);
+  });
+  rebuildTasks();
+  renderTable();
+  renderStats();
+  autoSaveIfPossible();
+}
+
+function openTaskModal(task=null){
+  currentEditIndex = task ? task.rowIndex : null;
+  els.modalTitle.textContent = task ? `Úprava ${task.id || "úkolu"}` : "Nový úkol";
+  buildAutaDatalist();
+  buildResitelSelect();
+
+  setValue("m_id", task?.id || generateNextId());
+  setValue("m_internal", task?.internalProject || "");
+  setValue("m_task", task?.task || "");
+  setValue("m_priority", task?.priority || "P2");
+  setValue("m_project", task?.project || "");
+  setValue("m_sales", task?.sales || "");
+  // Řešitel: nastav select, případně přidej neznámou zkratku jako extra option
+  const assigneeSel = document.getElementById("m_assignee");
+  if (assigneeSel) {
+    const assigneeVal = task?.assignee || "";
+    if (assigneeVal && !Array.from(assigneeSel.options).find(o => o.value === assigneeVal)) {
+      const opt = document.createElement("option");
+      opt.value = assigneeVal;
+      opt.textContent = assigneeVal;
+      assigneeSel.appendChild(opt);
+    }
+    assigneeSel.value = assigneeVal;
+  }
+  setValue("m_state", task?.state || "Nový");
+  // m_percent odstraněno — pole se nezobrazuje
+  setValue("m_created", task ? formatDateISO(task.created) : formatDateISO(new Date()));
+  setValue("m_planned", task ? formatDateISO(task.planned) : "");
+  setValue("m_finished", task ? formatDateISO(task.finished) : "");
+  setValue("m_due", task ? formatDateISO(task.due) : "");
+  setValue("m_waiting", task?.waiting ? "true" : "false");
+  setValue("m_subtask", task?.subtask ? "true" : "false");
+  setValue("m_note", task?.note || "");
+  setValue("m_note_internal", task?.internalNote || "");
+  // Auto: nastav select, případně přidej jako extra option
+  const autoSel = document.getElementById("m_auto");
+  if (autoSel) {
+    const autoVal = task?.auto || "";
+    if (autoVal && !Array.from(autoSel.options).find(o => o.value === autoVal)) {
+      const opt = document.createElement("option");
+      opt.value = autoVal;
+      opt.textContent = `${autoVal} (ručně)`;
+      autoSel.appendChild(opt);
+    }
+    autoSel.value = autoVal;
+  }
+  // Skrýt warning při otevření
+  const warn = document.getElementById("m_auto_warning");
+  if (warn) warn.style.display = "none";
+
+  els.taskModal.classList.add("open");
+}
+
+function openNewTaskModal(){ openTaskModal(null); }
+function closeTaskModal(){ els.taskModal.classList.remove("open"); }
+
+function setValue(id, value){ document.getElementById(id).value = value; }
+function getValue(id){ return document.getElementById(id).value; }
+
+function editTask(rowIndex){
+  const task = tasks.find(t => t.rowIndex === rowIndex);
+  if(task) openTaskModal(task);
+}
+
+function saveTaskFromModal(){
+  const taskData = {
+    rowIndex: currentEditIndex ?? worksheetRows.length,
+    selected: false,
+    values: [],
+    id: normalizeText(getValue("m_id")),
+    internalProject: normalizeText(getValue("m_internal")),
+    task: normalizeText(getValue("m_task")),
+    priority: getValue("m_priority"),
+    project: normalizeText(getValue("m_project")),
+    sales: normalizeText(getValue("m_sales")),
+    waiting: getValue("m_waiting") === "true",
+    subtask: getValue("m_subtask") === "true",
+    state: getValue("m_state"),
+    percent: 0,
+    created: getValue("m_created"),
+    planned: getValue("m_planned"),
+    finished: getValue("m_finished"),
+    due: getValue("m_due"),
+    assignee: normalizeText(getValue("m_assignee")),
+    note: normalizeText(getValue("m_note")),
+    internalNote: normalizeText(getValue("m_note_internal")),
+    auto: (getValue("m_auto") || "").trim()
+  };
+
+  if(!taskData.task){
+    alert("Pole Úkol je povinné.");
+    return;
+  }
+
+  if(taskData.state === "Dokončeno" && !taskData.finished){
+    taskData.finished = formatDateISO(new Date());
+  }
+  if(taskData.state === "Dokončeno" && taskData.percent < 1){
+    taskData.percent = 1;
+  }
+
+  syncTaskToRow(taskData);
+  rebuildTasks();
+  closeTaskModal();
+}
+
+function generateNextId(){
+  const ids = tasks.map(t => t.id).filter(Boolean);
+  let max = 0;
+  ids.forEach(id => {
+    const m = id.match(/(\d+)/);
+    if(m) max = Math.max(max, Number(m[1]));
+  });
+  return `*${String(max + 1).padStart(4, "0")}*`;
+}
+
+function escapeHtml(str){
+  return (str ?? "").toString()
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+async function loadWorkbookFromArrayBuffer(buffer, newFileName){
+  workbook = XLSX.read(buffer, {type:"array", cellDates:true});
+  const sheet = workbook.Sheets[SHEET_NAME];
+  if(!sheet){
+    throw new Error(`V souboru chybí list ${SHEET_NAME}.`);
+  }
+  worksheetRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+  if(!worksheetRows.length){
+    worksheetRows = [[]];
+  }
+  headers = worksheetRows[0] || [];
+  fileName = newFileName || fileName;
+  rebuildTasks();
+
+  // ── Parsovat listy Auta a Auta_rezervace ──
+  auta = [];
+  const autaSheet = workbook.Sheets["AUTA"];
+  if (autaSheet) {
+    XLSX.utils.sheet_to_json(autaSheet, {header:1, raw:false, defval:""})
+      .slice(1).filter(r => r[0] || r[1]).forEach(r => {
+        auta.push({
+          popis:      String(r[0]||"").trim(),
+          spz:        String(r[1]||"").trim(),
+          zodpovedna: String(r[2]||"").trim(),
+          dostupnost: String(r[3]||"volné").trim().toLowerCase() || "volné"
+        });
+      });
+  }
+  autaRezervace = [];
+  const rezSheet = workbook.Sheets["AUTA_REZERVACE"];
+  if (rezSheet) {
+    XLSX.utils.sheet_to_json(rezSheet, {header:1, raw:false, defval:""})
+      .slice(1).filter(r => r[0] && r[1]).forEach(r => {
+        autaRezervace.push({
+          spz:      String(r[0]||"").trim(),
+          datum:    String(r[1]||"").trim(),
+          stav:     String(r[2]||"používané").trim().toLowerCase() || "používané",
+          poznamka: String(r[3]||"").trim()
+        });
+      });
+  }
+
+  // ── Parsovat list RESITEL ──
+  resitele = [];
+  const resSheet = workbook.Sheets["RESITEL"];
+  if (resSheet) {
+    XLSX.utils.sheet_to_json(resSheet, {header:1, raw:false, defval:""})
+      .slice(1).filter(r => r[0]).forEach(r => {
+        resitele.push({
+          zkratka:  String(r[0]||"").trim(),
+          jmeno:    String(r[1]||"").trim(),
+          prijmeni: String(r[2]||"").trim()
+        });
+      });
+  }
+
+  buildAutaDatalist();
+  buildResitelSelect();
+  renderAutaTable();
+
+  // ── Parsovat list OPAKOVACI_VYJIMKY ──
+  opakovaciVyjimky = [];
+  const opvSheet = workbook.Sheets["OPAKUJICI_VYJIMKY"];
+  if (opvSheet) {
+    XLSX.utils.sheet_to_json(opvSheet, {header:1, raw:false, defval:""})
+      .slice(1).filter(r => r[0] && r[1]).forEach(r => {
+        opakovaciVyjimky.push({
+          id:    String(r[0]||"").trim(),
+          datum: String(r[1]||"").trim(),
+          duvod: String(r[2]||"").trim()
+        });
+      });
+  }
+  renderVyjimkyTable();
+
+  // ── Uložit do sdílené cache (předáme originální buffer) ──
+  try {
+    if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(buffer, fileName);
+  } catch(e) { console.warn("ft_loader: pushWorkbook failed", e); }
+}
+
+// ── IndexedDB: uložení a obnova fileHandle ─────────────────────────────
+
+const IDB_NAME = "ft_sprava";
+const IDB_STORE = "handles";
+const IDB_KEY = "xlsxHandle";
+
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function idbSaveHandle(handle) {
+  try {
+    const db = await idbOpen();
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+  } catch(e) { console.warn("idbSaveHandle:", e); }
+}
+
+async function idbLoadHandle() {
+  try {
+    const db = await idbOpen();
+    return await new Promise((res, rej) => {
+      const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = e => res(e.target.result || null);
+      req.onerror = e => rej(e.target.error);
+    });
+  } catch(e) { return null; }
+}
+
+async function idbClearHandle() {
+  try {
+    const db = await idbOpen();
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).delete(IDB_KEY);
+  } catch(e) {}
+}
+
+async function tryRestoreFileHandle() {
+  if (!window.showOpenFilePicker) return false;
+  const handle = await idbLoadHandle();
+  if (!handle) return false;
+  try {
+    const perm = await handle.queryPermission({ mode: "readwrite" });
+    if (perm === "granted") {
+      // Oprávnění stále platí — načti bez dotazu
+      fileHandle = handle;
+      FTLoader.setFileHandle(handle);
+      const file = await handle.getFile();
+      const buffer = await file.arrayBuffer();
+      await loadWorkbookFromArrayBuffer(buffer, file.name);
+      updateWriteStatus();
+      hideBanner();
+      handleUrlParams();
+      return true;
+    } else {
+      // Oprávnění vypršelo — zobraz banner s tlačítkem (prohlížeč potřebuje klik)
+      showRestoreBanner(handle);
+      return false;
+    }
+  } catch(e) {
+    console.warn("tryRestoreFileHandle:", e);
+    await idbClearHandle();
+  }
+  return false;
+}
+
+function showRestoreBanner(handle) {
+  const banner = document.getElementById("restoreBanner");
+  if (!banner) return;
+  banner.style.display = "flex";
+  document.getElementById("restoreBannerBtn").onclick = async () => {
+    try {
+      const req = await handle.requestPermission({ mode: "readwrite" });
+      if (req === "granted") {
+        fileHandle = handle;
+        FTLoader.setFileHandle(handle);
+        const file = await handle.getFile();
+        const buffer = await file.arrayBuffer();
+        await loadWorkbookFromArrayBuffer(buffer, file.name);
+        updateWriteStatus();
+        hideBanner();
+        handleUrlParams();
+      }
+    } catch(e) {
+      console.warn("restoreBanner:", e);
+    }
+  };
+}
+
+function hideBanner() {
+  const banner = document.getElementById("restoreBanner");
+  if (banner) banner.style.display = "none";
+}
+
+async function openFileWritable(){
+  if(!window.showOpenFilePicker){
+    alert("Tento prohlížeč nepodporuje otevření souboru se zápisem. Použij Chrome nebo Edge.");
+    return;
+  }
+  try{
+    const [handle] = await window.showOpenFilePicker({
+      types:[{
+        description:"Excel soubory",
+        accept:{
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"],
+          "application/vnd.ms-excel.sheet.macroEnabled.12":[".xlsm"],
+          "application/vnd.ms-excel":[".xls"]
+        }
+      }],
+      excludeAcceptAllOption:false,
+      multiple:false
+    });
+    fileHandle = handle;
+    await idbSaveHandle(handle);
+    FTLoader.setFileHandle(handle); // Předej handle loaderu pro polling
+    const file = await handle.getFile();
+    const buffer = await file.arrayBuffer();
+    await loadWorkbookFromArrayBuffer(buffer, file.name);
+    updateWriteStatus();
+  }catch(err){
+    if(err?.name !== "AbortError"){
+      console.error(err);
+      alert("Soubor se nepodařilo otevřít.");
+    }
+  }
+}
+
+els.fileInput.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if(!file) return;
+  fileHandle = null;
+  const buffer = await file.arrayBuffer();
+  await loadWorkbookFromArrayBuffer(buffer, file.name);
+  updateWriteStatus();
+});
+
+async function reloadWorkbook(){
+  try{
+    if(fileHandle){
+      const file = await fileHandle.getFile();
+      const buffer = await file.arrayBuffer();
+      await loadWorkbookFromArrayBuffer(buffer, file.name);
+      return;
+    }
+    if(els.fileInput.files?.[0]){
+      const file = els.fileInput.files[0];
+      const buffer = await file.arrayBuffer();
+      await loadWorkbookFromArrayBuffer(buffer, file.name);
+      return;
+    }
+    alert("Nejdřív otevři Excel soubor.");
+  }catch(err){
+    console.error(err);
+    alert("Soubor se nepodařilo znovu načíst.");
+  }
+}
+
+// ── AUTA ───────────────────────────────────────────────────────────────
+
+function buildResitelSelect() {
+  // Naplní select m_assignee v modalu
+  const sel = document.getElementById("m_assignee");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— nevybráno —</option>';
+  resitele.forEach(r => {
+    const opt = document.createElement("option");
+    opt.value = r.zkratka;
+    opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
+    sel.appendChild(opt);
+  });
+  // Pokud aktuální zkratka není v seznamu, přidej ji
+  if (current && !resitele.find(r => r.zkratka === current)) {
+    const opt = document.createElement("option");
+    opt.value = current;
+    opt.textContent = current;
+    sel.appendChild(opt);
+  }
+  if (current) sel.value = current;
+
+  // Naplní také filtr řešitelů v topbaru
+  const filter = document.getElementById("filterAssignee");
+  if (filter) {
+    const filterCurrent = filter.value;
+    filter.innerHTML = '<option value="">Všichni</option>';
+    resitele.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.zkratka;
+      opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
+      filter.appendChild(opt);
+    });
+    filter.value = filterCurrent;
+  }
+}
+
+function buildAutaDatalist() {
+  const sel = document.getElementById("m_auto");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— bez auta —</option>';
+  auta.forEach(a => {
+    const opt = document.createElement("option");
+    opt.value = a.spz;
+    opt.textContent = `${a.popis} — ${a.spz} (${a.zodpovedna})`;
+    sel.appendChild(opt);
+  });
+  // Pokud aktuální hodnota není v seznamu, přidej ji jako extra option
+  if (current && !auta.find(a => a.spz === current)) {
+    const opt = document.createElement("option");
+    opt.value = current;
+    opt.textContent = `${current} (ručně)`;
+    sel.appendChild(opt);
+  }
+  if (current) sel.value = current;
+}
+
+function useManualAuto() {
+  const manual = (document.getElementById("m_auto_manual")?.value || "").trim();
+  if (!manual) return;
+  const sel = document.getElementById("m_auto");
+  if (!sel) return;
+  // Přidej jako option pokud ještě není
+  if (!Array.from(sel.options).find(o => o.value === manual)) {
+    const opt = document.createElement("option");
+    opt.value = manual;
+    opt.textContent = `${manual} (ručně)`;
+    sel.appendChild(opt);
+  }
+  sel.value = manual;
+  document.getElementById("m_auto_manual").value = "";
+  // Spusť kontrolu dostupnosti
+  const datum = document.getElementById("m_planned")?.value || "";
+  checkAutoWarning(manual, datum, currentEditIndex);
+}
+
+function getAutoDostupnostDen(spz, datum) {
+  if (!spz || !datum) return "volné";
+  const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
+  if (rez) return rez.stav;
+  const auto = auta.find(a => a.spz === spz);
+  if (auto && auto.dostupnost !== "volné") return auto.dostupnost;
+  return "volné";
+}
+
+function checkAutoWarning(spz, datum, currentTaskRowIndex) {
+  const warn = document.getElementById("m_auto_warning");
+  if (!warn || !spz || !datum) { if (warn) warn.style.display = "none"; return; }
+  // Kontrola přes rezervace
+  const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
+  if (rez) {
+    warn.textContent = `⚠ Auto ${spz} je na ${datum} označeno jako: ${rez.stav}${rez.poznamka ? " — " + rez.poznamka : ""}`;
+    warn.style.display = "block";
+    return;
+  }
+  // Kontrola přes ostatní úkoly
+  const conflict = tasks.find(t =>
+    t.rowIndex !== currentTaskRowIndex &&
+    t.auto === spz && t.planned === datum
+  );
+  if (conflict) {
+    warn.textContent = `⚠ Auto ${spz} je na ${datum} již přiřazeno k úkolu: ${conflict.id} ${conflict.task}`;
+    warn.style.display = "block";
+    return;
+  }
+  const autoInfo = auta.find(a => a.spz === spz);
+  if (autoInfo && autoInfo.dostupnost !== "volné") {
+    warn.textContent = `ℹ Auto ${spz} má trvalý stav: ${autoInfo.dostupnost}`;
+    warn.style.display = "block";
+    return;
+  }
+  warn.style.display = "none";
+}
+
+// ── Tabulka aut a rezervací ───────────────────────────────────────────
+
+function renderAutaTable() {
+  const wrap = document.getElementById("autaTableWrap");
+  if (!wrap) return;
+  const today = new Date().toISOString().slice(0,10);
+
+  const stavConfig = {
+    "volné":       { color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0", label: "volné" },
+    "používané":   { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", label: "používané" },
+    "rezervované": { color: "#d97706", bg: "#fffbeb", border: "#fde68a", label: "rezervované" },
+    "servis":      { color: "#dc2626", bg: "#fff1f2", border: "#fecdd3", label: "servis" },
+  };
+
+  const cardsHtml = auta.length === 0
+    ? `<div style="color:#6b7280;font-size:13px;padding:12px 0;">Žádná auta. Přidejte list AUTA do databáze.</div>`
+    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
+        ${auta.map(a => {
+          const dnes = getAutoDostupnostDen(a.spz, today);
+          const s = stavConfig[dnes] || stavConfig["volné"];
+          return `
+          <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:4px;">
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:2px;">${escapeHtml(a.popis)}</div>
+            <div style="font-size:20px;font-weight:800;color:#cc1f1a;letter-spacing:1px;line-height:1.2;">${escapeHtml(a.spz)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">
+              <span style="font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Zodpovědný</span>
+              <span style="margin-left:4px;">${escapeHtml(a.zodpovedna)}</span>
+            </div>
+            <div style="font-size:11px;color:#6b7280;">
+              <span style="font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Trvalý stav</span>
+              <span style="margin-left:4px;">${escapeHtml(a.dostupnost)}</span>
+            </div>
+            <div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;background:${s.bg};border:1px solid ${s.border};border-radius:999px;padding:3px 10px;width:fit-content;">
+              <span style="width:7px;height:7px;border-radius:50%;background:${s.color};flex-shrink:0;"></span>
+              <span style="font-size:12px;font-weight:700;color:${s.color};text-transform:uppercase;letter-spacing:.04em;">DNES&nbsp;&nbsp;${escapeHtml(s.label)}</span>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>`;
+
+  wrap.innerHTML = `
+    <h3 style="margin:0 0 14px;font-size:16px;">Přehled aut</h3>
+    ${cardsHtml}
+
+    <h3 style="margin:0 0 12px;font-size:16px;">Rezervace a servis</h3>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+      <div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">SPZ</label>
+        <input id="rez_spz" list="autaListRez" placeholder="SPZ nebo ručně" style="width:160px;" autocomplete="off" />
+        <datalist id="autaListRez">${auta.map(a => `<option value="${escapeHtml(a.spz)}">${escapeHtml(a.popis)}</option>`).join("")}</datalist>
+      </div>
+      <div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
+        <input id="rez_datum" type="date" style="width:160px;" value="${today}" /></div>
+      <div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Stav</label>
+        <select id="rez_stav" style="width:140px;">
+          <option value="rezervované">Rezervované</option>
+          <option value="servis">Servis</option>
+          <option value="používané">Používané</option>
+          <option value="volné">Volné</option>
+        </select></div>
+      <div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Poznámka</label>
+        <input id="rez_poznamka" placeholder="volitelná poznámka" style="width:200px;" /></div>
+      <button onclick="addRezervace()" class="primary" style="height:42px;">+ Přidat</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:#f1f5fb;">
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">SPZ</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Datum</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Stav</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Poznámka</th>
+        <th style="padding:8px;border-bottom:2px solid #d1d5db;"></th>
+      </tr></thead>
+      <tbody>${autaRezervace.map((r, i) => `
+        <tr style="border-bottom:1px solid #e5e7eb;${r.datum < today ? 'opacity:0.5;' : ''}">
+          <td style="padding:7px 8px;"><strong style="color:#cc1f1a;">${escapeHtml(r.spz)}</strong></td>
+          <td style="padding:7px 8px;">${escapeHtml(r.datum)}</td>
+          <td style="padding:7px 8px;">${escapeHtml(r.stav)}</td>
+          <td style="padding:7px 8px;">${escapeHtml(r.poznamka)}</td>
+          <td style="padding:7px 8px;"><button class="small-btn danger" onclick="deleteRezervace(${i})">Smazat</button></td>
+        </tr>`).join("")}
+      ${autaRezervace.length === 0 ? '<tr><td colspan="5" style="padding:12px;color:#6b7280;text-align:center;">Žádné rezervace.</td></tr>' : ""}
+      </tbody>
+    </table>`;
+}
+
+function addRezervace() {
+  const spz = (document.getElementById("rez_spz")?.value || "").trim();
+  const datum = document.getElementById("rez_datum")?.value || "";
+  const stav = document.getElementById("rez_stav")?.value || "rezervované";
+  const poznamka = (document.getElementById("rez_poznamka")?.value || "").trim();
+  if (!spz || !datum) { alert("Vyplňte SPZ a datum."); return; }
+  // Kontrola duplicity
+  const existing = autaRezervace.find(r => r.spz === spz && r.datum === datum);
+  if (existing) {
+    if (!confirm(`Pro auto ${spz} na ${datum} již existuje záznam (${existing.stav}). Přepsat?`)) return;
+    existing.stav = stav;
+    existing.poznamka = poznamka;
+  } else {
+    autaRezervace.push({ spz, datum, stav, poznamka });
+  }
+  saveAutaRezervaceToSheet();
+  renderAutaTable();
+}
+
+function deleteRezervace(idx) {
+  autaRezervace.splice(idx, 1);
+  saveAutaRezervaceToSheet();
+  renderAutaTable();
+}
+
+function saveAutaRezervaceToSheet() {
+  if (!workbook) return;
+  const header = ["SPZ", "Datum", "Stav", "Poznámka"];
+  const rows = [header, ...autaRezervace.map(r => [r.spz, r.datum, r.stav, r.poznamka])];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  workbook.Sheets["AUTA_REZERVACE"] = ws;
+  if (!workbook.SheetNames.includes("AUTA_REZERVACE")) workbook.SheetNames.push("AUTA_REZERVACE");
+}
+
+// ── URL PARAMS ─────────────────────────────────────────────────────────
+
+function handleUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const urlId      = params.get("id");
+  const vyjimkaId  = params.get("vyjimka");
+  const vyjimkaDatum = params.get("datum");
+  const deleteId   = params.get("delete");
+
+  if (vyjimkaId && vyjimkaDatum) {
+    setTimeout(() => addVyjimkaAuto(vyjimkaId, vyjimkaDatum), 300);
+    return;
+  }
+  if (deleteId) {
+    setTimeout(() => {
+      const task = tasks.find(t => t.id === deleteId);
+      if (task) {
+        if (confirm(`Zrušit úkol ${deleteId} — ${task.task}? (lze obnovit)`)) {
+          task.cancelled = true;
+          syncTaskToRow(task);
+          rebuildTasks();
+          renderTable();
+          renderStats();
+          autoSaveIfPossible();
+        }
+      } else {
+        alert(`Úkol ${deleteId} nebyl nalezen.`);
+      }
+    }, 300);
+    return;
+  }
+  if (urlId) {
+    const task = tasks.find(t => t.id === urlId);
+    if (task) {
+      setTimeout(() => editTask(task.rowIndex), 100);
+    } else {
+      els.searchInput.value = urlId;
+      applyFilters();
+    }
+  }
+}
+
+async function addVyjimkaAuto(id, datum) {
+  // Zkontroluj duplicitu
+  const exists = opakovaciVyjimky.find(v => v.id === id && v.datum === datum);
+  if (exists) {
+    showVyjimkaConfirm(id, datum, `Výjimka pro ${id} na ${datum} již existuje.`, false);
+    return;
+  }
+  opakovaciVyjimky.push({ id, datum, duvod: "Zrušeno z dashboardu" });
+  saveVyjimkyToSheet();
+  renderVyjimkyTable();
+  // Uložit workbook
+  if (fileHandle) {
+    await saveWorkbook();
+    showVyjimkaConfirm(id, datum, `✅ Výjimka přidána a soubor uložen. Opakující se úkol ${id} se ${datum} nezobrazí.`, true);
+  } else {
+    showVyjimkaConfirm(id, datum, `⚠ Výjimka přidána do paměti, ale soubor nelze uložit automaticky. Použij tlačítko "Otevřít XLSX se zápisem" a pak výjimku znovu přidej, nebo ulož ručně.`, false);
+  }
+}
+
+function showVyjimkaConfirm(id, datum, msg, success) {
+  const wrap = document.getElementById("vyjimkaConfirm");
+  if (!wrap) return;
+  wrap.innerHTML = `<div style="padding:12px 16px;border-radius:10px;background:${success ? "#f0fdf4" : "#fffbeb"};border:1px solid ${success ? "#bbf7d0" : "#fde68a"};color:${success ? "#15803d" : "#92400e"};font-size:13px;margin-bottom:12px;">${msg}</div>`;
+  wrap.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function saveVyjimkyToSheet() {
+  if (!workbook) return;
+  const header = ["ID_ukolu", "Datum", "Duvod"];
+  const rows = [header, ...opakovaciVyjimky.map(v => [v.id, v.datum, v.duvod])];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  workbook.Sheets["OPAKUJICI_VYJIMKY"] = ws;
+  if (!workbook.SheetNames.includes("OPAKUJICI_VYJIMKY"))
+    workbook.SheetNames.push("OPAKUJICI_VYJIMKY");
+}
+
+function deleteVyjimka(idx) {
+  opakovaciVyjimky.splice(idx, 1);
+  saveVyjimkyToSheet();
+  renderVyjimkyTable();
+}
+
+function renderVyjimkyTable() {
+  const wrap = document.getElementById("vyjimkyTableWrap");
+  if (!wrap) return;
+  const today = new Date().toISOString().slice(0,10);
+  wrap.innerHTML = `
+    <h3 style="margin:0 0 12px;font-size:16px;">Výjimky opakujících se úkolů</h3>
+    <div id="vyjimkaConfirm"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:#f1f5fb;">
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">ID úkolu</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Datum</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Důvod</th>
+        <th style="padding:8px;border-bottom:2px solid #d1d5db;"></th>
+      </tr></thead>
+      <tbody>
+        ${opakovaciVyjimky.length === 0
+          ? '<tr><td colspan="4" style="padding:12px;color:#6b7280;text-align:center;">Žádné výjimky.</td></tr>'
+          : opakovaciVyjimky.map((v, i) => `
+            <tr style="border-bottom:1px solid #e5e7eb;${v.datum < today ? "opacity:0.5;" : ""}">
+              <td style="padding:7px 8px;font-weight:700;color:#6366f1;">${escapeHtml(v.id)}</td>
+              <td style="padding:7px 8px;">${escapeHtml(v.datum)}</td>
+              <td style="padding:7px 8px;">${escapeHtml(v.duvod)}</td>
+              <td style="padding:7px 8px;"><button class="small-btn danger" onclick="deleteVyjimka(${i})">Smazat</button></td>
+            </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function autoSaveIfPossible() {
+  if (fileHandle) saveWorkbook();
+}
+
+function restoreTask(rowIndex) {
+  const task = tasks.find(t => t.rowIndex === rowIndex);
+  if (!task) return;
+  task.cancelled = false;
+  syncTaskToRow(task);
+  rebuildTasks();
+  renderTable();
+  renderStats();
+  autoSaveIfPossible();
+}
+
+function rebuildSheetBeforeSave(){
+  const newSheet = XLSX.utils.aoa_to_sheet(worksheetRows);
+  workbook.Sheets[SHEET_NAME] = newSheet;
+  if(!workbook.SheetNames.includes(SHEET_NAME)){
+    workbook.SheetNames.push(SHEET_NAME);
+  }
+}
+
+async function saveWorkbook(){
+  if(!workbook){
+    alert("Nejdřív otevři Excel soubor.");
+    return;
+  }
+  try{
+    rebuildSheetBeforeSave();
+
+    if(fileHandle){
+      const writable = await fileHandle.createWritable();
+      const out = XLSX.write(workbook, {bookType:"xlsx", type:"array"});
+      await writable.write(out);
+      await writable.close();
+      try { if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(out, fileName); } catch(_) {}
+      alert("Změny byly uloženy do původního XLSX.");
+      return;
+    }
+
+    const out = XLSX.write(workbook, {bookType:"xlsx", type:"array"});
+    try { if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(out, fileName); } catch(_) {}
+    const blob = new Blob([out], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName || DEFAULT_FILENAME;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    alert("Prohlížeč neměl přímý přístup k zápisu. Stáhl se upravený XLSX soubor.");
+  }catch(err){
+    console.error(err);
+    alert("Uložení se nepodařilo.");
+  }
+}
+
+[
+  els.searchInput, els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode,
+  els.quickProject, els.quickFromDate, els.quickToDate
+].forEach(el => el.addEventListener("input", applyFilters));
+[
+  els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode
+].forEach(el => el.addEventListener("change", applyFilters));
+els.showCancelled?.addEventListener("change", applyFilters);
+
+window.addEventListener("click", (e) => {
+  if(e.target === els.taskModal) closeTaskModal();
+});
+
+// ── Kontrola dostupnosti auta při změně SPZ nebo data v modalu ──
+document.addEventListener("input", (e) => {
+  if (e.target.id === "m_planned") {
+    const spz = (document.getElementById("m_auto")?.value || "").trim();
+    const datum = e.target.value || "";
+    checkAutoWarning(spz, datum, currentEditIndex);
+  }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.id === "m_auto") {
+    const spz = (e.target.value || "").trim();
+    const datum = document.getElementById("m_planned")?.value || "";
+    checkAutoWarning(spz, datum, currentEditIndex);
+  }
+});
+
+(async function init(){
+  // ── FTLoader: inicializovat — zaregistruje storage listener ──
+  FTLoader.init({
+    onData: () => {},  // sprava pracuje s vlastním workbook objektem
+    onStatus: () => {}
+  });
+
+  renderStats();
+  renderTable();
+
+  // ── Pokus o automatické obnovení fileHandle z IndexedDB ──
+  const restored = await tryRestoreFileHandle();
+  if (restored) return;
+
+  // ── I bez zápisu načti data pro zobrazení ──
+  try {
+    const resp = await fetch("0_SEZNAM_UKOLU-GLOBAL.xlsx?t=" + Date.now(), { cache: "no-store" });
+    if (resp.ok) {
+      const buffer = await resp.arrayBuffer();
+      await loadWorkbookFromArrayBuffer(buffer, "0_SEZNAM_UKOLU-GLOBAL.xlsx");
+      handleUrlParams();
+      return;
+    }
+  } catch(_) {}
+
+  // ── Fallback: načti z raw cache pokud fetch selhal ──
+  const raw = FTLoader.loadRaw();
+  if (raw && raw.buffer) {
+    try {
+      await loadWorkbookFromArrayBuffer(raw.buffer, raw.fileName);
+      const dt = new Date(raw.savedAt).toLocaleString("cs-CZ");
+      const statEl = document.getElementById("statFile");
+      if (statEl) statEl.title = `Z cache · uloženo ${dt}`;
+      handleUrlParams();
+    } catch(e) {
+      console.warn("ft_loader: obnovení z cache selhalo", e);
+    }
+  }
+})();
+</script>
+
+<a class="fab-nav" href="tydenni_dashboard_live_reload_local_linked.html" aria-label="Zpět na týdenní rozvrh">
+  <span class="fab-icon">📅</span>
+  <span>
+    Zpět na rozvrh
+    <span class="fab-sub">hlavní přehled úkolů pro lidi</span>
+  </span>
+</a>
+
+</body>
+</html>
