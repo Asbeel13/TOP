@@ -8,7 +8,7 @@ const FTLoader = (() => {
   // ── Konfigurace ────────────────────────────────────────────────────────
   const CLIENT_ID   = "ae981a87-988a-4555-b47d-374ea6d1364a";
   const TENANT      = "common";
-  const REDIRECT    = "https://asbeel13.github.io/TOP/";
+  const REDIRECT    = window.location.origin + window.location.pathname;
   const SCOPES      = ["Files.ReadWrite", "offline_access", "User.Read"];
   const FILE_ID     = "233ad10e-8b9a-457b-ae67-31fdebc33cbe"; // UniqueId XLSX
   const SITE_DOMAIN = "filtrationtechnology-my.sharepoint.com";
