@@ -205,6 +205,13 @@ const FTLoader = (() => {
       status(`Načteno · ${new Date(json.updatedAt || Date.now()).toLocaleString("cs-CZ")} · ${json.updatedBy || ""}`);
       return true;
     } catch(e) {
+      // Neplatný token — vymaž ho a nabídni zadání nového
+      if (e.message.includes("401")) {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        status("Token je neplatný — zadej nový", true);
+        showTokenDialog(() => fetchFromGitHub(false));
+        return false;
+      }
       if (!silent) status(`Chyba načtení: ${e.message}`, true);
       console.error("ft_loader fetchFromGitHub:", e);
       return false;
@@ -219,9 +226,14 @@ const FTLoader = (() => {
     json.updatedAt = new Date().toISOString();
     json.updatedBy = user;
 
-    // Enkóduj JSON → UTF-8 → Base64 správně
+    // Enkóduj JSON → UTF-8 → Base64 (po částech, aby nedošlo k přetečení zásobníku u velkých souborů)
     const jsonBytes = new TextEncoder().encode(JSON.stringify(json, null, 2));
-    const content = btoa(String.fromCharCode(...jsonBytes));
+    let binary = "";
+    const CHUNK = 8192;
+    for (let i = 0; i < jsonBytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...jsonBytes.subarray(i, i + CHUNK));
+    }
+    const content = btoa(binary);
 
     const resp = await fetch(apiUrl(), {
       method: "PUT",
@@ -284,18 +296,10 @@ const FTLoader = (() => {
     _onData   = onData;
     _onStatus = onStatus;
 
-    // 1. Okamžitě zobraz data z localStorage cache
-    try {
-      const cached = localStorage.getItem(DATA_KEY);
-      if (cached) {
-        const { parsedData, sha, savedAt } = JSON.parse(cached);
-        if (parsedData) {
-          _lastSha = sha || "";
-          if (_onData) _onData(parsedData);
-          status(`Z cache · ${new Date(savedAt).toLocaleString("cs-CZ")}`);
-        }
-      }
-    } catch(e) {}
+    // Cache se zobrazí až po prvním úspěšném načtení z GitHubu
+
+    // 1. Vymaž starou cache s špatným kódováním
+    try { localStorage.removeItem(DATA_KEY); } catch(e) {}
 
     // 2. Načti čerstvá data z GitHubu — nebo zobraz dialog pro token
     if (getToken()) {

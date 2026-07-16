@@ -382,9 +382,6 @@ initDarkMode();
     </style>
 </head>
 <body>
-    <button id="restoreBannerBtn" style="background:white;color:#1d4ed8;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Obnovit přístup →</button>
-  </div>
-
   <div class="app">
     <div class="topbar">
       <div class="title-wrap">
@@ -730,72 +727,6 @@ function priorityClass(priority){
   return `prio-${["P0","P1","P2","P3"].includes(p) ? p : "P3"}`;
 }
 
-function rowToTask(row, rowIndex){
-  const safe = idx => row[idx] ?? "";
-  return {
-    rowIndex,
-    selected: false,
-    values: row,
-    id: normalizeText(safe(COL.ID)),
-    internalProject: normalizeText(safe(COL.INTERNAL_PROJECT)),
-    task: normalizeText(safe(COL.TASK)),
-    priority: normalizeText(safe(COL.PRIORITY)) || "P2",
-    project: normalizeText(safe(COL.PROJECT)),
-    sales: normalizeText(safe(COL.SALES)),
-    waiting: parseBool(safe(COL.WAITING)),
-    subtask: parseBool(safe(COL.SUBTASK)),
-    state: normalizeText(safe(COL.STATE)) || "Nový",
-    percent: safe(COL.PERCENT) === "" ? 0 : Number(safe(COL.PERCENT) || 0),
-    created: safe(COL.CREATED),
-    planned: safe(COL.PLANNED),
-    finished: safe(COL.FINISHED),
-    due: safe(COL.DUE),
-    assignee: normalizeText(safe(COL.ASSIGNEE)),
-    note: normalizeText(safe(COL.NOTE)),
-    internalNote: normalizeText(safe(COL.NOTE_INTERNAL)),
-    auto: safe(COL.AUTO) || "",
-    cancelled: ["true","ano","1","yes"].includes(String(safe(COL.CANCELLED)||"").trim().toLowerCase())
-  };
-}
-
-function syncTaskToRow(task){
-  const row = worksheetRows[task.rowIndex] || [];
-  for(let i=0;i<21;i++){ if(typeof row[i] === "undefined") row[i] = ""; }
-
-  row[COL.ID] = task.id || "";
-  row[COL.INTERNAL_PROJECT] = task.internalProject || "";
-  row[COL.TASK] = task.task || "";
-  row[COL.PRIORITY] = task.priority || "P2";
-  row[COL.PROJECT] = task.project || "";
-  row[COL.SALES] = task.sales || "";
-  row[COL.WAITING] = !!task.waiting;
-  row[COL.SUBTASK] = !!task.subtask;
-  row[COL.STATE] = task.state || "Nový";
-  row[COL.PERCENT] = Number.isFinite(task.percent) ? task.percent : 0;
-  row[COL.CREATED] = task.created ? formatDateISO(task.created) : "";
-  row[COL.PLANNED] = task.planned ? formatDateISO(task.planned) : "";
-  row[COL.FINISHED] = task.finished ? formatDateISO(task.finished) : "";
-  row[COL.DUE] = task.due ? formatDateISO(task.due) : "";
-  row[COL.ASSIGNEE] = task.assignee || "";
-  row[COL.NOTE] = task.note || "";
-  row[COL.NOTE_INTERNAL] = task.internalNote || "";
-  row[COL.AUTO] = task.auto || "";
-  row[COL.CANCELLED] = task.cancelled ? true : false;
-
-  worksheetRows[task.rowIndex] = row;
-}
-
-function rebuildTasks(){
-  tasks = [];
-  for(let i=1; i<worksheetRows.length; i++){
-    const row = worksheetRows[i];
-    if(!row || row.every(v => v == null || v === "")) continue;
-    tasks.push(rowToTask(row, i));
-  }
-  fillAssigneeFilter();
-  applyFilters();
-}
-
 function fillAssigneeFilter(){
   const current = els.filterAssignee.value;
   if (resitele.length > 0) {
@@ -945,9 +876,9 @@ function markAsDone(rowIndex){
   if(!task) return;
   task.state = "Dokončeno";
   task.percent = 1;
-  task.finished = new Date();
-  syncTaskToRow(task);
+  task.finished = formatDateISO(new Date());
   applyFilters();
+  autoSaveIfPossible();
 }
 
 function markSelectedAsDone(){
@@ -955,8 +886,7 @@ function markSelectedAsDone(){
   tasks.filter(t => t.selected).forEach(task => {
     task.state = "Dokončeno";
     task.percent = 1;
-    task.finished = new Date();
-    syncTaskToRow(task);
+    task.finished = formatDateISO(new Date());
     changed++;
   });
   if(!changed){
@@ -964,6 +894,7 @@ function markSelectedAsDone(){
     return;
   }
   applyFilters();
+  autoSaveIfPossible();
 }
 
 function deleteSelected(){
@@ -973,11 +904,8 @@ function deleteSelected(){
     return;
   }
   if(!confirm(`Opravdu zrušit ${selected.length} úkol(y)? (lze obnovit)`)) return;
-  selected.forEach(t => {
-    t.cancelled = true;
-    syncTaskToRow(t);
-  });
-  rebuildTasks();
+  selected.forEach(t => { t.cancelled = true; });
+  applyFilters();
   renderTable();
   renderStats();
   autoSaveIfPossible();
@@ -1049,12 +977,10 @@ function editTask(rowIndex){
 
 function saveTaskFromModal(){
   const taskData = {
-    rowIndex: currentEditIndex ?? worksheetRows.length,
-    selected: false,
-    values: [],
     id: normalizeText(getValue("m_id")),
     internalProject: normalizeText(getValue("m_internal")),
     task: normalizeText(getValue("m_task")),
+    title: normalizeText(getValue("m_task")),
     priority: getValue("m_priority"),
     project: normalizeText(getValue("m_project")),
     sales: normalizeText(getValue("m_sales")),
@@ -1067,9 +993,11 @@ function saveTaskFromModal(){
     finished: getValue("m_finished"),
     due: getValue("m_due"),
     assignee: normalizeText(getValue("m_assignee")),
+    owner: normalizeText(getValue("m_assignee")),
     note: normalizeText(getValue("m_note")),
     internalNote: normalizeText(getValue("m_note_internal")),
-    auto: (getValue("m_auto") || "").trim()
+    auto: (getValue("m_auto") || "").trim(),
+    cancelled: false,
   };
 
   if(!taskData.task){
@@ -1084,9 +1012,26 @@ function saveTaskFromModal(){
     taskData.percent = 1;
   }
 
-  syncTaskToRow(taskData);
-  rebuildTasks();
+  if (currentEditIndex != null) {
+    // Editace existujícího úkolu — aktualizuj v paměti
+    const existing = tasks.find(t => t.rowIndex === currentEditIndex);
+    if (existing) {
+      Object.assign(existing, taskData, { rowIndex: existing.rowIndex, selected: existing.selected });
+    }
+  } else {
+    // Nový úkol — přidej s novým rowIndex
+    const maxRowIndex = tasks.reduce((max, t) => Math.max(max, t.rowIndex || 0), 0);
+    taskData.rowIndex = maxRowIndex + 1;
+    taskData.selected = false;
+    if (!taskData.id) taskData.id = generateNextId();
+    tasks.push(taskData);
+  }
+
+  applyFilters();
+  renderTable();
+  renderStats();
   closeTaskModal();
+  autoSaveIfPossible();
 }
 
 function generateNextId(){
@@ -1106,143 +1051,6 @@ function escapeHtml(str){
     .replaceAll(">","&gt;")
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
-}
-
-async function loadWorkbookFromArrayBuffer(buffer, newFileName){
-  workbook = XLSX.read(buffer, {type:"array", cellDates:true});
-  const sheet = workbook.Sheets[SHEET_NAME];
-  if(!sheet){
-    throw new Error(`V souboru chybí list ${SHEET_NAME}.`);
-  }
-  worksheetRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
-  if(!worksheetRows.length){
-    worksheetRows = [[]];
-  }
-  headers = worksheetRows[0] || [];
-  fileName = newFileName || fileName;
-  rebuildTasks();
-
-  // ── Parsovat listy Auta a Auta_rezervace ──
-  auta = [];
-  const autaSheet = workbook.Sheets["AUTA"];
-  if (autaSheet) {
-    XLSX.utils.sheet_to_json(autaSheet, {header:1, raw:false, defval:""})
-      .slice(1).filter(r => r[0] || r[1]).forEach(r => {
-        auta.push({
-          popis:      String(r[0]||"").trim(),
-          spz:        String(r[1]||"").trim(),
-          zodpovedna: String(r[2]||"").trim(),
-          dostupnost: String(r[3]||"volné").trim().toLowerCase() || "volné"
-        });
-      });
-  }
-  autaRezervace = [];
-  const rezSheet = workbook.Sheets["AUTA_REZERVACE"];
-  if (rezSheet) {
-    XLSX.utils.sheet_to_json(rezSheet, {header:1, raw:false, defval:""})
-      .slice(1).filter(r => r[0] && r[1]).forEach(r => {
-        autaRezervace.push({
-          spz:      String(r[0]||"").trim(),
-          datum:    String(r[1]||"").trim(),
-          stav:     String(r[2]||"používané").trim().toLowerCase() || "používané",
-          poznamka: String(r[3]||"").trim()
-        });
-      });
-  }
-
-  // ── Parsovat list RESITEL ──
-  resitele = [];
-  const resSheet = workbook.Sheets["RESITEL"];
-  if (resSheet) {
-    XLSX.utils.sheet_to_json(resSheet, {header:1, raw:false, defval:""})
-      .slice(1).filter(r => r[0]).forEach(r => {
-        resitele.push({
-          zkratka:  String(r[0]||"").trim(),
-          jmeno:    String(r[1]||"").trim(),
-          prijmeni: String(r[2]||"").trim()
-        });
-      });
-  }
-
-  buildAutaDatalist();
-  buildResitelSelect();
-  renderAutaTable();
-
-  // ── Parsovat list OPAKOVACI_VYJIMKY ──
-  opakovaciVyjimky = [];
-  const opvSheet = workbook.Sheets["OPAKUJICI_VYJIMKY"];
-  if (opvSheet) {
-    XLSX.utils.sheet_to_json(opvSheet, {header:1, raw:false, defval:""})
-      .slice(1).filter(r => r[0] && r[1]).forEach(r => {
-        opakovaciVyjimky.push({
-          id:    String(r[0]||"").trim(),
-          datum: String(r[1]||"").trim(),
-          duvod: String(r[2]||"").trim()
-        });
-      });
-  }
-  renderVyjimkyTable();
-
-  // ── Uložit do sdílené cache (předáme originální buffer) ──
-  try {
-    if (typeof FTLoader !== "undefined") FTLoader.pushWorkbook(buffer, fileName);
-  } catch(e) { console.warn("ft_loader: pushWorkbook failed", e); }
-}
-
-
-async function openFileWritable(){
-  if(!window.showOpenFilePicker){
-    alert("Tento prohlížeč nepodporuje otevření souboru se zápisem. Použij Chrome nebo Edge.");
-    return;
-  }
-  try{
-    const [handle] = await window.showOpenFilePicker({
-      types:[{
-        description:"Excel soubory",
-        accept:{
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"],
-          "application/vnd.ms-excel.sheet.macroEnabled.12":[".xlsm"],
-          "application/vnd.ms-excel":[".xls"]
-        }
-      }],
-      excludeAcceptAllOption:false,
-      multiple:false
-    });
-    fileHandle = handle;
-    await idbSaveHandle(handle);
-    FTLoader.setFileHandle(handle); // Předej handle loaderu pro polling
-    const file = await handle.getFile();
-    const buffer = await file.arrayBuffer();
-    await loadWorkbookFromArrayBuffer(buffer, file.name);
-    updateWriteStatus();
-  }catch(err){
-    if(err?.name !== "AbortError"){
-      console.error(err);
-      alert("Soubor se nepodařilo otevřít.");
-    }
-  }
-}
-
-
-async function reloadWorkbook(){
-  try{
-    if(fileHandle){
-      const file = await fileHandle.getFile();
-      const buffer = await file.arrayBuffer();
-      await loadWorkbookFromArrayBuffer(buffer, file.name);
-      return;
-    }
-    if(els.fileInput.files?.[0]){
-      const file = els.fileInput.files[0];
-      const buffer = await file.arrayBuffer();
-      await loadWorkbookFromArrayBuffer(buffer, file.name);
-      return;
-    }
-    alert("Nejdřív otevři Excel soubor.");
-  }catch(err){
-    console.error(err);
-    alert("Soubor se nepodařilo znovu načíst.");
-  }
 }
 
 // ── AUTA ───────────────────────────────────────────────────────────────
@@ -1460,23 +1268,14 @@ function addRezervace() {
   } else {
     autaRezervace.push({ spz, datum, stav, poznamka });
   }
-  saveAutaRezervaceToSheet();
   renderAutaTable();
+  autoSaveIfPossible();
 }
 
 function deleteRezervace(idx) {
   autaRezervace.splice(idx, 1);
-  saveAutaRezervaceToSheet();
   renderAutaTable();
-}
-
-function saveAutaRezervaceToSheet() {
-  if (!workbook) return;
-  const header = ["SPZ", "Datum", "Stav", "Poznámka"];
-  const rows = [header, ...autaRezervace.map(r => [r.spz, r.datum, r.stav, r.poznamka])];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  workbook.Sheets["AUTA_REZERVACE"] = ws;
-  if (!workbook.SheetNames.includes("AUTA_REZERVACE")) workbook.SheetNames.push("AUTA_REZERVACE");
+  autoSaveIfPossible();
 }
 
 // ── URL PARAMS ─────────────────────────────────────────────────────────
@@ -1498,8 +1297,7 @@ function handleUrlParams() {
       if (task) {
         if (confirm(`Zrušit úkol ${deleteId} — ${task.task}? (lze obnovit)`)) {
           task.cancelled = true;
-          syncTaskToRow(task);
-          rebuildTasks();
+          applyFilters();
           renderTable();
           renderStats();
           autoSaveIfPossible();
@@ -1529,15 +1327,9 @@ async function addVyjimkaAuto(id, datum) {
     return;
   }
   opakovaciVyjimky.push({ id, datum, duvod: "Zrušeno z dashboardu" });
-  saveVyjimkyToSheet();
   renderVyjimkyTable();
-  // Uložit workbook
-  if (fileHandle) {
-    await saveWorkbook();
-    showVyjimkaConfirm(id, datum, `✅ Výjimka přidána a soubor uložen. Opakující se úkol ${id} se ${datum} nezobrazí.`, true);
-  } else {
-    showVyjimkaConfirm(id, datum, `⚠ Výjimka přidána do paměti, ale soubor nelze uložit automaticky. Použij tlačítko "Otevřít XLSX se zápisem" a pak výjimku znovu přidej, nebo ulož ručně.`, false);
-  }
+  await saveWorkbook();
+  showVyjimkaConfirm(id, datum, `✅ Výjimka přidána a uložena. Opakující se úkol ${id} se ${datum} nezobrazí.`, true);
 }
 
 function showVyjimkaConfirm(id, datum, msg, success) {
@@ -1547,20 +1339,10 @@ function showVyjimkaConfirm(id, datum, msg, success) {
   wrap.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function saveVyjimkyToSheet() {
-  if (!workbook) return;
-  const header = ["ID_ukolu", "Datum", "Duvod"];
-  const rows = [header, ...opakovaciVyjimky.map(v => [v.id, v.datum, v.duvod])];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  workbook.Sheets["OPAKUJICI_VYJIMKY"] = ws;
-  if (!workbook.SheetNames.includes("OPAKUJICI_VYJIMKY"))
-    workbook.SheetNames.push("OPAKUJICI_VYJIMKY");
-}
-
 function deleteVyjimka(idx) {
   opakovaciVyjimky.splice(idx, 1);
-  saveVyjimkyToSheet();
   renderVyjimkyTable();
+  autoSaveIfPossible();
 }
 
 function renderVyjimkyTable() {
@@ -1599,19 +1381,10 @@ function restoreTask(rowIndex) {
   const task = tasks.find(t => t.rowIndex === rowIndex);
   if (!task) return;
   task.cancelled = false;
-  syncTaskToRow(task);
-  rebuildTasks();
+  applyFilters();
   renderTable();
   renderStats();
   autoSaveIfPossible();
-}
-
-function rebuildSheetBeforeSave(){
-  const newSheet = XLSX.utils.aoa_to_sheet(worksheetRows);
-  workbook.Sheets[SHEET_NAME] = newSheet;
-  if(!workbook.SheetNames.includes(SHEET_NAME)){
-    workbook.SheetNames.push(SHEET_NAME);
-  }
 }
 
 // ── Převod tasks na JSON pro GitHub ────────────────────────────────────
@@ -1645,7 +1418,15 @@ function tasksToJson() {
   };
 }
 
+let _isSaving = false;
+
 async function saveWorkbook(){
+  if (_isSaving) return; // Ochrana proti dvojkliku
+  _isSaving = true;
+
+  const saveBtn = document.querySelector('button[onclick="saveWorkbook()"]');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Ukládám…"; }
+
   try {
     const json = tasksToJson();
     const user = FTLoader.getCurrentUser() || "admin";
@@ -1662,6 +1443,9 @@ async function saveWorkbook(){
       alert(`Uložení se nepodařilo: ${e.message}`);
       console.error(e);
     }
+  } finally {
+    _isSaving = false;
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Uložit změny"; }
   }
 }
 
@@ -1697,16 +1481,18 @@ document.addEventListener("change", (e) => {
 
 async function debugGitHub() {
   const lines = [];
-  lines.push(`FT_CONFIG: ${JSON.stringify(window.FT_CONFIG || null)}`);
-  lines.push(`Token: ${window.FT_CONFIG?.token ? window.FT_CONFIG.token.slice(0,8)+'...' : 'CHYBÍ'}`);
+  const storedToken = localStorage.getItem('ftGithubToken');
+  const currentUser = FTLoader.getCurrentUser();
+  lines.push(`Token (localStorage): ${storedToken ? storedToken.slice(0,8)+'...' : 'CHYBÍ — zobraz dialog'}`);
+  lines.push(`Aktuální uživatel: ${currentUser || 'neznámý'}`);
   lines.push(`Tasks v paměti: ${tasks.length}`);
   lines.push(`getRawJson: ${FTLoader.getRawJson() ? 'OK' : 'null'}`);
   lines.push(`localStorage ftWorkbookData: ${localStorage.getItem('ftWorkbookData') ? 'OK ('+localStorage.getItem('ftWorkbookData').length+' bytes)' : 'prázdný'}`);
 
-  // Zkus přímo volat GitHub API
+  // Zkus přímo volat GitHub API se stejným tokenem jaký používá ft_loader
   try {
-    const token = window.FT_CONFIG?.token;
-    if (!token) throw new Error("Token chybí v config.js");
+    const token = storedToken;
+    if (!token) throw new Error("Token chybí — zadej ho přes dialog při startu stránky");
     const r = await fetch('https://api.github.com/repos/asbeel13/top-data/contents/database.json', {
       headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
     });
@@ -1763,6 +1549,7 @@ function loadFromRaw(raw) {
     buildAutaDatalist();
     renderAutaTable();
     renderVyjimkyTable();
+    fillAssigneeFilter();
     renderStats();
     applyFilters();
     handleUrlParams();
