@@ -207,6 +207,10 @@
       font-size: clamp(7px, 0.8vw, 10px);
       line-height: 1.25;
       min-height: 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     .task .title { margin-bottom: 2px; }
     .task .meta {
@@ -530,7 +534,6 @@ function renderSide(targetEl, side) {
         div.style.cursor = "pointer";
         div.innerHTML = `${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}<div class="title">${task.title}</div>
           <div class="meta">
-            <span>${task.id}</span>
             <span class="${(task.project||"").toLowerCase().includes("ford") ? "danger" : ""}">${task.project||""}</span>
           </div>${task.auto ? `<div class="spz">🚗 ${task.auto}</div>` : ""}`;
         div.addEventListener("click", () => openModal(task));
