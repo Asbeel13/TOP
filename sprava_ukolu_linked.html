@@ -571,6 +571,7 @@ initDarkMode();
         <div class="grid two">
           <div class="field"><label>Datum zapsání</label><input id="m_created" type="date" /></div>
           <div class="field"><label>Plánovaný datum realizace</label><input id="m_planned" type="date" /></div>
+          <div class="field"><label>Počet dní trvání</label><input id="m_duration" type="number" min="1" value="1" style="width:80px;" /></div>
         </div>
         <div class="grid two">
           <div class="field"><label>Datum dokončení</label><input id="m_finished" type="date" /></div>
@@ -948,6 +949,7 @@ function openTaskModal(task=null){
   // m_percent odstraněno — pole se nezobrazuje
   setValue("m_created", task ? formatDateISO(task.created) : formatDateISO(new Date()));
   setValue("m_planned", task ? formatDateISO(task.planned) : "");
+  setValue("m_duration", task?.durationDays || 1);
   setValue("m_finished", task ? formatDateISO(task.finished) : "");
   setValue("m_due", task ? formatDateISO(task.due) : "");
   setValue("m_waiting", task?.waiting ? "true" : "false");
@@ -999,6 +1001,7 @@ function saveTaskFromModal(){
     percent: 0,
     created: getValue("m_created"),
     planned: getValue("m_planned"),
+    durationDays: parseInt(getValue("m_duration"), 10) || 1,
     finished: getValue("m_finished"),
     due: getValue("m_due"),
     assignee: normalizeText(getValue("m_assignee")),
@@ -1539,6 +1542,7 @@ function tasksToJson() {
     auto: t.auto || "",
     cancelled: !!t.cancelled,
     internalProject: t.internalProject || "",
+    durationDays: t.durationDays && t.durationDays > 1 ? t.durationDays : undefined,
   }));
   return {
     ...raw,
@@ -1671,6 +1675,7 @@ function loadFromRaw(raw) {
       internalNote: t.internalNote || "",
       auto: t.auto || "",
       cancelled: !!t.cancelled,
+      durationDays: t.durationDays || 1,
       selected: false,
     }));
     auta = raw.auta || [];

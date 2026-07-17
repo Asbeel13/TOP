@@ -149,9 +149,36 @@ const FTLoader = (() => {
       dueDate:     excelDateToISO(t.dueDate),
     }));
 
+    // Rozprostři vícedenní úkoly (durationDays > 1) na jednotlivé dny
+    function expandMultiDayTasks(taskList) {
+      const result = [];
+      taskList.forEach(t => {
+        const duration = parseInt(t.durationDays, 10) || 1;
+        if (duration <= 1 || !t.plannedDate) {
+          result.push(t);
+          return;
+        }
+        const [y, m, d] = t.plannedDate.split("-").map(Number);
+        for (let i = 0; i < duration; i++) {
+          const dd = new Date(y, m - 1, d);
+          dd.setDate(dd.getDate() + i);
+          const iso = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`;
+          result.push({
+            ...t,
+            plannedDate: iso,
+            multiDayIndex: i + 1,
+            multiDayTotal: duration,
+            isMultiDay: true,
+          });
+        }
+      });
+      return result;
+    }
+
     const activeTasks = tasks.filter(t => !t.cancelled);
-    const recurringTasks = generateRecurring(json.opakovaci, json.vyjimky, activeTasks);
-    const allTasks = [...activeTasks, ...recurringTasks];
+    const expandedTasks = expandMultiDayTasks(activeTasks);
+    const recurringTasks = generateRecurring(json.opakovaci, json.vyjimky, expandedTasks);
+    const allTasks = [...expandedTasks, ...recurringTasks];
     const owners = [...new Set(allTasks.map(t => t.owner))].filter(Boolean).sort((a,b) => a.localeCompare(b,"cs"));
 
     return {

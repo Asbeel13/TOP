@@ -295,6 +295,7 @@
     .task.recurring { background: #f0f4ff; border-left: 3px solid #6366f1; opacity: 0.92; }
     .task.recurring .title { color: #3730a3; }
     .task .recurring-icon { font-size: 9px; color: #6366f1; margin-bottom: 1px; }
+    .task .multiday-badge { font-size: 9px; color: #0891b2; font-weight: 700; margin-bottom: 1px; }
     .backlog {
       margin-top: 16px;
       display: grid;
@@ -551,6 +552,7 @@
     html.dark .task .title { color: #e2e8f0; }
     html.dark .task .meta { color: #64748b; }
     html.dark .task .spz { color: #f87171; }
+    html.dark .task .multiday-badge { color: #22d3ee; }
     html.dark .stat { background: #1e293b; border-color: #334155; }
     html.dark .stat .label { color: #64748b; }
     html.dark .stat .value { color: #e2e8f0; }
@@ -993,6 +995,7 @@ function openModal(task) {
   ];
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
+  if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
   els.modalChips.innerHTML = chips.map(ch => `<span class="chip">${ch}</span>`).join("");
   if (task.id && !task.recurring) {
     els.modalEditBtn.href = `sprava_ukolu_linked.html?id=${encodeURIComponent(task.id)}`;
@@ -1059,6 +1062,7 @@ function renderScheduleForSide(targetEl, side) {
         div.className = cardClass(task);
         div.innerHTML = `
           ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
+          ${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}
           <div class="title">${task.title}</div>
           <div class="meta">
             <span>${task.id}</span>
