@@ -129,7 +129,7 @@
       display: grid;
       grid-template-columns: minmax(72px, 100px) repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.67fr));
       grid-auto-rows: 1fr;
-      font-size: clamp(8px, 0.85vw, 11px);
+      font-size: clamp(8px, 0.9vw, 11px);
       flex: 1;
       align-content: stretch;
     }
@@ -142,7 +142,7 @@
       padding: 0 3px;
       font-weight: 700;
       text-align: center;
-      font-size: clamp(7px, 0.8vw, 10px);
+      font-size: clamp(7px, 0.85vw, 10px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -155,7 +155,7 @@
       z-index: 2;
     }
     .head small {
-      font-size: clamp(6px, 0.72vw, 9px);
+      font-size: clamp(7px, 0.8vw, 10px);
       font-weight: 700;
       opacity: .8;
     }
@@ -178,14 +178,14 @@
     }
     .person .code {
       font-weight: 700;
-      font-size: clamp(9px, 1vw, 13px);
+      font-size: clamp(9px, 1.0vw, 13px);
       margin-bottom: 2px;
       text-transform: uppercase;
       letter-spacing: .05em;
     }
     .person .name {
       line-height: 1.3;
-      font-size: clamp(7px, 0.72vw, 9px);
+      font-size: clamp(7px, 0.75vw, 10px);
       color: #374151;
     }
     .cell {
@@ -204,7 +204,7 @@
       border: 1px solid rgba(0,0,0,0.15);
       padding: 3px 4px 2px;
       cursor: default;
-      font-size: clamp(7px, 0.8vw, 10px);
+      font-size: clamp(7px, 1.6vw, 20px);
       line-height: 1.25;
       min-height: 18px;
       flex: 1;
@@ -217,10 +217,11 @@
       display: flex;
       justify-content: space-between;
       gap: 3px;
-      font-size: clamp(6px, 0.7vw, 9px);
+      font-size: clamp(6px, 1.4vw, 18px);
       font-weight: 700;
       color: #111827;
     }
+    .task .meta span { min-width: 0; overflow-wrap: break-word; }
     .task.p0 { background: var(--p0); }
     .task.p1 { background: var(--p1); }
     .task.p2 { background: var(--p2); }
@@ -229,7 +230,7 @@
     .task.waiting { background: var(--wait); }
     .task.done { background: var(--done); color: #6b7280; }
     .task .danger { color: var(--danger); font-weight: 700; }
-    .task .spz { color: #cc1f1a; font-weight: 700; font-size: clamp(6px, 0.72vw, 9px); margin-top: 1px; }
+    .task .spz { color: #cc1f1a; font-weight: 700; font-size: clamp(6px, 1.44vw, 18px); margin-top: 1px; }
     .task .multiday-badge { font-size: 9px; color: #0891b2; font-weight: 700; margin-bottom: 1px; }
 
     /* ── MODAL ── */
