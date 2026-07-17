@@ -353,11 +353,31 @@ const FTLoader = (() => {
   function pushWorkbook() {}
   function isAuthenticated() { return true; }
 
+  // ── Zjištění oprávnění tokenu (read-only vs zápis) ─────────────────────
+  let _cachedCanWrite = null;
+
+  async function checkWritePermission() {
+    if (_cachedCanWrite !== null) return _cachedCanWrite;
+    try {
+      const resp = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`, {
+        headers: headers()
+      });
+      if (!resp.ok) { _cachedCanWrite = false; return false; }
+      const data = await resp.json();
+      _cachedCanWrite = !!(data.permissions && data.permissions.push);
+      return _cachedCanWrite;
+    } catch(e) {
+      _cachedCanWrite = false;
+      return false;
+    }
+  }
+
   return {
     init, reload, saveToGitHub, getRawJson,
     getAutoDostupnost, setFileHandle, loadRaw, pushWorkbook, isAuthenticated,
     getCurrentUser: () => getCurrentUserFromConfig() || localStorage.getItem(USER_KEY) || "unknown",
     setCurrentUser: (u) => localStorage.setItem(USER_KEY, u),
+    checkWritePermission,
   };
 
 })();

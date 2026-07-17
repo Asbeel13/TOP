@@ -1273,13 +1273,36 @@ async function initDashboard() {
 
 // ── FTLoader integration ──────────────────────────────────────────────
 
+let _permissionChecked = false;
+
 FTLoader.init({
   onData: (parsedData) => {
     applyData(parsedData);
     // Skryj login banner pokud existuje
+
+    if (!_permissionChecked) {
+      _permissionChecked = true;
+      FTLoader.checkWritePermission().then(canWrite => {
+        if (!canWrite) showReadOnlyRedirect();
+      });
+    }
   },
   onStatus: (msg, isError) => { setSyncStatus(msg, isError || false); }
 });
+
+function showReadOnlyRedirect() {
+  const div = document.createElement("div");
+  div.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.94);z-index:10000;display:flex;align-items:center;justify-content:center;color:white;font-family:sans-serif;text-align:center;padding:20px;";
+  div.innerHTML = `
+    <div>
+      <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px;">Nemáš oprávnění k úpravám</div>
+      <div style="font-size:14px;color:#94a3b8;">Tvůj přístup je jen pro čtení. Přesměrovávám na týdenní přehled…</div>
+    </div>
+  `;
+  document.body.appendChild(div);
+  setTimeout(() => { window.location.href = "tydenni_prehled.html"; }, 2500);
+}
 
 initDashboard();
 </script>
