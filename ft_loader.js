@@ -33,7 +33,7 @@ const FTLoader = (() => {
       <div style="background:white;border-radius:16px;padding:32px;width:480px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:sans-serif;">
         <h2 style="margin:0 0 8px;font-size:20px;">🔑 Přístup k databázi TOP</h2>
         <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">Zadej svůj GitHub Personal Access Token. Obdržíš ho od správce systému.</p>
-        <input id="ftTokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:8px;">
+        <input id="ftTokenInput" type="password" placeholder="ghp_... nebo github_pat_..." style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:8px;">
         <input id="ftUserInput" type="text" placeholder="Tvoje zkratka (např. JK, RS, LR)" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:16px;">
         <button id="ftTokenSave" style="width:100%;padding:12px;background:#1d4ed8;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Uložit a pokračovat →</button>
         <p style="color:#9ca3af;font-size:11px;margin:12px 0 0;text-align:center;">Token se uloží jen v tomto prohlížeči. Při příštím otevření se zadávat nemusí.</p>
@@ -43,7 +43,10 @@ const FTLoader = (() => {
     document.getElementById("ftTokenSave").addEventListener("click", () => {
       const token = document.getElementById("ftTokenInput").value.trim();
       const user = document.getElementById("ftUserInput").value.trim();
-      if (!token.startsWith("ghp_")) { alert("Token musí začínat ghp_"); return; }
+      if (!token.startsWith("ghp_") && !token.startsWith("github_pat_")) {
+        alert("Token musí začínat ghp_ (classic) nebo github_pat_ (fine-grained)");
+        return;
+      }
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
       if (user) localStorage.setItem("ftCurrentUser", user);
       div.remove();
