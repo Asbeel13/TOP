@@ -567,7 +567,7 @@ initDarkMode();
       <div class="modal-body">
         <div class="grid two">
           <div class="field field-readonly"><label>ID úkolu</label><input id="m_id" readonly /></div>
-          <div class="field field-optional"><label>Interní číslo projektu</label><input id="m_internal" /></div>
+          <div class="field field-readonly"><label>Datum zapsání</label><input id="m_created" type="date" readonly /></div>
         </div>
         <div class="grid">
           <div class="field field-required"><label>Úkol</label><input id="m_task" /></div>
@@ -583,13 +583,10 @@ initDarkMode();
               <option value="P3">P3</option>
             </select>
           </div>
-          <div class="field field-optional"><label>Projekt</label><input id="m_project" /></div>
-        </div>
-        <div class="grid two">
           <div class="field field-optional"><label>Obchodní zástupce</label><input id="m_sales" /></div>
-          <div class="field field-required"><label>Řešitel</label><select id="m_assignee"><option value="">— nevybráno —</option></select></div>
         </div>
         <div class="grid two">
+          <div class="field field-required"><label>Řešitel</label><select id="m_assignee"><option value="">— nevybráno —</option></select></div>
           <div class="field field-optional">
             <label>Stav</label>
             <select id="m_state">
@@ -601,13 +598,26 @@ initDarkMode();
           </div>
         </div>
         <div class="grid two">
-          <div class="field field-readonly"><label>Datum zapsání</label><input id="m_created" type="date" readonly /></div>
           <div class="field field-required"><label>Plánovaný datum realizace</label><input id="m_planned" type="date" /></div>
-          <div class="field field-optional"><label>Počet dní trvání</label><input id="m_duration" type="number" min="1" value="1" style="width:80px;" /></div>
+          <div class="field field-optional"><label>Datum požadovaného ukončení</label><input id="m_due" type="date" /></div>
         </div>
         <div class="grid two">
+          <div class="field field-optional"><label>Počet dní trvání</label><input id="m_duration" type="number" min="1" value="1" /></div>
           <div class="field field-optional"><label>Datum dokončení</label><input id="m_finished" type="date" /></div>
-          <div class="field field-optional"><label>Datum požadovaného ukončení</label><input id="m_due" type="date" /></div>
+        </div>
+        <div class="grid">
+          <div class="field field-optional"><label>Upřesnění / poznámka</label><textarea id="m_note"></textarea></div>
+        </div>
+        <div class="field field-optional">
+          <label>Auto (SPZ)</label>
+          <select id="m_auto" style="margin-bottom:4px;">
+            <option value="">— bez auta —</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+            <input id="m_auto_manual" placeholder="nebo napište SPZ ručně..." style="flex:1;" autocomplete="off" />
+            <button type="button" onclick="useManualAuto()" style="padding:8px 12px;font-size:12px;border-radius:10px;border:1px solid #d1d5db;background:#f8fbff;cursor:pointer;white-space:nowrap;">Použít</button>
+          </div>
+          <div id="m_auto_warning" style="color:#cc1f1a;font-size:12px;margin-top:4px;display:none;"></div>
         </div>
         <div class="grid two">
           <div class="field field-optional">
@@ -625,20 +635,12 @@ initDarkMode();
             </select>
           </div>
         </div>
-        <div class="grid">
-          <div class="field field-optional"><label>Upřesnění / poznámka</label><textarea id="m_note"></textarea></div>
-          <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
+        <div class="grid two">
+          <div class="field field-optional"><label>Projekt</label><input id="m_project" /></div>
+          <div class="field field-optional"><label>Interní číslo projektu</label><input id="m_internal" /></div>
         </div>
-        <div class="field field-optional">
-          <label>Auto (SPZ)</label>
-          <select id="m_auto" style="margin-bottom:4px;">
-            <option value="">— bez auta —</option>
-          </select>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-            <input id="m_auto_manual" placeholder="nebo napište SPZ ručně..." style="flex:1;" autocomplete="off" />
-            <button type="button" onclick="useManualAuto()" style="padding:8px 12px;font-size:12px;border-radius:10px;border:1px solid #d1d5db;background:#f8fbff;cursor:pointer;white-space:nowrap;">Použít</button>
-          </div>
-          <div id="m_auto_warning" style="color:#cc1f1a;font-size:12px;margin-top:4px;display:none;"></div>
+        <div class="grid">
+          <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
         </div>
       </div>
     </div>
