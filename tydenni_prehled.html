@@ -204,7 +204,7 @@
       border: 1px solid rgba(0,0,0,0.15);
       padding: 3px 4px 2px;
       cursor: default;
-      font-size: calc(clamp(7px, 1.6vw, 20px) * var(--task-scale, 1));
+      font-size: clamp(7px, 1.6vw, 20px);
       line-height: 1.25;
       min-height: 18px;
       flex: 1;
@@ -213,8 +213,8 @@
       justify-content: center;
       overflow: hidden;
     }
-    .task.density-2 { font-size: calc(clamp(7px, 1.2vw, 15px) * var(--task-scale, 1)); }
-    .task.density-3plus { font-size: calc(clamp(6px, 0.85vw, 11px) * var(--task-scale, 1)); }
+    .task.density-2 { font-size: clamp(7px, 1.2vw, 15px); }
+    .task.density-3plus { font-size: clamp(6px, 0.85vw, 11px); }
     .task .title { margin-bottom: 2px; }
     .task .meta {
       display: flex;
@@ -344,14 +344,7 @@
   <button id="prevWeek">← Předchozí</button>
   <button id="nextWeek">Další →</button>
   <button id="todayBtn">Dnes</button>
-  <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted, #6b7280);white-space:nowrap;">
-      Text
-      <input id="taskScaleSlider" type="range" min="50" max="150" value="100" step="5" style="width:100px;" />
-      <span id="taskScaleValue" style="font-weight:700;min-width:38px;">100 %</span>
-    </label>
-    <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
-  </div>
+  <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="margin-left:auto;font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
   <div class="legend">
     <div class="legend-item"><div class="swatch" style="background:var(--p0)"></div>P0</div>
     <div class="legend-item"><div class="swatch" style="background:var(--p1)"></div>P1</div>
@@ -396,25 +389,6 @@ function initDarkMode() {
   });
 }
 initDarkMode();
-
-// ── Velikost textu v dlaždicích (sdíleno mezi dashboardem a přehledem) ──
-const TASK_SCALE_KEY = "ftTaskFontScale";
-function applyTaskScale(percent) {
-  const scale = percent / 100;
-  document.documentElement.style.setProperty("--task-scale", scale);
-  localStorage.setItem(TASK_SCALE_KEY, String(percent));
-  const slider = document.getElementById("taskScaleSlider");
-  const label = document.getElementById("taskScaleValue");
-  if (slider) slider.value = percent;
-  if (label) label.textContent = percent + " %";
-}
-function initTaskScale() {
-  const saved = parseInt(localStorage.getItem(TASK_SCALE_KEY), 10);
-  applyTaskScale(!isNaN(saved) ? saved : 100);
-  const slider = document.getElementById("taskScaleSlider");
-  if (slider) slider.addEventListener("input", () => applyTaskScale(parseInt(slider.value, 10)));
-}
-document.addEventListener("DOMContentLoaded", initTaskScale);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="ft_loader.js"></script>
@@ -572,6 +546,27 @@ function renderSide(targetEl, side) {
       });
       targetEl.appendChild(c);
     });
+  });
+
+  fitAllTaskText(targetEl);
+}
+
+// ── Zmenší písmo jednotlivé kartičky, pokud text přetéká, dokud se nevejde ──
+function fitTaskText(el) {
+  const minFontSize = 6;
+  let fontSize = parseFloat(getComputedStyle(el).fontSize);
+  el.style.fontSize = fontSize + "px";
+  let guard = 0;
+  while (el.scrollHeight > el.clientHeight + 1 && fontSize > minFontSize && guard < 60) {
+    fontSize -= 0.5;
+    el.style.fontSize = fontSize + "px";
+    guard++;
+  }
+}
+
+function fitAllTaskText(containerEl) {
+  requestAnimationFrame(() => {
+    containerEl.querySelectorAll(".task").forEach(fitTaskText);
   });
 }
 
