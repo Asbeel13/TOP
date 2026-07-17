@@ -357,18 +357,30 @@ const FTLoader = (() => {
   function isAuthenticated() { return true; }
 
   // ── Zjištění oprávnění tokenu (read-only vs zápis) ─────────────────────
+  // Poznámka: GET /repos/{owner}/{repo} vrací oprávnění GITHUB ÚČTU na repo,
+  // NE rozsah konkrétního fine-grained tokenu — proto nespolehlivé pro detekci.
+  // Místo toho zkusíme skutečný zápis s úmyslně špatným SHA:
+  //   409 (SHA conflict) = token zápis umí, jen SHA nesedí → MÁ oprávnění
+  //   403 (Forbidden)    = token zápis vůbec neumí → NEMÁ oprávnění
   let _cachedCanWrite = null;
 
   async function checkWritePermission() {
     if (_cachedCanWrite !== null) return _cachedCanWrite;
     try {
-      const resp = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`, {
-        headers: headers()
+      const resp = await fetch(apiUrl(), {
+        method: "PUT",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          message: "permission-check (nemělo by se nikdy uložit)",
+          content: btoa("permission-check-probe"),
+          sha: "0000000000000000000000000000000000000000"
+        })
       });
-      if (!resp.ok) { _cachedCanWrite = false; return false; }
-      const data = await resp.json();
-      _cachedCanWrite = !!(data.permissions && data.permissions.push);
-      return _cachedCanWrite;
+      if (resp.status === 409) { _cachedCanWrite = true; return true; }
+      if (resp.status === 403) { _cachedCanWrite = false; return false; }
+      // Neočekávaný stav — pro jistotu považuj za bez oprávnění
+      _cachedCanWrite = false;
+      return false;
     } catch(e) {
       _cachedCanWrite = false;
       return false;
