@@ -131,7 +131,7 @@ const FTLoader = (() => {
         if (taskIndex.has(`${o.id}|${iso}`)) return;
         result.push({
           id: o.id, title: o.title, owner: o.owner,
-          plannedDate: iso, priority: "P3", project: "",
+          plannedDate: iso, priority: o.priority || "P2", project: "",
           state: "Opakující se", note: o.note || "", internalNote: "",
           auto: "", waiting: false, cancelled: false, recurring: true
         });

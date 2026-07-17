@@ -1384,14 +1384,20 @@ function renderOpakovaciTable() {
     return "";
   };
 
+  const prioOptions = (prio) => {
+    const p = prio || "P2";
+    return ["P0","P1","P2","P3"].map(x => `<option value="${x}" ${x === p ? "selected" : ""}>${x}</option>`).join("");
+  };
+
   wrap.innerHTML = `
     <h3 style="margin:0 0 12px;font-size:16px;">Opakující se úkoly</h3>
     <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:960px;">
       <thead><tr style="background:#f1f5fb;">
         <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">ID</th>
         <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Název</th>
         <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Řešitel</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Priorita</th>
         <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Typ</th>
         <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Hodnota</th>
         <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Poznámka</th>
@@ -1400,12 +1406,13 @@ function renderOpakovaciTable() {
       </tr></thead>
       <tbody>
         ${opakovaci.length === 0
-          ? '<tr><td colspan="8" style="padding:12px;color:#6b7280;text-align:center;">Žádná opakující se pravidla.</td></tr>'
+          ? '<tr><td colspan="9" style="padding:12px;color:#6b7280;text-align:center;">Žádná opakující se pravidla.</td></tr>'
           : opakovaci.map((o, i) => `
             <tr style="border-bottom:1px solid #e5e7eb;${o.aktivni ? "" : "opacity:0.5;"}">
               <td style="padding:6px 8px;"><input value="${escapeHtml(o.id)}" onchange="updateOpakovaciField(${i}, 'id', this.value)" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
               <td style="padding:6px 8px;"><input value="${escapeHtml(o.title)}" onchange="updateOpakovaciField(${i}, 'title', this.value)" style="width:160px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
               <td style="padding:6px 8px;"><select onchange="updateOpakovaciField(${i}, 'owner', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${resiteleOptions(o.owner)}</select></td>
+              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField(${i}, 'priority', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${prioOptions(o.priority)}</select></td>
               <td style="padding:6px 8px;"><select onchange="updateOpakovaciField(${i}, 'typ', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${typOptions(o.typ)}</select></td>
               <td style="padding:6px 8px;">
                 <input value="${escapeHtml(o.hodnota)}" onchange="updateOpakovaciField(${i}, 'hodnota', this.value)" style="width:50px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
@@ -1422,6 +1429,7 @@ function renderOpakovaciTable() {
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">ID</label><input id="newOp_id" placeholder="RFT017" style="width:80px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Název</label><input id="newOp_title" placeholder="Název úkolu" style="width:160px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Řešitel</label><select id="newOp_owner" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${resiteleOptions("")}</select></div>
+      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Priorita</label><select id="newOp_priority" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${prioOptions("P2")}</select></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Typ</label><select id="newOp_typ" onchange="document.getElementById('newOp_hint').textContent = ({weekly:'1=Po..7=Ne', interval:'počet dní', monthly:'den v měsíci'})[this.value]" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${typOptions("weekly")}</select></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Hodnota</label><input id="newOp_hodnota" placeholder="1" style="width:50px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"><div id="newOp_hint" style="font-size:10px;color:#9ca3af;margin-top:2px;">1=Po..7=Ne</div></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Poznámka</label><input id="newOp_note" placeholder="volitelné" style="width:140px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
@@ -1455,6 +1463,7 @@ function addOpakovaci() {
   const id = (document.getElementById("newOp_id")?.value || "").trim();
   const title = (document.getElementById("newOp_title")?.value || "").trim();
   const owner = document.getElementById("newOp_owner")?.value || "";
+  const priority = document.getElementById("newOp_priority")?.value || "P2";
   const typ = document.getElementById("newOp_typ")?.value || "weekly";
   const hodnota = (document.getElementById("newOp_hodnota")?.value || "1").trim();
   const note = (document.getElementById("newOp_note")?.value || "").trim();
@@ -1462,7 +1471,7 @@ function addOpakovaci() {
   if (!id || !title) { alert("Vyplň alespoň ID a Název."); return; }
   if (opakovaci.find(o => o.id === id)) { alert(`ID "${id}" už existuje.`); return; }
 
-  opakovaci.push({ id, title, owner, typ, hodnota, aktivni: true, note });
+  opakovaci.push({ id, title, owner, priority, typ, hodnota, aktivni: true, note });
   renderOpakovaciTable();
   autoSaveIfPossible();
 }
