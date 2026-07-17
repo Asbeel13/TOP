@@ -338,12 +338,13 @@
   <button id="todayBtn">Dnes</button>
   <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="margin-left:auto;font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
   <div class="legend">
-    <div class="legend-item"><div class="swatch" style="background:#8bc34a"></div>P0</div>
-    <div class="legend-item"><div class="swatch" style="background:#b8df79"></div>P1</div>
-    <div class="legend-item"><div class="swatch" style="background:#f2e87b"></div>P2</div>
-    <div class="legend-item"><div class="swatch" style="background:#e7e7e7"></div>P3</div>
-    <div class="legend-item"><div class="swatch" style="background:#f7d24d"></div>Čeká</div>
-    <div class="legend-item"><div class="swatch" style="background:#d8d8d8"></div>Hotovo</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--p0)"></div>P0</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--p1)"></div>P1</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--p2)"></div>P2</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--p3)"></div>P3</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--px)"></div>PX</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--wait)"></div>Čeká</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--done)"></div>Hotovo</div>
   </div>
   <span class="sync-status" id="syncStatus"></span>
   <a class="back-link" href="tydenni_dashboard_live_reload_local_linked.html">⚙ Dashboard</a>
