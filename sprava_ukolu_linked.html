@@ -153,6 +153,25 @@ initDarkMode();
     }
     textarea{resize:vertical; min-height:100px}
     input:focus, select:focus, textarea:focus{border-color:#a7c6ff; box-shadow:0 0 0 4px rgba(47,120,255,.08)}
+
+    /* ── Kategorie polí: povinné / needí zásah uživatele / nepovinné ── */
+    .field-required label { color:#dc2626; }
+    .field-required input, .field-required select, .field-required textarea {
+      background:#fef2f2; border:2px solid #dc2626; color:#7f1d1d;
+    }
+    .field-required input:focus, .field-required select:focus, .field-required textarea:focus {
+      box-shadow:0 0 0 4px rgba(220,38,38,.15);
+    }
+
+    .field-readonly label { color:#9ca3af; }
+    .field-readonly input {
+      background:#f3f4f6; border:1px solid #d1d5db; color:#9ca3af; cursor:not-allowed;
+    }
+
+    .field-optional label { color:var(--muted); }
+    .field-optional input, .field-optional select, .field-optional textarea {
+      background:#f8fafc; border:1px solid var(--line); color:var(--text);
+    }
     .helper{
       color:var(--muted);
       font-size:12px;
@@ -360,6 +379,19 @@ initDarkMode();
     html.dark .success { background: #15803d; border-color: #15803d; color: white; }
     html.dark .danger { background: #7f1d1d; border-color: #991b1b; color: #fca5a5; }
     html.dark input, html.dark select, html.dark textarea { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+
+    html.dark .field-required label { color: #fca5a5; }
+    html.dark .field-required input, html.dark .field-required select, html.dark .field-required textarea {
+      background: #7f1d1d; border: 2px solid #dc2626; color: #fee2e2;
+    }
+    html.dark .field-readonly label { color: #64748b; }
+    html.dark .field-readonly input {
+      background: #1e293b; border: 1px solid #334155; color: #64748b; cursor: not-allowed;
+    }
+    html.dark .field-optional label { color: #94a3b8; }
+    html.dark .field-optional input, html.dark .field-optional select, html.dark .field-optional textarea {
+      background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+    }
     html.dark input:focus, html.dark select:focus, html.dark textarea:focus { border-color: #3b82f6; }
     html.dark .table-wrap { border-color: #334155; }
     html.dark table { background: #1e293b; }
@@ -534,14 +566,14 @@ initDarkMode();
       </div>
       <div class="modal-body">
         <div class="grid two">
-          <div class="field"><label>ID úkolu</label><input id="m_id" /></div>
-          <div class="field"><label>Interní číslo projektu</label><input id="m_internal" /></div>
+          <div class="field field-readonly"><label>ID úkolu</label><input id="m_id" readonly /></div>
+          <div class="field field-optional"><label>Interní číslo projektu</label><input id="m_internal" /></div>
         </div>
         <div class="grid">
-          <div class="field"><label>Úkol</label><input id="m_task" /></div>
+          <div class="field field-required"><label>Úkol</label><input id="m_task" /></div>
         </div>
         <div class="grid two">
-          <div class="field">
+          <div class="field field-required">
             <label>Priorita</label>
             <select id="m_priority">
               <option value="PX">PX – volno/lékař</option>
@@ -551,14 +583,14 @@ initDarkMode();
               <option value="P3">P3</option>
             </select>
           </div>
-          <div class="field"><label>Projekt</label><input id="m_project" /></div>
+          <div class="field field-optional"><label>Projekt</label><input id="m_project" /></div>
         </div>
         <div class="grid two">
-          <div class="field"><label>Obchodní zástupce</label><input id="m_sales" /></div>
-          <div class="field"><label>Řešitel</label><select id="m_assignee"><option value="">— nevybráno —</option></select></div>
+          <div class="field field-optional"><label>Obchodní zástupce</label><input id="m_sales" /></div>
+          <div class="field field-required"><label>Řešitel</label><select id="m_assignee"><option value="">— nevybráno —</option></select></div>
         </div>
         <div class="grid two">
-          <div class="field">
+          <div class="field field-optional">
             <label>Stav</label>
             <select id="m_state">
               <option value="Nový">Nový</option>
@@ -569,23 +601,23 @@ initDarkMode();
           </div>
         </div>
         <div class="grid two">
-          <div class="field"><label>Datum zapsání</label><input id="m_created" type="date" /></div>
-          <div class="field"><label>Plánovaný datum realizace</label><input id="m_planned" type="date" /></div>
-          <div class="field"><label>Počet dní trvání</label><input id="m_duration" type="number" min="1" value="1" style="width:80px;" /></div>
+          <div class="field field-readonly"><label>Datum zapsání</label><input id="m_created" type="date" readonly /></div>
+          <div class="field field-required"><label>Plánovaný datum realizace</label><input id="m_planned" type="date" /></div>
+          <div class="field field-optional"><label>Počet dní trvání</label><input id="m_duration" type="number" min="1" value="1" style="width:80px;" /></div>
         </div>
         <div class="grid two">
-          <div class="field"><label>Datum dokončení</label><input id="m_finished" type="date" /></div>
-          <div class="field"><label>Datum požadovaného ukončení</label><input id="m_due" type="date" /></div>
+          <div class="field field-optional"><label>Datum dokončení</label><input id="m_finished" type="date" /></div>
+          <div class="field field-optional"><label>Datum požadovaného ukončení</label><input id="m_due" type="date" /></div>
         </div>
         <div class="grid two">
-          <div class="field">
+          <div class="field field-optional">
             <label>Čeká se na něco</label>
             <select id="m_waiting">
               <option value="false">Ne</option>
               <option value="true">Ano</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field field-optional">
             <label>Podúkol</label>
             <select id="m_subtask">
               <option value="false">Ne</option>
@@ -594,10 +626,10 @@ initDarkMode();
           </div>
         </div>
         <div class="grid">
-          <div class="field"><label>Upřesnění / poznámka</label><textarea id="m_note"></textarea></div>
-          <div class="field"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
+          <div class="field field-optional"><label>Upřesnění / poznámka</label><textarea id="m_note"></textarea></div>
+          <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
         </div>
-        <div class="field">
+        <div class="field field-optional">
           <label>Auto (SPZ)</label>
           <select id="m_auto" style="margin-bottom:4px;">
             <option value="">— bez auta —</option>
