@@ -413,7 +413,15 @@ const state = {
 function getPeopleLayout() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (saved && Array.isArray(saved)) return saved;
+    if (saved && Array.isArray(saved)) {
+      // Deduplikuj podle owner — ochrana proti starým poškozeným datům v localStorage
+      const seen = new Set();
+      return saved.filter(e => {
+        if (seen.has(e.owner)) return false;
+        seen.add(e.owner);
+        return true;
+      });
+    }
   } catch(e) {}
   // fallback: split owners in half
   const owners = DATA.owners;

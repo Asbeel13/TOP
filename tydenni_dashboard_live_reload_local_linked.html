@@ -1248,7 +1248,14 @@ function applyData(nextData) {
     if (!savedSet.has(o)) saved.push({ owner: o, side: "L" });
   });
   // Odstraň ty co nejsou v sourceOwners
-  state.peopleLayout = saved.filter(e => sourceOwners.includes(e.owner));
+  const filtered = saved.filter(e => sourceOwners.includes(e.owner));
+  // Deduplikuj podle owner (ponech první výskyt — zachová stranu/pořadí z localStorage)
+  const seen = new Set();
+  state.peopleLayout = filtered.filter(e => {
+    if (seen.has(e.owner)) return false;
+    seen.add(e.owner);
+    return true;
+  });
   state.selectedPeople = new Set(state.peopleLayout.map(e => e.owner));
 
   savePeopleLayout();
