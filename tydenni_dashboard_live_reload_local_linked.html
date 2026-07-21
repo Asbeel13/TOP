@@ -1054,7 +1054,7 @@ function normalizeText(v) {
 function taskMatches(task) {
   if (state.priority && task.priority !== state.priority) return false;
   if (state.waitingOnly && !task.waiting) return false;
-  if (state.hideDone && normalizeText(task.status).includes("dokončeno")) return false;
+  if (state.hideDone && normalizeText(task.state).includes("dokončeno")) return false;
   if (!state.selectedPeople.has(task.owner)) return false;
   if (state.search) {
     const hay = [task.id, task.title, task.project, task.sales, task.note, task.internalNote].map(normalizeText).join(" ");
@@ -1269,10 +1269,10 @@ function renderScheduleForSide(targetEl, side) {
         div.innerHTML = `
           ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
           ${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}
-          <div class="title">${task.title}</div>
+          <div class="title">${escapeHtml(task.title)}</div>
           <div class="meta">
-            <span class="${task.project.toLowerCase().includes("ford") ? "danger" : ""}">${task.project || ""}</span>
-          </div>${task.auto ? `<div class="spz">🚗 ${task.auto}</div>` : ""}
+            <span class="${task.project.toLowerCase().includes("ford") ? "danger" : ""}">${escapeHtml(task.project || "")}</span>
+          </div>${task.auto ? `<div class="spz">🚗 ${escapeHtml(task.auto)}</div>` : ""}
         `;
         div.addEventListener("click", () => openModal(task));
         c.appendChild(div);
@@ -1323,7 +1323,7 @@ function renderBacklog() {
   unscheduled.forEach(task => {
     const div = document.createElement("div");
     div.className = "list-item";
-    div.innerHTML = `<strong>${task.id} · ${task.title}</strong><div class="muted">${task.owner} · ${task.priority} · ${task.project || "bez projektu"}</div>`;
+    div.innerHTML = `<strong>${escapeHtml(task.id)} · ${escapeHtml(task.title)}</strong><div class="muted">${escapeHtml(task.owner)} · ${escapeHtml(task.priority)} · ${escapeHtml(task.project || "bez projektu")}</div>`;
     div.addEventListener("click", () => openModal(task));
     els.unscheduled.appendChild(div);
   });

@@ -572,10 +572,10 @@ function renderSide(targetEl, side) {
         const div = document.createElement("div");
         div.className = cardClass(task) + densityClass;
         div.style.cursor = "pointer";
-        div.innerHTML = `${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}<div class="title">${task.title}</div>
+        div.innerHTML = `${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}<div class="title">${escapeHtml(task.title)}</div>
           <div class="meta">
-            <span class="${(task.project||"").toLowerCase().includes("ford") ? "danger" : ""}">${task.project||""}</span>
-          </div>${task.auto ? `<div class="spz">🚗 ${task.auto}</div>` : ""}`;
+            <span class="${(task.project||"").toLowerCase().includes("ford") ? "danger" : ""}">${escapeHtml(task.project||"")}</span>
+          </div>${task.auto ? `<div class="spz">🚗 ${escapeHtml(task.auto)}</div>` : ""}`;
         div.addEventListener("click", () => openModal(task));
         c.appendChild(div);
       });
@@ -587,6 +587,12 @@ function renderSide(targetEl, side) {
 }
 
 // ── Zmenší písmo jednotlivé kartičky, pokud text přetéká, dokud se nevejde ──
+function escapeHtml(str) {
+  return (str ?? "").toString()
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+
 function fitTaskText(el) {
   const minFontSize = 6;
   let fontSize = parseFloat(getComputedStyle(el).fontSize);
@@ -659,7 +665,7 @@ function openModal(task) {
     task.owner || "Bez řešitele",
     task.project || "Bez projektu",
     task.plannedDate ? `Plán: ${task.plannedDate}` : "Bez data",
-    task.status || "Bez stavu"
+    task.state || "Bez stavu"
   ];
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
