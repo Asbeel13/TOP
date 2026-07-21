@@ -281,6 +281,8 @@
     }
     .add-task-btn:hover { background: #1d4ed8; color: white; border-color: #1d4ed8; }
     body.can-write .cell:hover .add-task-btn { display: block; }
+    .can-write-only { display: none !important; }
+    body.can-write .can-write-only { display: inline-block !important; }
     html.dark .add-task-btn { background: rgba(30,41,59,0.9); color: #cbd5e1; border-color: #475569; }
     .task {
       border: 1px solid rgba(0,0,0,0.18);
@@ -770,6 +772,7 @@
         <h3 id="modalTitle" style="margin:10px 0 0;font-size:22px"></h3>
       </div>
       <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
+        <button id="modalDoneBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#ecfdf3;border:1px solid #86efac;color:#166534;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Hotovo</button>
         <a id="modalEditBtn" href="#" target="_blank" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
         <a id="modalCancelRecurBtn" href="#" target="_blank" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
         <button id="modalDeleteBtn" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Smazat</button>
@@ -1006,6 +1009,7 @@ const els = {
   modalNote: document.getElementById("modalNote"),
   modalInternal: document.getElementById("modalInternal"),
   modalChips: document.getElementById("modalChips"),
+  modalDoneBtn: document.getElementById("modalDoneBtn"),
   modalEditBtn: document.getElementById("modalEditBtn"),
   modalCancelRecurBtn: document.getElementById("modalCancelRecurBtn"),
   modalDeleteBtn: document.getElementById("modalDeleteBtn"),
@@ -1186,7 +1190,7 @@ function openModal(task) {
     task.owner || "Bez řešitele",
     task.project || "Bez projektu",
     task.plannedDate ? `Plán: ${task.plannedDate}` : "Bez data",
-    task.status || "Bez stavu"
+    task.state || "Bez stavu"
   ];
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
@@ -1200,6 +1204,13 @@ function openModal(task) {
   } else {
     els.modalEditBtn.style.display = "none";
     els.modalDeleteBtn.style.display = "none";
+  }
+  const isAlreadyDone = normalizeText(task.state).includes("dokončeno");
+  if (task.id && !task.recurring && !isAlreadyDone) {
+    els.modalDoneBtn.dataset.taskId = task.id;
+    els.modalDoneBtn.style.display = "inline-block";
+  } else {
+    els.modalDoneBtn.style.display = "none";
   }
   if (task.recurring && task.id && task.plannedDate) {
     els.modalCancelRecurBtn.href = `sprava_ukolu_linked.html?vyjimka=${encodeURIComponent(task.id)}&datum=${encodeURIComponent(task.plannedDate)}`;
@@ -1405,6 +1416,41 @@ document.getElementById("modalDeleteBtn").addEventListener("click", () => {
   els.modal.classList.remove("open");
   window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}`, "_blank");
 });
+document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
+
+async function markTaskAsDoneFromModal() {
+  const id = els.modalDoneBtn.dataset.taskId;
+  if (!id) return;
+  els.modalDoneBtn.disabled = true;
+  els.modalDoneBtn.textContent = "Ukládám…";
+  try {
+    const raw = FTLoader.getRawJson();
+    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    const task = (raw.tasks || []).find(t => t.id === id);
+    if (!task) throw new Error(`Úkol ${id} nebyl v databázi nalezen.`);
+    task.state = "Dokončeno";
+    if (!task.doneDate) {
+      const now = new Date();
+      task.doneDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    }
+    const user = FTLoader.getCurrentUser() || "dashboard";
+    await FTLoader.saveToGitHub(raw, `Úkol ${id} označen jako hotový uživatelem ${user}`);
+    els.modal.classList.remove("open");
+    await FTLoader.reload();
+  } catch (e) {
+    if (e.message && e.message.includes("CONFLICT")) {
+      if (confirm(`⚠ ${e.message}\n\nKliknout OK pro přenačtení dat.`)) {
+        await FTLoader.reload();
+      }
+    } else {
+      alert(`Uložení se nepodařilo: ${e.message}`);
+      console.error(e);
+    }
+  } finally {
+    els.modalDoneBtn.disabled = false;
+    els.modalDoneBtn.textContent = "✓ Hotovo";
+  }
+}
 els.modal.addEventListener("click", e => {
   if (e.target === els.modal) els.modal.classList.remove("open");
 });
