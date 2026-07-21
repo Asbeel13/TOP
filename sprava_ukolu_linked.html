@@ -229,8 +229,9 @@ initDarkMode();
     .prio-P2{background:#eff6ff;color:#1d4ed8}
     .prio-P3{background:#f3f4f6;color:#4b5563}
     .state-done{background:#ecfdf3;color:#15803d}
-    .state-progress{background:#eff6ff;color:#2563eb}
-    .state-wait{background:#fff7ed;color:#b45309}
+    .state-progress{background:#fff7ed;color:#c2410c}
+    .state-wait{background:#eff6ff;color:#1d4ed8}
+    .state-new{background:#fff1f2;color:#be123c}
     .actions-row{
       display:flex;
       gap:8px;
@@ -761,6 +762,7 @@ function stateClass(state){
   const s = normalizeText(state).toLowerCase();
   if(s.includes("dokon")) return "state-done";
   if(s.includes("ček")) return "state-wait";
+  if(s.includes("nov")) return "state-new";
   return "state-progress";
 }
 
