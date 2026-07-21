@@ -504,7 +504,7 @@ function getWeekNumber(d) {
 function cardClass(task) {
   const parts = ["task", (task.priority || "P3").toLowerCase()];
   if (task.waiting) parts.push("waiting");
-  if (String(task.status || "").toLowerCase().includes("dokončeno")) parts.push("done");
+  if (String(task.state || "").toLowerCase().includes("dokončeno")) parts.push("done");
   return parts.join(" ");
 }
 

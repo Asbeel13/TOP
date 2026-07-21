@@ -1172,7 +1172,7 @@ function getWeekTasks() {
 function cardClass(task) {
   const parts = ["task", (task.priority || "P3").toLowerCase()];
   if (task.waiting) parts.push("waiting");
-  if (normalizeText(task.status).includes("dokončeno")) parts.push("done");
+  if (normalizeText(task.state).includes("dokončeno")) parts.push("done");
   if (task.recurring) parts.push("recurring");
   return parts.join(" ");
 }
