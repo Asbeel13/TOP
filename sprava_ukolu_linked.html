@@ -966,7 +966,7 @@ function openTaskModal(task=null){
   if (els.modalId) els.modalId.placeholder = task ? "" : "(přiřadí se automaticky při uložení)";
   setValue("m_internal", task?.internalProject || "");
   setValue("m_task", task?.task || "");
-  setValue("m_priority", task?.priority || "P2");
+  setValue("m_priority", task?.priority || "P0");
   setValue("m_project", task?.project || "");
   setValue("m_sales", task?.sales || "");
   // Řešitel: nastav select, případně přidej neznámou zkratku jako extra option
