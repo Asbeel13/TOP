@@ -313,9 +313,14 @@ const FTLoader = (() => {
   }
 
   // ── Getters/setters pro správu úkolů ──────────────────────────────────
-  function getAutoDostupnost(spz, datum, auta, autaRezervace) {
+  function getAutoDostupnost(spz, datum, auta, autaRezervace, tasks) {
     const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
     if (rez) return rez.stav;
+    // Kontrola přes úkoly, které mají toto auto přiřazené na daný den
+    if (tasks) {
+      const conflict = tasks.find(t => !t.cancelled && t.auto === spz && t.plannedDate === datum);
+      if (conflict) return "používané";
+    }
     const auto = auta.find(a => a.spz === spz);
     if (auto && auto.dostupnost !== "volné") return auto.dostupnost;
     return "volné";
