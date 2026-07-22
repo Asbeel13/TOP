@@ -472,7 +472,13 @@ const FTLoader = (() => {
       const data = await resp.json();
       const sha = data.sha;
       const payload = { lastEditBy: user, lastEditAt: new Date().toISOString(), action: action || "edituje" };
-      const encoded = btoa(JSON.stringify(payload));
+      // UTF-8 bezpečné kódování (btoa samotné padá na diakritice typu á/é/ž/š)
+      const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
+      let binary = "";
+      for (let i = 0; i < payloadBytes.length; i += 8192) {
+        binary += String.fromCharCode(...payloadBytes.subarray(i, i + 8192));
+      }
+      const encoded = btoa(binary);
       await fetch(activityUrl(), {
         method: "PUT",
         headers: headers({ "Content-Type": "application/json" }),

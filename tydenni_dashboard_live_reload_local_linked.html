@@ -1630,6 +1630,7 @@ function checkAutoWarningNew(spz, datum) {
 function openNewTaskModal(owner, dateISO) {
   buildResitelSelectNew();
   buildAutaSelectNew();
+  FTLoader.signalEditing("zakládá nový úkol");
 
   document.getElementById("m2_id").value = "";
   document.getElementById("m2_id").placeholder = "(přiřadí se automaticky při uložení)";
@@ -1745,8 +1746,24 @@ FTLoader.init({
       });
     }
   },
-  onStatus: (msg, isError) => { setSyncStatus(msg, isError || false); }
+  onStatus: (msg, isError) => { setSyncStatus(msg, isError || false); },
+  onActivity: (info) => { showActivityBanner(info); }
 });
+
+function showActivityBanner(info) {
+  let banner = document.getElementById("ftActivityBanner");
+  if (!info) {
+    if (banner) banner.remove();
+    return;
+  }
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "ftActivityBanner";
+    banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9998;background:#fef3c7;color:#92400e;padding:8px 16px;text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid #fde68a;";
+    document.body.prepend(banner);
+  }
+  banner.textContent = `⚠ ${info.by} právě ${info.action} (před ${info.secondsAgo}s) — než uložíš, zvaž přenačtení dat`;
+}
 
 function showReadOnlyRedirect() {
   const div = document.createElement("div");

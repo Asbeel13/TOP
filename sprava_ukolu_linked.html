@@ -960,6 +960,7 @@ function openTaskModal(task=null){
   els.modalTitle.textContent = task ? `Úprava ${task.id || "úkolu"}` : "Nový úkol";
   buildAutaDatalist();
   buildResitelSelect();
+  FTLoader.signalEditing(task ? `upravuje úkol ${task.id}` : "zakládá nový úkol");
 
   setValue("m_id", task?.id || "");
   els.modalId = document.getElementById("m_id");
@@ -1749,8 +1750,26 @@ function loadFromRaw(raw) {
     },
     onStatus: (msg, isError) => {
       status(msg, isError);
+    },
+    onActivity: (info) => {
+      showActivityBanner(info);
     }
   });
+
+  function showActivityBanner(info) {
+    let banner = document.getElementById("ftActivityBanner");
+    if (!info) {
+      if (banner) banner.remove();
+      return;
+    }
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "ftActivityBanner";
+      banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9998;background:#fef3c7;color:#92400e;padding:8px 16px;text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid #fde68a;";
+      document.body.prepend(banner);
+    }
+    banner.textContent = `⚠ ${info.by} právě ${info.action} (před ${info.secondsAgo}s) — než uložíš, zvaž přenačtení dat`;
+  }
 
   function showReadOnlyRedirect() {
     const div = document.createElement("div");
