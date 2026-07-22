@@ -1736,7 +1736,7 @@ FTLoader.init({
 
     if (!_permissionChecked) {
       _permissionChecked = true;
-      FTLoader.checkWritePermission().then(canWrite => {
+      FTLoader.canActuallyWrite().then(canWrite => {
         if (!canWrite) {
           showReadOnlyRedirect();
         } else {

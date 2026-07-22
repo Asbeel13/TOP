@@ -10,18 +10,59 @@ const FTLoader = (() => {
   const GITHUB_OWNER = "asbeel13";
   const GITHUB_REPO  = "top-data";
   const GITHUB_FILE  = "database.json";
+  const USERS_FILE   = "users.json";
   const POLL_MS      = 5000;
 
   // Token — uložen přímo v kódu (repozitář top-data je private)
   const TOKEN_STORAGE_KEY = "ftGithubToken";
+  const RESOLVED_USER_KEY = "ftResolvedUser";
 
   function getToken() {
     return localStorage.getItem(TOKEN_STORAGE_KEY) ||
            window.FT_CONFIG?.token || "";
   }
   function getCurrentUserFromConfig() {
-    return window.FT_CONFIG?.user ||
+    return localStorage.getItem(RESOLVED_USER_KEY) ||
+           window.FT_CONFIG?.user ||
            localStorage.getItem("ftCurrentUser") || "unknown";
+  }
+
+  // ── Registr uživatelů (token hash -> zkratka) ─────────────────────────
+  async function hashToken(token) {
+    const enc = new TextEncoder().encode(token);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // ── Ověření tokenu proti předschválenému seznamu (žádná samoregistrace) ──
+  const VERIFIED_FLAG_KEY = "ftUserVerified";
+
+  async function resolveUserFromWhitelist(token) {
+    const hash = await hashToken(token);
+    const usersUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${USERS_FILE}`;
+    try {
+      const resp = await fetch(usersUrl, { headers: headers() });
+      if (!resp.ok) throw new Error(`users.json ${resp.status}`);
+      const data = await resp.json();
+      const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+      const usersDb = JSON.parse(new TextDecoder("utf-8").decode(bytes));
+      const existing = (usersDb.users || []).find(u => u.tokenHash === hash);
+      if (existing) {
+        localStorage.setItem(RESOLVED_USER_KEY, existing.zkratka);
+        localStorage.setItem(VERIFIED_FLAG_KEY, "true");
+        return { verified: true, zkratka: existing.zkratka };
+      }
+      localStorage.setItem(VERIFIED_FLAG_KEY, "false");
+      return { verified: false, zkratka: null };
+    } catch (e) {
+      console.warn("resolveUserFromWhitelist selhalo:", e);
+      // Síťová chyba ap. — nepovažuj to za "neověřeno natrvalo", jen zatím nevíme
+      return { verified: null, zkratka: null };
+    }
+  }
+
+  function isUserVerified() {
+    return localStorage.getItem(VERIFIED_FLAG_KEY) === "true";
   }
 
   function showTokenDialog(onSuccess) {
@@ -40,7 +81,7 @@ const FTLoader = (() => {
       </div>
     `;
     document.body.appendChild(div);
-    document.getElementById("ftTokenSave").addEventListener("click", () => {
+    document.getElementById("ftTokenSave").addEventListener("click", async () => {
       const token = document.getElementById("ftTokenInput").value.trim();
       const user = document.getElementById("ftUserInput").value.trim();
       if (!token.startsWith("ghp_") && !token.startsWith("github_pat_")) {
@@ -49,6 +90,10 @@ const FTLoader = (() => {
       }
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
       if (user) localStorage.setItem("ftCurrentUser", user);
+      const saveBtn = document.getElementById("ftTokenSave");
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Ověřuji…";
+      await resolveUserFromWhitelist(token);
       div.remove();
       if (onSuccess) onSuccess();
     });
@@ -57,7 +102,7 @@ const FTLoader = (() => {
   const DATA_KEY = "ftWorkbookData";
   const USER_KEY = "ftCurrentUser"; // zkratka přihlášeného uživatele
 
-  let _onData = null, _onStatus = null;
+  let _onData = null, _onStatus = null, _onActivity = null;
   let _pollTimer = null;
   let _lastSha = "";
   let _lastEtag = "";
@@ -327,25 +372,36 @@ const FTLoader = (() => {
   }
 
   // ── Init ───────────────────────────────────────────────────────────────
-  function init({ onData, onStatus }) {
-    _onData   = onData;
-    _onStatus = onStatus;
+  function init({ onData, onStatus, onActivity }) {
+    _onData     = onData;
+    _onStatus   = onStatus;
+    _onActivity = onActivity;
 
     // Cache se zobrazí až po prvním úspěšném načtení z GitHubu
 
     // 1. Vymaž starou cache s špatným kódováním
     try { localStorage.removeItem(DATA_KEY); } catch(e) {}
 
-    // 2. Načti čerstvá data z GitHubu — nebo zobraz dialog pro token
-    if (getToken()) {
-      fetchFromGitHub(false);
+    // 2. Ověř identitu proti seznamu (pokud ještě není ověřená) — TEPRVE PAK
+    //    načti data, aby kontrola oprávnění při onData měla platný výsledek.
+    const existingToken = getToken();
+    if (existingToken) {
+      const verifyPromise = localStorage.getItem(VERIFIED_FLAG_KEY) !== "true"
+        ? resolveUserFromWhitelist(existingToken).catch(() => {})
+        : Promise.resolve();
+      verifyPromise.then(() => fetchFromGitHub(false));
     } else {
       showTokenDialog(() => fetchFromGitHub(false));
     }
 
-    // 3. Polling
+    // 3. Polling — data i indikátor aktivity
     if (_pollTimer) clearInterval(_pollTimer);
-    _pollTimer = setInterval(() => fetchFromGitHub(true), POLL_MS);
+    _pollTimer = setInterval(() => {
+      fetchFromGitHub(true);
+      if (_onActivity && getToken()) {
+        checkActivity().then(info => _onActivity(info));
+      }
+    }, POLL_MS);
 
     // 4. Sync mezi záložkami
     initStorageSync();
@@ -392,12 +448,70 @@ const FTLoader = (() => {
     }
   }
 
+  // Kombinovaná kontrola: token musí mít TECHNICKÉ oprávnění k zápisu NA GITHUBU
+  // A ZÁROVEŇ musí být jeho identita ověřená proti předschválenému seznamu.
+  // I technicky zápisný token bez ověřené identity se chová jako pouze pro čtení.
+  async function canActuallyWrite() {
+    const [techWrite, verified] = await Promise.all([checkWritePermission(), Promise.resolve(isUserVerified())]);
+    return techWrite && verified;
+  }
+
+  // ── Indikátor "někdo právě edituje" ────────────────────────────────────
+  const ACTIVITY_FILE = "activity.json";
+  const ACTIVITY_FRESH_SECONDS = 90; // aktivita starší než toto se považuje za neaktuální
+
+  function activityUrl() {
+    return `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${ACTIVITY_FILE}`;
+  }
+
+  async function signalEditing(action) {
+    try {
+      const user = getCurrentUserFromConfig();
+      const resp = await fetch(activityUrl(), { headers: headers() });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const sha = data.sha;
+      const payload = { lastEditBy: user, lastEditAt: new Date().toISOString(), action: action || "edituje" };
+      const encoded = btoa(JSON.stringify(payload));
+      await fetch(activityUrl(), {
+        method: "PUT",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ message: `Aktivita: ${user} ${action || "edituje"}`, content: encoded, sha })
+      });
+    } catch(e) {
+      console.warn("signalEditing selhalo:", e);
+    }
+  }
+
+  async function checkActivity() {
+    try {
+      const resp = await fetch(activityUrl(), { headers: headers() });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+      const info = JSON.parse(new TextDecoder("utf-8").decode(bytes));
+      if (!info.lastEditAt) return null;
+      const secondsAgo = (Date.now() - new Date(info.lastEditAt).getTime()) / 1000;
+      if (secondsAgo > ACTIVITY_FRESH_SECONDS) return null;
+      const currentUser = getCurrentUserFromConfig();
+      if (info.lastEditBy === currentUser) return null;
+      return { by: info.lastEditBy, action: info.action, secondsAgo: Math.round(secondsAgo) };
+    } catch(e) {
+      return null;
+    }
+  }
+
   return {
     init, reload, saveToGitHub, getRawJson,
     getAutoDostupnost, setFileHandle, loadRaw, pushWorkbook, isAuthenticated,
     getCurrentUser: () => getCurrentUserFromConfig() || localStorage.getItem(USER_KEY) || "unknown",
     setCurrentUser: (u) => localStorage.setItem(USER_KEY, u),
     checkWritePermission,
+    canActuallyWrite,
+    isUserVerified,
+    resolveUserFromWhitelist,
+    signalEditing,
+    checkActivity,
   };
 
 })();
