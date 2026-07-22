@@ -232,6 +232,8 @@
     .task.px { background: var(--px); border-left-color: #ca8a04; }
     .task.waiting { background: var(--wait); }
     .task.done { background: var(--done); color: #166534; }
+    .task.recurring { border-left: 3px solid #6366f1; }
+    .task .recurring-icon { font-size: 9px; color: #6366f1; margin-bottom: 1px; }
     .task .danger { color: var(--danger); font-weight: 700; }
     .task .spz { color: #cc1f1a; font-weight: 700; font-size: 0.9em; margin-top: 1px; }
     .task .multiday-badge { font-size: 9px; color: #0891b2; font-weight: 700; margin-bottom: 1px; }
@@ -320,7 +322,7 @@
     html.dark .task .meta { color: #64748b; }
     html.dark .task .spz { color: #f87171; }
     html.dark .task .multiday-badge { color: #22d3ee; }
-    html.dark .task.recurring { background: #1a1f3a; border-left-color: #6366f1; }
+    html.dark .task.recurring { border-left-color: #6366f1; }
     html.dark .modal { background: rgba(0,0,0,0.75); }
     html.dark .modal-card { background: #1e293b; color: #e2e8f0; }
     html.dark .modal-card header { border-color: #334155; }
@@ -505,6 +507,7 @@ function cardClass(task) {
   const parts = ["task", (task.priority || "P3").toLowerCase()];
   if (task.waiting) parts.push("waiting");
   if (String(task.state || "").toLowerCase().includes("dokončeno")) parts.push("done");
+  if (task.recurring) parts.push("recurring");
   return parts.join(" ");
 }
 
@@ -572,7 +575,7 @@ function renderSide(targetEl, side) {
         const div = document.createElement("div");
         div.className = cardClass(task) + densityClass;
         div.style.cursor = "pointer";
-        div.innerHTML = `${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}<div class="title">${escapeHtml(task.title)}</div>
+        div.innerHTML = `${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}<div class="title">${escapeHtml(task.title)}</div>
           <div class="meta">
             <span class="${(task.project||"").toLowerCase().includes("ford") ? "danger" : ""}">${escapeHtml(task.project||"")}</span>
           </div>${task.auto ? `<div class="spz">🚗 ${escapeHtml(task.auto)}</div>` : ""}`;
@@ -668,6 +671,7 @@ function openModal(task) {
     task.state || "Bez stavu"
   ];
   if (task.auto) chips.push(`🚗 ${task.auto}`);
+  if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
   document.getElementById("modalChips").innerHTML = chips.map(ch => `<span class="chip">${ch}</span>`).join("");
   document.getElementById("modalTitle").textContent = `${task.id || ""} ${task.title || ""}`.trim();
