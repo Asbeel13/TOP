@@ -1505,8 +1505,48 @@ function renderOpakovaciTable() {
     return ["P0","P1","P2","P3"].map(x => `<option value="${x}" ${x === p ? "selected" : ""}>${x}</option>`).join("");
   };
 
+  // ── Filtrování (jen zobrazení — opakovaci pole v paměti zůstává celé) ──
+  const fSearch = (opakovaciFilterState.search || "").toLowerCase();
+  const fTyp = opakovaciFilterState.typ || "";
+  const fOwner = opakovaciFilterState.owner || "";
+  const fAktivni = opakovaciFilterState.aktivni || "";
+
+  const filteredOpakovaci = opakovaci.filter(o => {
+    if (fSearch && !normalizeText(o.title).toLowerCase().includes(fSearch) && !normalizeText(o.id).toLowerCase().includes(fSearch)) return false;
+    if (fTyp && o.typ !== fTyp) return false;
+    if (fOwner && o.owner !== fOwner) return false;
+    if (fAktivni === "active" && !o.aktivni) return false;
+    if (fAktivni === "inactive" && o.aktivni) return false;
+    return true;
+  });
+
+  const ownerFilterOptions = () => {
+    const owners = [...new Set(opakovaci.map(o => o.owner).filter(Boolean))].sort((a,b) => a.localeCompare(b, "cs"));
+    return `<option value="">Všichni</option>` + owners.map(o => `<option value="${escapeHtml(o)}" ${o === fOwner ? "selected" : ""}>${escapeHtml(o)}</option>`).join("");
+  };
+
   wrap.innerHTML = `
     <h3 style="margin:0 0 12px;font-size:16px;">Opakující se úkoly</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e5e7eb;">
+      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Hledat</label><input id="opFilterSearch" value="${escapeHtml(fSearch)}" placeholder="název nebo ID" style="width:140px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
+      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Typ</label>
+        <select id="opFilterTyp" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+          <option value="">Všechny</option>
+          <option value="weekly" ${fTyp === "weekly" ? "selected" : ""}>Týdně</option>
+          <option value="interval" ${fTyp === "interval" ? "selected" : ""}>Interval</option>
+          <option value="monthly" ${fTyp === "monthly" ? "selected" : ""}>Měsíčně</option>
+        </select>
+      </div>
+      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Řešitel</label><select id="opFilterOwner" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${ownerFilterOptions()}</select></div>
+      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Stav</label>
+        <select id="opFilterAktivni" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+          <option value="">Vše</option>
+          <option value="active" ${fAktivni === "active" ? "selected" : ""}>Jen aktivní</option>
+          <option value="inactive" ${fAktivni === "inactive" ? "selected" : ""}>Jen neaktivní</option>
+        </select>
+      </div>
+      <div style="font-size:12px;color:#9ca3af;padding-bottom:8px;">${filteredOpakovaci.length} z ${opakovaci.length}</div>
+    </div>
     <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:960px;">
       <thead><tr style="background:#f1f5fb;">
@@ -1521,22 +1561,22 @@ function renderOpakovaciTable() {
         <th style="padding:8px;border-bottom:2px solid #d1d5db;"></th>
       </tr></thead>
       <tbody>
-        ${opakovaci.length === 0
-          ? '<tr><td colspan="9" style="padding:12px;color:#6b7280;text-align:center;">Žádná opakující se pravidla.</td></tr>'
-          : opakovaci.map((o, i) => `
+        ${filteredOpakovaci.length === 0
+          ? '<tr><td colspan="9" style="padding:12px;color:#6b7280;text-align:center;">Žádná pravidla neodpovídají filtru.</td></tr>'
+          : filteredOpakovaci.map(o => `
             <tr style="border-bottom:1px solid #e5e7eb;${o.aktivni ? "" : "opacity:0.5;"}">
-              <td style="padding:6px 8px;"><input value="${escapeHtml(o.id)}" onchange="updateOpakovaciField(${i}, 'id', this.value)" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
-              <td style="padding:6px 8px;"><input value="${escapeHtml(o.title)}" onchange="updateOpakovaciField(${i}, 'title', this.value)" style="width:160px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
-              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField(${i}, 'owner', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${resiteleOptions(o.owner)}</select></td>
-              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField(${i}, 'priority', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${prioOptions(o.priority)}</select></td>
-              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField(${i}, 'typ', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${typOptions(o.typ)}</select></td>
+              <td style="padding:6px 8px;"><input value="${escapeHtml(o.id)}" onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'id', this.value)" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
+              <td style="padding:6px 8px;"><input value="${escapeHtml(o.title)}" onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'title', this.value)" style="width:160px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
+              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'owner', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${resiteleOptions(o.owner)}</select></td>
+              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'priority', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${prioOptions(o.priority)}</select></td>
+              <td style="padding:6px 8px;"><select onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'typ', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${typOptions(o.typ)}</select></td>
               <td style="padding:6px 8px;">
-                <input value="${escapeHtml(o.hodnota)}" onchange="updateOpakovaciField(${i}, 'hodnota', this.value)" style="width:50px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
+                <input value="${escapeHtml(o.hodnota)}" onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'hodnota', this.value)" style="width:50px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
                 <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${hodnotaHint(o.typ)}</div>
               </td>
-              <td style="padding:6px 8px;"><input value="${escapeHtml(o.note || "")}" onchange="updateOpakovaciField(${i}, 'note', this.value)" style="width:140px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
-              <td style="padding:6px 8px;text-align:center;"><input type="checkbox" ${o.aktivni ? "checked" : ""} onchange="toggleOpakovaciAktivni(${i}, this.checked)" style="width:auto;transform:scale(1.3);cursor:pointer;"></td>
-              <td style="padding:6px 8px;"><button class="small-btn danger" onclick="deleteOpakovaci(${i})">Smazat</button></td>
+              <td style="padding:6px 8px;"><input value="${escapeHtml(o.note || "")}" onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'note', this.value)" style="width:140px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
+              <td style="padding:6px 8px;text-align:center;"><input type="checkbox" ${o.aktivni ? "checked" : ""} onchange="toggleOpakovaciAktivni('${escapeHtml(o.id)}', this.checked)" style="width:auto;transform:scale(1.3);cursor:pointer;"></td>
+              <td style="padding:6px 8px;"><button class="small-btn danger" onclick="deleteOpakovaci('${escapeHtml(o.id)}')">Smazat</button></td>
             </tr>`).join("")}
       </tbody>
     </table>
@@ -1551,24 +1591,48 @@ function renderOpakovaciTable() {
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Poznámka</label><input id="newOp_note" placeholder="volitelné" style="width:140px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
       <button class="primary" onclick="addOpakovaci()" style="padding:7px 16px;">+ Přidat pravidlo</button>
     </div>`;
+
+  // Filtry se vytváří znovu při každém překreslení — navaž listenery znovu
+  ["opFilterSearch", "opFilterTyp", "opFilterOwner", "opFilterAktivni"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(id === "opFilterSearch" ? "input" : "change", () => {
+      opakovaciFilterState = {
+        search: document.getElementById("opFilterSearch")?.value || "",
+        typ: document.getElementById("opFilterTyp")?.value || "",
+        owner: document.getElementById("opFilterOwner")?.value || "",
+        aktivni: document.getElementById("opFilterAktivni")?.value || "",
+      };
+      try { localStorage.setItem("ftOpakovaciFilterState", JSON.stringify(opakovaciFilterState)); } catch(e) {}
+      renderOpakovaciTable();
+    });
+  });
 }
 
-function updateOpakovaciField(idx, field, value) {
-  if (!opakovaci[idx]) return;
-  opakovaci[idx][field] = value;
+let opakovaciFilterState = (() => {
+  try {
+    return JSON.parse(localStorage.getItem("ftOpakovaciFilterState") || "null") || { search: "", typ: "", owner: "", aktivni: "" };
+  } catch(e) { return { search: "", typ: "", owner: "", aktivni: "" }; }
+})();
+
+function updateOpakovaciField(ruleId, field, value) {
+  const rule = opakovaci.find(o => o.id === ruleId);
+  if (!rule) return;
+  rule[field] = value;
   if (field === "typ" || field === "id") renderOpakovaciTable();
   autoSaveIfPossible();
 }
 
-function toggleOpakovaciAktivni(idx, checked) {
-  if (!opakovaci[idx]) return;
-  opakovaci[idx].aktivni = checked;
+function toggleOpakovaciAktivni(ruleId, checked) {
+  const rule = opakovaci.find(o => o.id === ruleId);
+  if (!rule) return;
+  rule.aktivni = checked;
   renderOpakovaciTable();
   autoSaveIfPossible();
 }
 
-function deleteOpakovaci(idx) {
-  if (!opakovaci[idx]) return;
+function deleteOpakovaci(ruleId) {
+  const idx = opakovaci.findIndex(o => o.id === ruleId);
+  if (idx === -1) return;
   if (!confirm(`Opravdu smazat opakující se úkol "${opakovaci[idx].title}"?`)) return;
   opakovaci.splice(idx, 1);
   renderOpakovaciTable();
