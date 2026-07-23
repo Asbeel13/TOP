@@ -787,7 +787,49 @@ function fillAssigneeFilter(){
   els.filterAssignee.value = current;
 }
 
+// ── Perzistence filtrů uživatele ────────────────────────────────────────
+const SPRAVA_FILTER_KEY = "ftSpravaFilterState";
+
+function saveSpravaFilterState() {
+  try {
+    localStorage.setItem(SPRAVA_FILTER_KEY, JSON.stringify({
+      search: els.searchInput?.value || "",
+      assignee: els.filterAssignee?.value || "",
+      state: els.filterState?.value || "",
+      priority: els.filterPriority?.value || "",
+      doneMode: els.filterDoneMode?.value || "all",
+      project: els.quickProject?.value || "",
+      fromDate: els.quickFromDate?.value || "",
+      toDate: els.quickToDate?.value || "",
+      showCancelled: els.showCancelled?.checked || false,
+      sortLastUpdatedDir: sortLastUpdatedDir,
+    }));
+  } catch(e) {}
+}
+
+function restoreSpravaFilterState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SPRAVA_FILTER_KEY) || "null");
+    if (!saved) return;
+    if (els.searchInput) els.searchInput.value = saved.search || "";
+    if (els.filterAssignee) els.filterAssignee.value = saved.assignee || "";
+    if (els.filterState) els.filterState.value = saved.state || "";
+    if (els.filterPriority) els.filterPriority.value = saved.priority || "";
+    if (els.filterDoneMode) els.filterDoneMode.value = saved.doneMode || "all";
+    if (els.quickProject) els.quickProject.value = saved.project || "";
+    if (els.quickFromDate) els.quickFromDate.value = saved.fromDate || "";
+    if (els.quickToDate) els.quickToDate.value = saved.toDate || "";
+    if (els.showCancelled) els.showCancelled.checked = saved.showCancelled || false;
+    if (saved.sortLastUpdatedDir) {
+      sortLastUpdatedDir = saved.sortLastUpdatedDir;
+      const icon = document.getElementById("sortLastUpdatedIcon");
+      if (icon) icon.textContent = sortLastUpdatedDir === "desc" ? "▼" : sortLastUpdatedDir === "asc" ? "▲" : "";
+    }
+  } catch(e) {}
+}
+
 function applyFilters(){
+  saveSpravaFilterState();
   const search = normalizeText(els.searchInput.value).toLowerCase();
   const assignee = els.filterAssignee.value;
   const state = els.filterState.value;
@@ -1719,7 +1761,13 @@ async function debugGitHub() {
 
   // ── FTLoader načte data z GitHubu a předá je správě úkolů ──
 
+let _filtersRestoredOnce = false;
+
 function loadFromRaw(raw) {
+    if (!_filtersRestoredOnce) {
+      _filtersRestoredOnce = true;
+      restoreSpravaFilterState();
+    }
     tasks = (raw.tasks || []).map((t, i) => ({
       rowIndex: i + 1,
       id: t.id || "",

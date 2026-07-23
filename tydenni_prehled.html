@@ -450,8 +450,24 @@ let DATA = JSON.parse(JSON.stringify(FALLBACK_DATA));
 
 
 // ── STATE ──
+// ── Perzistence vybraného týdne ─────────────────────────────────────────
+const WEEK_STATE_KEY = "ftPrehledWeekState";
+
+function loadSavedWeek() {
+  try {
+    const saved = localStorage.getItem(WEEK_STATE_KEY);
+    return saved ? new Date(saved + "T00:00:00") : null;
+  } catch(e) { return null; }
+}
+
+function saveWeekState() {
+  try { localStorage.setItem(WEEK_STATE_KEY, toISO(state.weekStart)); } catch(e) {}
+}
+
+const _savedWeek = loadSavedWeek();
+
 const state = {
-  weekStart: getWeekStart(new Date())
+  weekStart: _savedWeek ? getWeekStart(_savedWeek) : getWeekStart(new Date())
 };
 
 // ── PEOPLE LAYOUT from localStorage (shared with main dashboard) ──
@@ -649,13 +665,13 @@ FTLoader.init({
 
 // ── EVENTS ──
 document.getElementById("prevWeek").addEventListener("click", () => {
-  state.weekStart = addDays(state.weekStart, -7); render();
+  state.weekStart = addDays(state.weekStart, -7); saveWeekState(); render();
 });
 document.getElementById("nextWeek").addEventListener("click", () => {
-  state.weekStart = addDays(state.weekStart, 7); render();
+  state.weekStart = addDays(state.weekStart, 7); saveWeekState(); render();
 });
 document.getElementById("todayBtn").addEventListener("click", () => {
-  state.weekStart = getWeekStart(new Date()); render();
+  state.weekStart = getWeekStart(new Date()); saveWeekState(); render();
 });
 
 // ── INIT ──

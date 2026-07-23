@@ -966,11 +966,34 @@ const XLSX_FILE = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
 const LOCAL_WATCH_INTERVAL_MS = 5000;
 let DATA = JSON.parse(JSON.stringify(FALLBACK_DATA));
 
+// ── Perzistence nastavení uživatele (týden, filtry) ────────────────────
+const FILTER_STATE_KEY = "ftDashboardFilterState";
+
+function loadSavedFilterState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FILTER_STATE_KEY) || "null");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch(e) { return {}; }
+}
+
+function saveFilterState() {
+  try {
+    localStorage.setItem(FILTER_STATE_KEY, JSON.stringify({
+      weekStart: toISO(state.weekStart),
+      search: state.search,
+      priority: state.priority,
+      hideDone: state.hideDone,
+    }));
+  } catch(e) {}
+}
+
+const _savedFilterState = loadSavedFilterState();
+
 const state = {
-  weekStart: getWeekStart(new Date()),
-  search: "",
-  priority: "",
-  hideDone: false,
+  weekStart: _savedFilterState.weekStart ? getWeekStart(new Date(_savedFilterState.weekStart + "T00:00:00")) : getWeekStart(new Date()),
+  search: _savedFilterState.search || "",
+  priority: _savedFilterState.priority || "",
+  hideDone: _savedFilterState.hideDone ?? false,
   selectedPeople: new Set(DATA.owners),
   peopleLayout: loadPeopleLayout(DATA.owners)
 };
@@ -1369,26 +1392,32 @@ function render() {
 
 document.getElementById("prevWeek").addEventListener("click", () => {
   state.weekStart = addDays(state.weekStart, -7);
+  saveFilterState();
   render();
 });
 document.getElementById("nextWeek").addEventListener("click", () => {
   state.weekStart = addDays(state.weekStart, 7);
+  saveFilterState();
   render();
 });
 document.getElementById("todayBtn").addEventListener("click", () => {
   state.weekStart = getWeekStart(new Date());
+  saveFilterState();
   render();
 });
 els.search.addEventListener("input", e => {
   state.search = e.target.value.trim();
+  saveFilterState();
   render();
 });
 els.priority.addEventListener("change", e => {
   state.priority = e.target.value;
+  saveFilterState();
   render();
 });
 els.hideDone.addEventListener("change", e => {
   state.hideDone = e.target.checked;
+  saveFilterState();
   render();
 });
 document.getElementById("closeModal").addEventListener("click", () => els.modal.classList.remove("open"));
@@ -1706,6 +1735,10 @@ async function saveNewTaskFromModal() {
 }
 
 async function initDashboard() {
+  // Obnov hodnoty ovládacích prvků podle uloženého stavu (jinak by DOM ukazoval výchozí)
+  if (els.search) els.search.value = state.search;
+  if (els.priority) els.priority.value = state.priority;
+  if (els.hideDone) els.hideDone.checked = state.hideDone;
   buildPeopleFilters();
   render();
 }
