@@ -682,13 +682,7 @@
       </div>
       <div class="field">
         <label>
-          <input id="waitingOnly" type="checkbox" style="width:auto" />
-          Jen úkoly čekající na něco
-        </label>
-      </div>
-      <div class="field">
-        <label>
-          <input id="hideDone" type="checkbox" checked style="width:auto" />
+          <input id="hideDone" type="checkbox" style="width:auto" />
           Skrýt dokončené
         </label>
       </div>
@@ -853,12 +847,9 @@
         <div id="m2_auto_warning" style="color:#cc1f1a;font-size:12px;margin-top:4px;display:none;"></div>
       </div>
       <div class="grid two">
-        <div class="field field-optional">
-          <label>Čeká se na něco</label>
-          <select id="m2_waiting">
-            <option value="false">Ne</option>
-            <option value="true">Ano</option>
-          </select>
+        <div class="field field-readonly">
+          <label>Poslední aktualizace</label>
+          <input id="m2_lastUpdated" readonly placeholder="(nastaví se při uložení)" />
         </div>
         <div class="field field-optional">
           <label>Podúkol</label>
@@ -979,8 +970,7 @@ const state = {
   weekStart: getWeekStart(new Date()),
   search: "",
   priority: "",
-  waitingOnly: false,
-  hideDone: true,
+  hideDone: false,
   selectedPeople: new Set(DATA.owners),
   peopleLayout: loadPeopleLayout(DATA.owners)
 };
@@ -995,7 +985,6 @@ const els = {
   peopleFilters: document.getElementById("peopleFilters"),
   search: document.getElementById("search"),
   priority: document.getElementById("priority"),
-  waitingOnly: document.getElementById("waitingOnly"),
   hideDone: document.getElementById("hideDone"),
   unscheduled: document.getElementById("unscheduled"),
   backlog: document.getElementById("backlog"),
@@ -1052,7 +1041,6 @@ function normalizeText(v) {
 
 function taskMatches(task) {
   if (state.priority && task.priority !== state.priority) return false;
-  if (state.waitingOnly && !task.waiting) return false;
   if (state.hideDone && normalizeText(task.state).includes("dokončeno")) return false;
   if (!state.selectedPeople.has(task.owner)) return false;
   if (state.search) {
@@ -1399,10 +1387,6 @@ els.priority.addEventListener("change", e => {
   state.priority = e.target.value;
   render();
 });
-els.waitingOnly.addEventListener("change", e => {
-  state.waitingOnly = e.target.checked;
-  render();
-});
 els.hideDone.addEventListener("change", e => {
   state.hideDone = e.target.checked;
   render();
@@ -1432,6 +1416,7 @@ async function markTaskAsDoneFromModal() {
       const now = new Date();
       task.doneDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
     }
+    task.lastUpdated = formatDateISOSimple(new Date());
     const user = FTLoader.getCurrentUser() || "dashboard";
     await FTLoader.saveToGitHub(raw, `Úkol ${id} označen jako hotový uživatelem ${user}`);
     els.modal.classList.remove("open");
@@ -1645,7 +1630,7 @@ function openNewTaskModal(owner, dateISO) {
   document.getElementById("m2_duration").value = 1;
   document.getElementById("m2_finished").value = "";
   document.getElementById("m2_due").value = "";
-  document.getElementById("m2_waiting").value = "false";
+  document.getElementById("m2_lastUpdated").value = "";
   document.getElementById("m2_subtask").value = "false";
   document.getElementById("m2_note").value = "";
   document.getElementById("m2_note_internal").value = "";
@@ -1684,7 +1669,6 @@ async function saveNewTaskFromModal() {
       priority: document.getElementById("m2_priority").value,
       project: (document.getElementById("m2_project").value || "").trim(),
       sales: (document.getElementById("m2_sales").value || "").trim(),
-      waiting: document.getElementById("m2_waiting").value === "true",
       state: document.getElementById("m2_state").value,
       createdDate: document.getElementById("m2_created").value,
       plannedDate: planned,
@@ -1696,6 +1680,7 @@ async function saveNewTaskFromModal() {
       internalProject: (document.getElementById("m2_internal").value || "").trim(),
       auto: (document.getElementById("m2_auto").value || "").trim(),
       cancelled: false,
+      lastUpdated: formatDateISOSimple(new Date()),
     };
     if (durationDays > 1) newTask.durationDays = durationDays;
 

@@ -516,7 +516,7 @@ initDarkMode();
                 <th>Plán</th>
                 <th>Dokončení</th>
                 <th>Termín</th>
-                <th>Čeká se</th>
+                <th class="sortable" id="thLastUpdated" onclick="toggleSortLastUpdated()" style="cursor:pointer;white-space:nowrap;">Aktualizace <span id="sortLastUpdatedIcon"></span></th>
                 <th>Auto</th>
                 <th>Poznámka</th>
                 <th>Akce</th>
@@ -621,12 +621,9 @@ initDarkMode();
           <div id="m_auto_warning" style="color:#cc1f1a;font-size:12px;margin-top:4px;display:none;"></div>
         </div>
         <div class="grid two">
-          <div class="field field-optional">
-            <label>Čeká se na něco</label>
-            <select id="m_waiting">
-              <option value="false">Ne</option>
-              <option value="true">Ano</option>
-            </select>
+          <div class="field field-readonly">
+            <label>Poslední aktualizace</label>
+            <input id="m_lastUpdated" readonly placeholder="(zatím neuloženo)" />
           </div>
           <div class="field field-optional">
             <label>Podúkol</label>
@@ -827,8 +824,31 @@ function applyFilters(){
     return true;
   });
 
+  if (sortLastUpdatedDir) {
+    filteredTasks.sort((a, b) => {
+      const av = a.lastUpdated || "";
+      const bv = b.lastUpdated || "";
+      // Prázdné hodnoty vždy na konec, bez ohledu na směr řazení
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return sortLastUpdatedDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }
+
   renderStats();
   renderTable();
+}
+
+let sortLastUpdatedDir = null; // null | "asc" | "desc"
+
+function toggleSortLastUpdated() {
+  sortLastUpdatedDir = sortLastUpdatedDir === null ? "desc" : sortLastUpdatedDir === "desc" ? "asc" : null;
+  const icon = document.getElementById("sortLastUpdatedIcon");
+  if (icon) {
+    icon.textContent = sortLastUpdatedDir === "desc" ? "▼" : sortLastUpdatedDir === "asc" ? "▲" : "";
+  }
+  applyFilters();
 }
 
 function renderStats(){
@@ -876,7 +896,7 @@ function renderTable(){
       <td>${escapeHtml(formatDate(task.planned))}</td>
       <td>${escapeHtml(formatDate(task.finished))}</td>
       <td>${task.due ? `<span style="color:${task.due < new Date().toISOString().slice(0,10) && !task.finished ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.due))}</span>` : ""}</td>
-      <td>${boolToText(task.waiting)}</td>
+      <td>${escapeHtml(task.lastUpdated || "—")}</td>
       <td>${task.auto ? `<strong style="color:#cc1f1a">${escapeHtml(task.auto)}</strong>` : ""}</td>
       <td>${escapeHtml(task.note || task.internalNote || "")}</td>
       <td>
@@ -921,6 +941,7 @@ function markAsDone(rowIndex){
   task.state = "Dokončeno";
   task.percent = 1;
   task.finished = formatDateISO(new Date());
+  task.lastUpdated = formatDateISO(new Date());
   applyFilters();
   autoSaveIfPossible();
 }
@@ -931,6 +952,7 @@ function markSelectedAsDone(){
     task.state = "Dokončeno";
     task.percent = 1;
     task.finished = formatDateISO(new Date());
+    task.lastUpdated = formatDateISO(new Date());
     changed++;
   });
   if(!changed){
@@ -948,7 +970,7 @@ function deleteSelected(){
     return;
   }
   if(!confirm(`Opravdu zrušit ${selected.length} úkol(y)? (lze obnovit)`)) return;
-  selected.forEach(t => { t.cancelled = true; });
+  selected.forEach(t => { t.cancelled = true; t.lastUpdated = formatDateISO(new Date()); });
   applyFilters();
   renderTable();
   renderStats();
@@ -989,7 +1011,7 @@ function openTaskModal(task=null){
   setValue("m_duration", task?.durationDays || 1);
   setValue("m_finished", task ? formatDateISO(task.finished) : "");
   setValue("m_due", task ? formatDateISO(task.due) : "");
-  setValue("m_waiting", task?.waiting ? "true" : "false");
+  setValue("m_lastUpdated", task?.lastUpdated ? formatDateISO(task.lastUpdated) : "");
   setValue("m_subtask", task?.subtask ? "true" : "false");
   setValue("m_note", task?.note || "");
   setValue("m_note_internal", task?.internalNote || "");
@@ -1032,7 +1054,6 @@ function saveTaskFromModal(){
     priority: getValue("m_priority"),
     project: normalizeText(getValue("m_project")),
     sales: normalizeText(getValue("m_sales")),
-    waiting: getValue("m_waiting") === "true",
     subtask: getValue("m_subtask") === "true",
     state: getValue("m_state"),
     percent: 0,
@@ -1060,6 +1081,8 @@ function saveTaskFromModal(){
   if(taskData.state === "Dokončeno" && taskData.percent < 1){
     taskData.percent = 1;
   }
+
+  taskData.lastUpdated = formatDateISO(new Date());
 
   if (currentEditIndex != null) {
     // Editace existujícího úkolu — aktualizuj v paměti
@@ -1349,6 +1372,7 @@ function handleUrlParams() {
       if (task) {
         if (confirm(`Zrušit úkol ${deleteId} — ${task.task}? (lze obnovit)`)) {
           task.cancelled = true;
+          task.lastUpdated = formatDateISO(new Date());
           applyFilters();
           renderTable();
           renderStats();
@@ -1555,6 +1579,7 @@ function restoreTask(rowIndex) {
   const task = tasks.find(t => t.rowIndex === rowIndex);
   if (!task) return;
   task.cancelled = false;
+  task.lastUpdated = formatDateISO(new Date());
   applyFilters();
   renderTable();
   renderStats();
@@ -1583,6 +1608,7 @@ function tasksToJson() {
     cancelled: !!t.cancelled,
     internalProject: t.internalProject || "",
     durationDays: t.durationDays && t.durationDays > 1 ? t.durationDays : undefined,
+    lastUpdated: t.lastUpdated || "",
   }));
   return {
     ...raw,
@@ -1716,6 +1742,7 @@ function loadFromRaw(raw) {
       auto: t.auto || "",
       cancelled: !!t.cancelled,
       durationDays: t.durationDays || 1,
+      lastUpdated: t.lastUpdated || "",
       selected: false,
     }));
     auta = raw.auta || [];
