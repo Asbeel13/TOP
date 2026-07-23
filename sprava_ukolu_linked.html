@@ -1300,14 +1300,21 @@ function renderAutaTable() {
     "servis":      { color: "#dc2626", bg: "#fff1f2", border: "#fecdd3", label: "servis" },
   };
 
+  const zarazeniConfig = {
+    "TFM":              { bg: "#dbeafe", border: "#93c5fd" },
+    "Provoz Nivnice":   { bg: "#ffffff", border: "#e2e8f0" },
+    "Administrativa":   { bg: "#e5e7eb", border: "#d1d5db" },
+  };
+
   const cardsHtml = auta.length === 0
     ? `<div style="color:#6b7280;font-size:13px;padding:12px 0;">Žádná auta. Přidejte list AUTA do databáze.</div>`
     : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
         ${auta.map(a => {
           const dnes = getAutoDostupnostDen(a.spz, today);
           const s = stavConfig[dnes] || stavConfig["volné"];
+          const z = zarazeniConfig[a.zarazeni] || zarazeniConfig["Provoz Nivnice"];
           return `
-          <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:4px;">
+          <div style="background:${z.bg};border:1.5px solid ${z.border};border-radius:14px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:4px;">
             <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:2px;">${escapeHtml(a.popis)}</div>
             <div style="font-size:20px;font-weight:800;color:#cc1f1a;letter-spacing:1px;line-height:1.2;">${escapeHtml(a.spz)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:2px;">
