@@ -654,6 +654,50 @@
     #newTaskModal .field-optional label { color: #6b7280; }
     html.dark #newTaskModal .field-optional label { color: #94a3b8; }
 
+/* ── Formulář zástupu (#substituteModal, sdílí styl s #substituteModal) ── */
+    #substituteModal .modal-card { width: min(720px, 100%); max-height: 90vh; overflow: auto; }
+    #substituteModal .modal-head {
+      position: sticky; top: 0; z-index: 2;
+      background: #fff; padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    html.dark #substituteModal .modal-head { background: #1e293b; border-color: #334155; }
+    #substituteModal .modal-body { padding: 20px; }
+    #substituteModal .actions-row { display: flex; gap: 8px; }
+    #substituteModal .actions-row button { width: auto; }
+    #substituteModal .grid { display: grid; gap: 12px; margin-bottom: 12px; }
+    #substituteModal .grid.two { grid-template-columns: 1fr 1fr; }
+    #substituteModal .field { margin-bottom: 0; }
+    #substituteModal .field label {
+      display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    }
+    #substituteModal input, #substituteModal select, #substituteModal textarea {
+      width: 100%; border: 1px solid #d1d5db; border-radius: 12px;
+      padding: 11px 12px; font-size: 14px; background: #fff; color: #111827; outline: none;
+    }
+    #substituteModal button { width: auto; }
+    #substituteModal textarea { resize: vertical; min-height: 80px; }
+    html.dark #substituteModal input, html.dark #substituteModal select, html.dark #substituteModal textarea {
+      background: #0f172a; color: #e2e8f0; border-color: #334155;
+    }
+    #substituteModal .field-required label { color: #dc2626; }
+    #substituteModal .field-required input, #substituteModal .field-required select {
+      background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d;
+    }
+    html.dark #substituteModal .field-required input, html.dark #substituteModal .field-required select {
+      background: #7f1d1d; border: 2px solid #dc2626; color: #fee2e2;
+    }
+    #substituteModal .field-readonly label { color: #9ca3af; }
+    #substituteModal .field-readonly input {
+      background: #f3f4f6; border: 1px solid #d1d5db; color: #9ca3af; cursor: not-allowed;
+    }
+    html.dark #substituteModal .field-readonly input {
+      background: #1e293b; border: 1px solid #334155; color: #64748b; cursor: not-allowed;
+    }
+    #substituteModal .field-optional label { color: #6b7280; }
+    html.dark #substituteModal .field-optional label { color: #94a3b8; }
+
     </style>
 </head>
 <body>
@@ -766,6 +810,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
         <button id="modalDoneBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#ecfdf3;border:1px solid #86efac;color:#166534;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Hotovo</button>
+        <button id="modalSubstituteBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 Zástup</button>
         <a id="modalEditBtn" href="#" target="_blank" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
         <a id="modalCancelRecurBtn" href="#" target="_blank" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
         <button id="modalDeleteBtn" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Smazat</button>
@@ -879,6 +924,51 @@
       </div>
       <div class="grid">
         <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m2_note_internal"></textarea></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="substituteModal">
+  <div class="modal-card" id="substituteModalCard">
+    <div class="modal-head">
+      <div>
+        <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Zástup za opakující se úkol</div>
+        <h2 id="subModalTitle" style="margin:4px 0 0; font-size:22px;">Zapsat zástup</h2>
+      </div>
+      <div class="actions-row">
+        <button onclick="closeSubstituteModal()">Zavřít</button>
+        <button class="primary" onclick="saveSubstituteModal()">Uložit</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="grid two">
+        <div class="field field-readonly"><label>ID pravidla</label><input id="sub_id" readonly /></div>
+        <div class="field field-readonly"><label>Původní řešitel</label><input id="sub_original_owner" readonly /></div>
+      </div>
+      <div class="grid">
+        <div class="field field-required"><label>Zástupce (kdo přebírá)</label><select id="sub_owner"><option value="">— nevybráno —</option></select></div>
+      </div>
+      <div class="grid two">
+        <div class="field field-required"><label>Od data</label><input id="sub_from" type="date" /></div>
+        <div class="field field-optional"><label>Počet dní</label><input id="sub_duration" type="number" min="1" value="7" /></div>
+      </div>
+      <div class="grid">
+        <div class="field field-optional">
+          <label>Které dny zástup pokrývá</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;padding:8px 0;">
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_1" style="width:auto;"> Po</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_2" style="width:auto;"> Út</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_3" style="width:auto;"> St</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_4" style="width:auto;"> Čt</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_5" style="width:auto;"> Pá</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_6" style="width:auto;"> So</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;"><input type="checkbox" id="sub_day_7" style="width:auto;"> Ne</label>
+          </div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field field-optional"><label>Poznámka</label><input id="sub_note" placeholder="volitelné, např. 'dovolená RS'" /></div>
       </div>
     </div>
   </div>
@@ -1035,6 +1125,7 @@ const els = {
   modalInternal: document.getElementById("modalInternal"),
   modalChips: document.getElementById("modalChips"),
   modalDoneBtn: document.getElementById("modalDoneBtn"),
+  modalSubstituteBtn: document.getElementById("modalSubstituteBtn"),
   modalEditBtn: document.getElementById("modalEditBtn"),
   modalCancelRecurBtn: document.getElementById("modalCancelRecurBtn"),
   modalDeleteBtn: document.getElementById("modalDeleteBtn"),
@@ -1242,6 +1333,12 @@ function openModal(task) {
   } else {
     els.modalCancelRecurBtn.style.display = "none";
   }
+  if (task.recurring && task.id && (DATA.opakovaci || []).find(o => o.id === task.id)) {
+    els.modalSubstituteBtn.dataset.ruleId = task.id;
+    els.modalSubstituteBtn.style.display = "inline-block";
+  } else {
+    els.modalSubstituteBtn.style.display = "none";
+  }
   els.modal.classList.add("open");
 }
 
@@ -1443,6 +1540,7 @@ document.getElementById("modalDeleteBtn").addEventListener("click", () => {
   window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}`, "_blank");
 });
 document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
+document.getElementById("modalSubstituteBtn").addEventListener("click", () => openSubstituteModal(els.modalSubstituteBtn.dataset.ruleId));
 
 async function markTaskAsDoneFromModal() {
   const id = els.modalDoneBtn.dataset.taskId;
@@ -1478,6 +1576,113 @@ async function markTaskAsDoneFromModal() {
     els.modalDoneBtn.textContent = "✓ Hotovo";
   }
 }
+
+// ── Zástup za opakující se úkol (jedním řádkem, sdílí ID s pravidlem) ──
+function openSubstituteModal(ruleId) {
+  const rule = (DATA.opakovaci || []).find(o => o.id === ruleId);
+  if (!rule) return;
+
+  document.getElementById("subModalTitle").textContent = `Zapsat zástup — ${rule.title}`;
+  document.getElementById("sub_id").value = rule.id;
+  document.getElementById("sub_original_owner").value = rule.owner || "—";
+
+  const sel = document.getElementById("sub_owner");
+  sel.innerHTML = '<option value="">— nevybráno —</option>';
+  (DATA.resitele || []).forEach(r => {
+    const opt = document.createElement("option");
+    opt.value = r.zkratka;
+    opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
+    sel.appendChild(opt);
+  });
+
+  const today = new Date();
+  document.getElementById("sub_from").value = formatDateISOSimple(today);
+  document.getElementById("sub_duration").value = 7;
+  document.getElementById("sub_note").value = "";
+
+  const val = parseInt(rule.hodnota, 10) || 1;
+  for (let i = 1; i <= 7; i++) {
+    const cb = document.getElementById(`sub_day_${i}`);
+    if (cb) cb.checked = (rule.typ === "weekly") ? (i === val) : false;
+  }
+
+  els.modal.classList.remove("open");
+  document.getElementById("substituteModal").classList.add("open");
+}
+
+function closeSubstituteModal() {
+  document.getElementById("substituteModal").classList.remove("open");
+}
+
+async function saveSubstituteModal() {
+  const ruleId = document.getElementById("sub_id").value;
+  const owner = document.getElementById("sub_owner").value;
+  if (!owner) { alert("Vyber zástupce."); return; }
+  const fromDate = document.getElementById("sub_from").value;
+  if (!fromDate) { alert("Vyplň datum od kterého zástup platí."); return; }
+  const duration = parseInt(document.getElementById("sub_duration").value, 10) || 1;
+
+  const checkedDays = [];
+  for (let i = 1; i <= 7; i++) {
+    const cb = document.getElementById(`sub_day_${i}`);
+    if (cb && cb.checked) checkedDays.push(i);
+  }
+  if (checkedDays.length === 0) { alert("Zaškrtni alespoň jeden den, který má zástup pokrýt."); return; }
+
+  const note = (document.getElementById("sub_note").value || "").trim();
+  const saveBtn = document.querySelector('#substituteModal .actions-row .primary');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Ukládám…"; }
+
+  try {
+    const raw = FTLoader.getRawJson();
+    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    const rule = (raw.opakovaci || []).find(o => o.id === ruleId);
+    if (!rule) throw new Error(`Pravidlo ${ruleId} nebylo v databázi nalezeno.`);
+
+    const nowIso = formatDateISOSimple(new Date());
+    const newTask = {
+      id: rule.id,
+      title: rule.title,
+      priority: rule.priority || "P2",
+      project: "",
+      sales: "",
+      state: "Nový",
+      createdDate: nowIso,
+      plannedDate: fromDate,
+      doneDate: "",
+      dueDate: "",
+      owner: owner,
+      note: note,
+      internalNote: "",
+      internalProject: "",
+      auto: "",
+      cancelled: false,
+      durationDays: duration,
+      activeDays: checkedDays.length < 7 ? checkedDays : undefined,
+      lastUpdated: nowIso,
+    };
+
+    raw.tasks = raw.tasks || [];
+    raw.tasks.push(newTask);
+
+    const user = FTLoader.getCurrentUser() || "dashboard";
+    await FTLoader.saveToGitHub(raw, `Zástup za ${rule.title} (${ruleId}) zapsán uživatelem ${user}`);
+    closeSubstituteModal();
+    await FTLoader.reload();
+  } catch (e) {
+    if (e.message && e.message.includes("CONFLICT")) {
+      if (confirm(`⚠ ${e.message}\n\nKliknout OK pro přenačtení dat.`)) {
+        await FTLoader.reload();
+      }
+    } else {
+      alert(`Uložení se nepodařilo: ${e.message}`);
+      console.error(e);
+    }
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Uložit"; }
+  }
+}
+
 els.modal.addEventListener("click", e => {
   if (e.target === els.modal) els.modal.classList.remove("open");
 });
