@@ -471,10 +471,33 @@ const state = {
 };
 
 // ── PEOPLE LAYOUT from localStorage (shared with main dashboard) ──
+// Výchozí rozložení lidí — použije se jen když ještě není v localStorage nic uloženo
+// (stejná šablona jako v dashboardu, aby noví uživatelé viděli konzistentní výchozí stav
+// bez ohledu na to, kterou stránku otevřou jako první).
+const DEFAULT_PEOPLE_LAYOUT = [
+  { owner: "RS",  side: "L" },
+  { owner: "LR",  side: "L" },
+  { owner: "DH",  side: "L" },
+  { owner: "MiH", side: "L" },
+  { owner: "MK",  side: "L" },
+  { owner: "AMa", side: "L" },
+  { owner: "MŽ",  side: "R" },
+  { owner: "PL",  side: "R" },
+  { owner: "JuM", side: "R" },
+  { owner: "JoP", side: "R" },
+  { owner: "SP",  side: "R" },
+  { owner: "NP",  side: "R" },
+  { owner: "MM",  side: "R" },
+  { owner: "JN",  side: "R", hidden: true },
+  { owner: "JK",  side: "R", hidden: true },
+  { owner: "FT",  side: "R", hidden: true },
+  { owner: "FCH", side: "L" },
+];
+
 function getPeopleLayout() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (saved && Array.isArray(saved)) {
+    if (saved && Array.isArray(saved) && saved.length > 0) {
       // Deduplikuj podle owner — ochrana proti starým poškozeným datům v localStorage
       const seen = new Set();
       return saved.filter(e => {
@@ -484,9 +507,15 @@ function getPeopleLayout() {
       });
     }
   } catch(e) {}
-  // fallback: split owners in half
+  // Nic uloženo — seeduj výchozí šablonou, doplň o případné chybějící/nové lidi
   const owners = DATA.owners;
-  return owners.map((o, i) => ({ owner: o, side: i < Math.ceil(owners.length / 2) ? "L" : "R" }));
+  const defaultOwners = DEFAULT_PEOPLE_LAYOUT.map(e => e.owner);
+  const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => owners.includes(e.owner)).map(e => ({...e}));
+  const missing = owners.filter(o => !defaultOwners.includes(o));
+  missing.forEach((o, i) => {
+    seeded.push({ owner: o, side: i < Math.ceil(missing.length / 2) ? "L" : "R" });
+  });
+  return seeded;
 }
 
 // ── DATE HELPERS ──
