@@ -833,6 +833,20 @@
         <div class="field field-optional"><label>Datum dokončení</label><input id="m2_finished" type="date" /></div>
       </div>
       <div class="grid">
+        <div class="field field-optional">
+          <label>Aktivní dny (jen pro vícedenní úkol; nezaškrtnuto = každý den)</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;padding:8px 0;">
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_1" checked style="width:auto;"> Po</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_2" checked style="width:auto;"> Út</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_3" checked style="width:auto;"> St</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_4" checked style="width:auto;"> Čt</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_5" checked style="width:auto;"> Pá</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_6" checked style="width:auto;"> So</label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;font-size:13px;color:#374151;"><input type="checkbox" id="m2_day_7" checked style="width:auto;"> Ne</label>
+          </div>
+        </div>
+      </div>
+      <div class="grid">
         <div class="field field-optional"><label>Upřesnění / poznámka</label><textarea id="m2_note"></textarea></div>
       </div>
       <div class="field field-optional">
@@ -1657,6 +1671,10 @@ function openNewTaskModal(owner, dateISO) {
   document.getElementById("m2_created").value = formatDateISOSimple(new Date());
   document.getElementById("m2_planned").value = dateISO || "";
   document.getElementById("m2_duration").value = 1;
+  for (let i = 1; i <= 7; i++) {
+    const cb = document.getElementById(`m2_day_${i}`);
+    if (cb) cb.checked = true;
+  }
   document.getElementById("m2_finished").value = "";
   document.getElementById("m2_due").value = "";
   document.getElementById("m2_lastUpdated").value = "";
@@ -1712,6 +1730,13 @@ async function saveNewTaskFromModal() {
       lastUpdated: formatDateISOSimple(new Date()),
     };
     if (durationDays > 1) newTask.durationDays = durationDays;
+
+    const checkedDays = [];
+    for (let i = 1; i <= 7; i++) {
+      const cb = document.getElementById(`m2_day_${i}`);
+      if (cb && cb.checked) checkedDays.push(i);
+    }
+    if (checkedDays.length > 0 && checkedDays.length < 7) newTask.activeDays = checkedDays;
 
     raw.tasks = raw.tasks || [];
     raw.tasks.push(newTask);

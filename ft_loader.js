@@ -206,19 +206,32 @@ const FTLoader = (() => {
           result.push(t);
           return;
         }
+        // activeDays: pole čísel 1(Po)..7(Ne). Chybí/prázdné = každý den (původní chování).
+        const activeDays = Array.isArray(t.activeDays) && t.activeDays.length > 0 ? t.activeDays : null;
         const [y, m, d] = t.plannedDate.split("-").map(Number);
+
+        // Nejdřív zjisti, které dny v rozsahu jsou skutečně aktivní (pro správné číslování X/Y)
+        const occurrences = [];
         for (let i = 0; i < duration; i++) {
           const dd = new Date(y, m - 1, d);
           dd.setDate(dd.getDate() + i);
+          const jsDay = dd.getDay(); // 0=Ne,1=Po,...,6=So
+          const isoWeekday = jsDay === 0 ? 7 : jsDay; // převod na 1=Po..7=Ne
+          if (!activeDays || activeDays.includes(isoWeekday)) {
+            occurrences.push(dd);
+          }
+        }
+
+        occurrences.forEach((dd, idx) => {
           const iso = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`;
           result.push({
             ...t,
             plannedDate: iso,
-            multiDayIndex: i + 1,
-            multiDayTotal: duration,
+            multiDayIndex: idx + 1,
+            multiDayTotal: occurrences.length,
             isMultiDay: true,
           });
-        }
+        });
       });
       return result;
     }
