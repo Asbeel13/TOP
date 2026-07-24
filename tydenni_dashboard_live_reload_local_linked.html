@@ -1321,8 +1321,11 @@ function openModal(task) {
     els.modalDeleteBtn.style.display = "none";
   }
   const isAlreadyDone = normalizeText(task.state).includes("dokončeno");
-  if (task.id && !task.recurring && !isAlreadyDone) {
+  if (task.id && !isAlreadyDone) {
     els.modalDoneBtn.dataset.taskId = task.id;
+    els.modalDoneBtn.dataset.plannedDate = task.plannedDate || "";
+    els.modalDoneBtn.dataset.recurring = task.recurring ? "1" : "";
+    els.modalDoneBtn.dataset.multiDay = task.isMultiDay ? "1" : "";
     els.modalDoneBtn.style.display = "inline-block";
   } else {
     els.modalDoneBtn.style.display = "none";
@@ -1544,22 +1547,48 @@ document.getElementById("modalSubstituteBtn").addEventListener("click", () => op
 
 async function markTaskAsDoneFromModal() {
   const id = els.modalDoneBtn.dataset.taskId;
+  const plannedDate = els.modalDoneBtn.dataset.plannedDate;
+  const isRecurring = els.modalDoneBtn.dataset.recurring === "1";
+  const isMultiDay = els.modalDoneBtn.dataset.multiDay === "1";
   if (!id) return;
   els.modalDoneBtn.disabled = true;
   els.modalDoneBtn.textContent = "Ukládám…";
   try {
     const raw = FTLoader.getRawJson();
     if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
-    const task = (raw.tasks || []).find(t => t.id === id);
-    if (!task) throw new Error(`Úkol ${id} nebyl v databázi nalezen.`);
-    task.state = "Dokončeno";
-    if (!task.doneDate) {
-      const now = new Date();
-      task.doneDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-    }
-    task.lastUpdated = formatDateISOSimple(new Date());
     const user = FTLoader.getCurrentUser() || "dashboard";
-    await FTLoader.saveToGitHub(raw, `Úkol ${id} označen jako hotový uživatelem ${user}`);
+    const task = (raw.tasks || []).find(t => t.id === id);
+
+    if (isRecurring && !task) {
+      // Čistě generovaný výskyt opakujícího se pravidla (bez zástupu) — dokončení
+      // se zapisuje do ODDĚLENÉHO seznamu, ne do výjimek (výjimka = "negenerovat vůbec").
+      raw.dokonceni = raw.dokonceni || [];
+      const already = raw.dokonceni.find(d => d.id === id && d.datum === plannedDate);
+      if (!already) {
+        raw.dokonceni.push({ id, datum: plannedDate, zaznamenoKym: user, zaznamenoKdy: formatDateISOSimple(new Date()) });
+      }
+      await FTLoader.saveToGitHub(raw, `Dokončení ${id} (${plannedDate}) zaznamenáno uživatelem ${user}`);
+    } else if (task && isMultiDay) {
+      // Vícedenní úkol — označ jen konkrétní den; celkový stav se sklopí na
+      // "Dokončeno" až jakmile jsou hotové úplně všechny dny rozsahu.
+      task.completedDays = Array.isArray(task.completedDays) ? task.completedDays : [];
+      if (plannedDate && !task.completedDays.includes(plannedDate)) task.completedDays.push(plannedDate);
+      if (FTLoader.isMultiDayTaskFullyComplete(task)) {
+        task.state = "Dokončeno";
+        if (!task.doneDate) task.doneDate = formatDateISOSimple(new Date());
+      }
+      task.lastUpdated = formatDateISOSimple(new Date());
+      await FTLoader.saveToGitHub(raw, `Den ${plannedDate} úkolu ${id} označen jako hotový uživatelem ${user}`);
+    } else if (task) {
+      // Běžný jednodenní úkol — beze změny oproti dřívějšímu chování
+      task.state = "Dokončeno";
+      if (!task.doneDate) task.doneDate = formatDateISOSimple(new Date());
+      task.lastUpdated = formatDateISOSimple(new Date());
+      await FTLoader.saveToGitHub(raw, `Úkol ${id} označen jako hotový uživatelem ${user}`);
+    } else {
+      throw new Error(`Úkol ${id} nebyl v databázi nalezen.`);
+    }
+
     els.modal.classList.remove("open");
     await FTLoader.reload();
   } catch (e) {

@@ -592,6 +592,12 @@ initDarkMode();
         <div style="color:#6b7280;font-size:13px;">Načítám data...</div>
       </div>
     </div>
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-head"><h2>✅ Dokončení jednotlivých výskytů</h2></div>
+      <div class="panel-body" id="dokonceniTableWrap">
+        <div style="color:#6b7280;font-size:13px;">Načítám data...</div>
+      </div>
+    </div>
     </div>
   </div>
 
@@ -787,6 +793,7 @@ let auta = [];
 let autaRezervace = [];
 let resitele = [];
 let opakovaciVyjimky = [];
+let opakovaciDokonceni = [];
 let opakovaci = [];
 
 const els = {
@@ -1942,6 +1949,47 @@ function renderVyjimkyTable() {
     </table>`;
 }
 
+// Dokončení jednotlivých výskytů opakujících se úkolů — ZÁMĚRNĚ oddělené od
+// výjimek. Výjimka = "tenhle den se úkol vůbec negeneruje". Dokončení = "tenhle
+// den se má zobrazit jako splněný". Obojí musí zůstat oddělené, jinak by
+// smazání výjimky omylem mohlo smazat i informaci o dokončení a naopak.
+function renderDokonceniTable() {
+  const wrap = document.getElementById("dokonceniTableWrap");
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <h3 style="margin:0 0 12px;font-size:16px;">Dokončení jednotlivých výskytů opakujících se úkolů</h3>
+    <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">Sem se zaznamenává, když se u konkrétního výskytu opakujícího se úkolu klikne na „Hotovo“ — nesouvisí s výjimkami výše.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:#f1f5fb;">
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">ID pravidla</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Datum</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Zaznamenal</th>
+        <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Kdy</th>
+        <th style="padding:8px;border-bottom:2px solid #d1d5db;"></th>
+      </tr></thead>
+      <tbody>
+        ${opakovaciDokonceni.length === 0
+          ? '<tr><td colspan="5" style="padding:12px;color:#6b7280;text-align:center;">Zatím žádná dokončení jednotlivých výskytů.</td></tr>'
+          : opakovaciDokonceni.map((d, i) => `
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <td style="padding:7px 8px;font-weight:700;color:#16a34a;">${escapeHtml(d.id)}</td>
+              <td style="padding:7px 8px;">${escapeHtml(d.datum)}</td>
+              <td style="padding:7px 8px;">${escapeHtml(d.zaznamenoKym || "—")}</td>
+              <td style="padding:7px 8px;">${escapeHtml(d.zaznamenoKdy || "—")}</td>
+              <td style="padding:7px 8px;"><button class="small-btn danger" onclick="deleteDokonceni(${i})">Zrušit dokončení</button></td>
+            </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function deleteDokonceni(idx) {
+  if (!opakovaciDokonceni[idx]) return;
+  if (!confirm(`Opravdu zrušit označení dokončení pro ${opakovaciDokonceni[idx].id} (${opakovaciDokonceni[idx].datum})?`)) return;
+  opakovaciDokonceni.splice(idx, 1);
+  renderDokonceniTable();
+  autoSaveIfPossible();
+}
+
 function autoSaveIfPossible() {
   saveWorkbook();
 }
@@ -1988,6 +2036,7 @@ function tasksToJson() {
     auta: auta,
     auta_rezervace: autaRezervace,
     vyjimky: opakovaciVyjimky,
+    dokonceni: opakovaciDokonceni,
     opakovaci: opakovaci,
   };
 }
@@ -2128,11 +2177,13 @@ function loadFromRaw(raw) {
     autaRezervace = raw.auta_rezervace || [];
     resitele = raw.resitele || [];
     opakovaciVyjimky = raw.vyjimky || [];
+    opakovaciDokonceni = raw.dokonceni || [];
     opakovaci = raw.opakovaci || [];
     buildResitelSelect();
     buildAutaDatalist();
     renderAutaTable();
     renderVyjimkyTable();
+    renderDokonceniTable();
     renderOpakovaciTable();
     fillAssigneeFilter();
     renderStats();

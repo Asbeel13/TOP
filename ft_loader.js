@@ -139,8 +139,11 @@ const FTLoader = (() => {
     return null;
   }
 
-  function generateRecurring(opakovaci, vyjimky, tasks) {
+  function generateRecurring(opakovaci, vyjimky, tasks, dokonceni) {
     const vyjimkySet = new Set(vyjimky.map(v => `${v.id}|${v.datum}`));
+    // dokonceni je ZÁMĚRNĚ oddělené od výjimek — výjimka = "tenhle den se negeneruje vůbec",
+    // dokončení = "tenhle den se má zobrazit jako hotový", obojí se nesmí míchat.
+    const dokonceniSet = new Set((dokonceni || []).map(d => `${d.id}|${d.datum}`));
     const taskIndex = new Map();
     tasks.forEach(t => { if (t.id && t.plannedDate) taskIndex.set(`${t.id}|${t.plannedDate}`, t); });
 
@@ -177,10 +180,11 @@ const FTLoader = (() => {
         const iso = localISO(d);
         if (vyjimkySet.has(`${o.id}|${iso}`)) return;
         if (taskIndex.has(`${o.id}|${iso}`)) return;
+        const isDone = dokonceniSet.has(`${o.id}|${iso}`);
         result.push({
           id: o.id, title: o.title, owner: o.owner,
           plannedDate: iso, priority: o.priority || "P2", project: "",
-          state: "Opakující se", note: o.note || "", internalNote: "",
+          state: isDone ? "Dokončeno" : "Opakující se", note: o.note || "", internalNote: "",
           auto: "", waiting: false, cancelled: false, recurring: true
         });
       });
@@ -224,12 +228,18 @@ const FTLoader = (() => {
 
         occurrences.forEach((dd, idx) => {
           const iso = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`;
+          // Pokud je pole completedDays a tenhle konkrétní den v něm je, JEN tahle
+          // dlaždice se zobrazí jako hotová — celkový task.state zůstává nedotčený,
+          // dokud nejsou hotové úplně všechny dny (viz markDayComplete).
+          const completedDays = Array.isArray(t.completedDays) ? t.completedDays : [];
+          const dayDone = completedDays.includes(iso);
           result.push({
             ...t,
             plannedDate: iso,
             multiDayIndex: idx + 1,
             multiDayTotal: occurrences.length,
             isMultiDay: true,
+            state: dayDone ? "Dokončeno" : t.state,
           });
         });
       });
@@ -238,7 +248,7 @@ const FTLoader = (() => {
 
     const activeTasks = tasks.filter(t => !t.cancelled);
     const expandedTasks = expandMultiDayTasks(activeTasks);
-    const recurringTasks = generateRecurring(json.opakovaci, json.vyjimky, expandedTasks);
+    const recurringTasks = generateRecurring(json.opakovaci, json.vyjimky, expandedTasks, json.dokonceni);
     const allTasks = [...expandedTasks, ...recurringTasks];
     const owners = [...new Set(allTasks.map(t => t.owner))].filter(Boolean).sort((a,b) => a.localeCompare(b,"cs"));
 
@@ -252,6 +262,7 @@ const FTLoader = (() => {
       autaRezervace: json.auta_rezervace|| [],
       opakovaci:     json.opakovaci     || [],
       opakovaciVyjimky: json.vyjimky   || [],
+      opakovaciDokonceni: json.dokonceni || [],
     };
   }
 
@@ -520,6 +531,32 @@ const FTLoader = (() => {
     }
   }
 
+  // Vrátí seznam ISO dat, které měl vícedenní úkol skutečně obsadit (respektuje activeDays)
+  function getMultiDayOccurrenceDates(task) {
+    const duration = parseInt(task.durationDays, 10) || 1;
+    if (duration <= 1 || !task.plannedDate) return [task.plannedDate].filter(Boolean);
+    const activeDays = Array.isArray(task.activeDays) && task.activeDays.length > 0 ? task.activeDays : null;
+    const [y, m, d] = task.plannedDate.split("-").map(Number);
+    const dates = [];
+    for (let i = 0; i < duration; i++) {
+      const dd = new Date(y, m - 1, d);
+      dd.setDate(dd.getDate() + i);
+      const jsDay = dd.getDay();
+      const isoWeekday = jsDay === 0 ? 7 : jsDay;
+      if (!activeDays || activeDays.includes(isoWeekday)) {
+        dates.push(`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`);
+      }
+    }
+    return dates;
+  }
+
+  // Jsou už hotové úplně všechny dny, které měl vícedenní úkol obsadit?
+  function isMultiDayTaskFullyComplete(task) {
+    const allDates = getMultiDayOccurrenceDates(task);
+    const completed = Array.isArray(task.completedDays) ? task.completedDays : [];
+    return allDates.length > 0 && allDates.every(d => completed.includes(d));
+  }
+
   return {
     init, reload, saveToGitHub, getRawJson,
     getAutoDostupnost, setFileHandle, loadRaw, pushWorkbook, isAuthenticated,
@@ -531,6 +568,8 @@ const FTLoader = (() => {
     resolveUserFromWhitelist,
     signalEditing,
     checkActivity,
+    getMultiDayOccurrenceDates,
+    isMultiDayTaskFullyComplete,
   };
 
 })();
