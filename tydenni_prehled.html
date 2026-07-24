@@ -258,6 +258,66 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
       overflow: hidden;
     }
+
+    /* ── Nastavení zobrazení (lidé & sloupce) ── */
+    #displaySettingsModal .modal-card { max-width: 480px; max-height: 85vh; overflow: auto; }
+    #displaySettingsModal .modal-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 20px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: #fff;
+    }
+    #displaySettingsModal .modal-body { padding: 16px 20px 20px; }
+    .person-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 0;
+      border-bottom: 1px solid #eef2f7;
+    }
+    .person-row:last-child { border-bottom: none; }
+    .person-row .person-name {
+      flex: 1;
+      font-size: 13px;
+      color: #17324d;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .person-row .side-btn {
+      width: auto;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      flex-shrink: 0;
+    }
+    .person-row .side-btn.active-L { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+    .person-row .side-btn.active-R { background: #0f766e; border-color: #0f766e; color: white; }
+    .person-row .move-btn {
+      width: auto; padding: 3px 6px; font-size: 12px; border-radius: 4px;
+      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      cursor: pointer; flex-shrink: 0; line-height: 1;
+    }
+    .person-row .move-btn:hover { color: white; background: #6b7280; }
+    .person-row .move-btn:disabled { opacity: 0.25; cursor: default; }
+    .person-row .hide-btn {
+      width: auto; padding: 3px 6px; font-size: 12px; border-radius: 4px;
+      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      cursor: pointer; flex-shrink: 0; line-height: 1; transition: background .15s, color .15s;
+    }
+    .person-row .hide-btn:hover { background: #6b7280; color: white; }
+    .person-row.is-hidden .person-name { opacity: 0.4; text-decoration: line-through; }
+    .person-row.is-hidden .side-btn { opacity: 0.3; pointer-events: none; }
+    .person-row.is-hidden .move-btn { opacity: 0.3; pointer-events: none; }
+    .person-row .hide-btn.is-hidden { background: #9ca3af; color: white; border-color: #9ca3af; }
+    html.dark #displaySettingsModal .modal-card, html.dark #displaySettingsModal .modal-head { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+    html.dark .person-row { border-color: #334155; }
+    html.dark .person-row .person-name { color: #e2e8f0; }
+    html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: #475569; color: #94a3b8; }
     .modal-card header {
       padding: 18px 20px;
       border-bottom: 1px solid #e5e7eb;
@@ -352,6 +412,7 @@
       <input id="taskScaleSlider" type="range" min="50" max="150" value="100" step="5" style="width:100px;" />
       <span id="taskScaleValue" style="font-weight:700;min-width:38px;">100 %</span>
     </label>
+    <button id="displaySettingsBtn" onclick="openDisplaySettingsModal()" style="font-size:13px;padding:6px 12px;white-space:nowrap;">⚙️ Nastavení zobrazení</button>
     <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
   </div>
   <div class="legend">
@@ -516,6 +577,112 @@ function getPeopleLayout() {
     seeded.push({ owner: o, side: i < Math.ceil(missing.length / 2) ? "L" : "R" });
   });
   return seeded;
+}
+
+function savePeopleLayoutPrehled(layout) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch(e) {}
+}
+
+function openDisplaySettingsModal() {
+  buildPeopleFiltersPrehled();
+  document.getElementById("displaySettingsModal").classList.add("open");
+}
+
+function closeDisplaySettingsModal() {
+  document.getElementById("displaySettingsModal").classList.remove("open");
+}
+
+function buildPeopleFiltersPrehled() {
+  const wrap = document.getElementById("peopleFiltersPrehled");
+  if (!wrap) return;
+  const layout = getPeopleLayout();
+  wrap.innerHTML = "";
+
+  layout.forEach((entry, idx) => {
+    const { owner, side, hidden } = entry;
+    const label = PEOPLE_LABELS[owner] || owner;
+    const sideOwners = layout.filter(e => e.side === side);
+    const posInSide = sideOwners.indexOf(entry);
+
+    const row = document.createElement("div");
+    row.className = "person-row" + (hidden ? " is-hidden" : "");
+
+    const upBtn = document.createElement("button");
+    upBtn.className = "move-btn";
+    upBtn.textContent = "↑";
+    upBtn.disabled = posInSide === 0;
+    upBtn.title = "Posunout výše";
+    upBtn.addEventListener("click", () => {
+      const prevIdx = layout.slice(0, idx).map((e,i)=>({e,i})).filter(x=>x.e.side===side).pop();
+      if (prevIdx !== undefined) {
+        [layout[idx], layout[prevIdx.i]] = [layout[prevIdx.i], layout[idx]];
+        savePeopleLayoutPrehled(layout);
+        buildPeopleFiltersPrehled();
+        render();
+      }
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.className = "move-btn";
+    downBtn.textContent = "↓";
+    downBtn.disabled = posInSide === sideOwners.length - 1;
+    downBtn.title = "Posunout níže";
+    downBtn.addEventListener("click", () => {
+      const nextIdx = layout.slice(idx+1).map((e,i)=>({e,i:i+idx+1})).filter(x=>x.e.side===side).shift();
+      if (nextIdx !== undefined) {
+        [layout[idx], layout[nextIdx.i]] = [layout[nextIdx.i], layout[idx]];
+        savePeopleLayoutPrehled(layout);
+        buildPeopleFiltersPrehled();
+        render();
+      }
+    });
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "person-name";
+    nameSpan.title = label;
+    nameSpan.textContent = `${owner} – ${label}`;
+
+    const lBtn = document.createElement("button");
+    lBtn.className = `side-btn ${side === "L" ? "active-L" : ""}`;
+    lBtn.textContent = "L";
+    lBtn.title = "Levý sloupec";
+    lBtn.addEventListener("click", () => {
+      layout[idx].side = "L";
+      savePeopleLayoutPrehled(layout);
+      buildPeopleFiltersPrehled();
+      render();
+    });
+
+    const rBtn = document.createElement("button");
+    rBtn.className = `side-btn ${side === "R" ? "active-R" : ""}`;
+    rBtn.textContent = "P";
+    rBtn.title = "Pravý sloupec";
+    rBtn.addEventListener("click", () => {
+      layout[idx].side = "R";
+      savePeopleLayoutPrehled(layout);
+      buildPeopleFiltersPrehled();
+      render();
+    });
+
+    const hideBtn = document.createElement("button");
+    hideBtn.className = "hide-btn" + (hidden ? " is-hidden" : "");
+    hideBtn.textContent = hidden ? "🚫" : "👁";
+    hideBtn.title = hidden ? "Zobrazit řádek" : "Skrýt řádek";
+    hideBtn.addEventListener("click", () => {
+      layout[idx].hidden = !layout[idx].hidden;
+      savePeopleLayoutPrehled(layout);
+      buildPeopleFiltersPrehled();
+      render();
+    });
+
+    row.appendChild(upBtn);
+    row.appendChild(downBtn);
+    row.appendChild(nameSpan);
+    row.appendChild(lBtn);
+    row.appendChild(rBtn);
+    row.appendChild(hideBtn);
+    wrap.appendChild(row);
+  });
 }
 
 // ── DATE HELPERS ──
@@ -751,6 +918,19 @@ document.addEventListener("DOMContentLoaded", () => {
       <div><div class="modal-label">Upřesnění</div><div class="modal-text" id="modalNote"></div></div>
       <div><div class="modal-label">Poznámka interní</div><div class="modal-text" id="modalInternal"></div></div>
     </main>
+  </div>
+</div>
+
+<div class="modal" id="displaySettingsModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 style="margin:0;font-size:18px;">Nastavení zobrazení</h2>
+      <button onclick="closeDisplaySettingsModal()">Zavřít</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
+      <div id="peopleFiltersPrehled"></div>
+    </div>
   </div>
 </div>
 
