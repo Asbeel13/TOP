@@ -888,7 +888,6 @@ function openModal(task) {
   document.getElementById("modalChips").innerHTML = chips.map(ch => `<span class="chip">${ch}</span>`).join("");
   document.getElementById("modalTitle").textContent = `${task.id || ""} ${task.title || ""}`.trim();
   document.getElementById("modalNote").textContent = task.note || "Bez doplňující poznámky";
-  document.getElementById("modalInternal").textContent = task.internalNote || "Bez interní poznámky";
   document.getElementById("modal").classList.add("open");
 }
 
@@ -916,7 +915,6 @@ document.addEventListener("DOMContentLoaded", () => {
     </header>
     <main>
       <div><div class="modal-label">Upřesnění</div><div class="modal-text" id="modalNote"></div></div>
-      <div><div class="modal-label">Poznámka interní</div><div class="modal-text" id="modalInternal"></div></div>
     </main>
   </div>
 </div>
