@@ -74,6 +74,34 @@ initDarkMode();
       color:var(--muted);
       font-size:clamp(12px, 1vw, 14px);
     }
+    .tabs-bar{
+      display:flex;
+      gap:14px;
+      margin-bottom:18px;
+      flex-wrap:wrap;
+    }
+    .tab-btn{
+      flex:1;
+      min-width:180px;
+      padding:22px 20px;
+      background:#17324d;
+      color:#e5edf7;
+      border:1px solid #24405f;
+      border-radius:14px;
+      font-size:20px;
+      font-weight:600;
+      letter-spacing:.3px;
+      cursor:pointer;
+      transition:background .15s, transform .1s;
+    }
+    .tab-btn:hover{ background:#1f3f5f; }
+    .tab-btn.active{
+      background:#2f78ff;
+      border-color:#2f78ff;
+      color:#fff;
+    }
+    html.dark .tab-btn{ background:#111827; color:#cbd5e1; border-color:#334155; }
+    html.dark .tab-btn.active{ background:#2f78ff; border-color:#2f78ff; color:#fff; }
     .actions{
       display:flex;
       flex-wrap:wrap;
@@ -436,7 +464,13 @@ initDarkMode();
       <div class="stat"><div class="label">Vybraný soubor</div><div class="value" id="statFile" style="font-size:17px; font-weight:600;">nenačteno</div><div id="statWriteMode" style="font-size:11px;font-weight:600;margin-top:4px;letter-spacing:.04em;"></div></div>
     </div>
 
-    <div class="panel" style="margin-bottom:18px;">
+    <div class="tabs-bar">
+      <button class="tab-btn" id="tabBtn-tasks" onclick="switchTab('tasks')">Databáze úkolů</button>
+      <button class="tab-btn" id="tabBtn-auta" onclick="switchTab('auta')">Přehled aut</button>
+      <button class="tab-btn" id="tabBtn-opakovaci" onclick="switchTab('opakovaci')">Opakující se úkoly</button>
+    </div>
+
+    <div id="tabFilters-tasks" class="panel" style="margin-bottom:18px;">
       <div class="panel-head">
         <h2>Filtry a rychlé akce</h2>
         <span class="pill">ALLDATBASE</span>
@@ -489,11 +523,13 @@ initDarkMode();
         </div>
       </div>
     </div>
+    </div>
 
+    <div id="tabContent-tasks">
     <div class="panel">
       <div class="panel-head">
         <h2>Databáze úkolů</h2>
-        <div class="muted" id="resultInfo">0 záznamů</div>
+        <div class="muted" id="resultInfo" style="display:none;">0 záznamů</div>
       </div>
       <div class="panel-body">
         <div class="filters">
@@ -530,15 +566,20 @@ initDarkMode();
         </div>
       </div>
     </div>
+    </div>
   </div>
 
   <div class="app" style="margin-top:0;padding-top:0;">
+    <div id="tabContent-auta">
     <div class="panel" style="margin-top:18px;">
       <div class="panel-head"><h2>🚗 Správa aut</h2></div>
       <div class="panel-body" id="autaTableWrap">
         <div style="color:#6b7280;font-size:13px;">Načítám data...</div>
       </div>
     </div>
+    </div>
+    <div id="tabFilters-opakovaci" class="panel" style="margin-top:18px;"></div>
+    <div id="tabContent-opakovaci">
     <div class="panel" style="margin-top:18px;">
       <div class="panel-head"><h2>📅 Opakující se úkoly</h2></div>
       <div class="panel-body" id="opakovaciTableWrap">
@@ -550,6 +591,7 @@ initDarkMode();
       <div class="panel-body" id="vyjimkyTableWrap">
         <div style="color:#6b7280;font-size:13px;">Načítám data...</div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -1478,6 +1520,25 @@ function deleteRezervace(idx) {
 
 // ── URL PARAMS ─────────────────────────────────────────────────────────
 
+// ── Přepínání záložek (Databáze úkolů / Přehled aut / Opakující se úkoly) ──
+const TAB_IDS = ["tasks", "auta", "opakovaci"];
+
+function switchTab(tab) {
+  if (!TAB_IDS.includes(tab)) tab = "tasks";
+  TAB_IDS.forEach(t => {
+    const filtersEl = document.getElementById(`tabFilters-${t}`);
+    const contentEl = document.getElementById(`tabContent-${t}`);
+    const btnEl = document.getElementById(`tabBtn-${t}`);
+    const isActive = t === tab;
+    if (filtersEl) filtersEl.style.display = isActive ? "" : "none";
+    if (contentEl) contentEl.style.display = isActive ? "" : "none";
+    if (btnEl) btnEl.classList.toggle("active", isActive);
+  });
+}
+
+let _defaultTabSet = false;
+let _urlParamsProcessed = false;
+
 function handleUrlParams() {
   const params = new URLSearchParams(window.location.search);
   const urlId      = params.get("id");
@@ -1485,11 +1546,28 @@ function handleUrlParams() {
   const vyjimkaDatum = params.get("datum");
   const deleteId   = params.get("delete");
 
+  const hasRelevantParam = !!(urlId || (vyjimkaId && vyjimkaDatum) || deleteId);
+
+  // Výchozí záložka jen při prvním načtení — živý polling (každých 5s) nesmí
+  // uživatele nutit zpátky na "Databáze úkolů", pokud si sám přepnul jinam.
+  if (!_defaultTabSet) {
+    _defaultTabSet = true;
+    if (!hasRelevantParam) switchTab("tasks");
+  }
+
+  // Zpracování odkazů z dashboardu (smazání/výjimka/editace) jen JEDNOU —
+  // jinak by se potvrzovací dialog opakoval při každém dalším pollingu,
+  // dokud by parametr zůstal v URL.
+  if (_urlParamsProcessed) return;
+  if (hasRelevantParam) _urlParamsProcessed = true;
+
   if (vyjimkaId && vyjimkaDatum) {
+    switchTab("opakovaci");
     setTimeout(() => addVyjimkaAuto(vyjimkaId, vyjimkaDatum), 300);
     return;
   }
   if (deleteId) {
+    switchTab("tasks");
     setTimeout(() => {
       const task = tasks.find(t => t.id === deleteId);
       if (task) {
@@ -1508,6 +1586,7 @@ function handleUrlParams() {
     return;
   }
   if (urlId) {
+    switchTab("tasks");
     const task = tasks.find(t => t.id === urlId);
     if (task) {
       setTimeout(() => editTask(task.rowIndex), 100);
@@ -1599,28 +1678,39 @@ function renderOpakovaciTable() {
     return `<option value="">Všichni</option>` + owners.map(o => `<option value="${escapeHtml(o)}" ${o === fOwner ? "selected" : ""}>${escapeHtml(o)}</option>`).join("");
   };
 
+  const filtersWrap = document.getElementById("tabFilters-opakovaci");
+  if (filtersWrap) {
+    filtersWrap.innerHTML = `
+      <div class="panel-head"><h2>Filtry — Opakující se úkoly</h2></div>
+      <div class="panel-body" id="opakovaciFiltersInner"></div>`;
+  }
+  const filtersInner = document.getElementById("opakovaciFiltersInner");
+  if (filtersInner) {
+    filtersInner.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Hledat</label><input id="opFilterSearch" value="${escapeHtml(fSearch)}" placeholder="název nebo ID" style="width:140px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
+        <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Typ</label>
+          <select id="opFilterTyp" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+            <option value="">Všechny</option>
+            <option value="weekly" ${fTyp === "weekly" ? "selected" : ""}>Týdně</option>
+            <option value="interval" ${fTyp === "interval" ? "selected" : ""}>Interval</option>
+            <option value="monthly" ${fTyp === "monthly" ? "selected" : ""}>Měsíčně</option>
+          </select>
+        </div>
+        <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Řešitel</label><select id="opFilterOwner" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${ownerFilterOptions()}</select></div>
+        <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Stav</label>
+          <select id="opFilterAktivni" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+            <option value="">Vše</option>
+            <option value="active" ${fAktivni === "active" ? "selected" : ""}>Jen aktivní</option>
+            <option value="inactive" ${fAktivni === "inactive" ? "selected" : ""}>Jen neaktivní</option>
+          </select>
+        </div>
+        <div style="font-size:12px;color:#9ca3af;padding-bottom:8px;">${filteredOpakovaci.length} z ${opakovaci.length}</div>
+      </div>`;
+  }
+
   wrap.innerHTML = `
     <h3 style="margin:0 0 12px;font-size:16px;">Opakující se úkoly</h3>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e5e7eb;">
-      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Hledat</label><input id="opFilterSearch" value="${escapeHtml(fSearch)}" placeholder="název nebo ID" style="width:140px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
-      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Typ</label>
-        <select id="opFilterTyp" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
-          <option value="">Všechny</option>
-          <option value="weekly" ${fTyp === "weekly" ? "selected" : ""}>Týdně</option>
-          <option value="interval" ${fTyp === "interval" ? "selected" : ""}>Interval</option>
-          <option value="monthly" ${fTyp === "monthly" ? "selected" : ""}>Měsíčně</option>
-        </select>
-      </div>
-      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Řešitel</label><select id="opFilterOwner" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${ownerFilterOptions()}</select></div>
-      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Stav</label>
-        <select id="opFilterAktivni" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
-          <option value="">Vše</option>
-          <option value="active" ${fAktivni === "active" ? "selected" : ""}>Jen aktivní</option>
-          <option value="inactive" ${fAktivni === "inactive" ? "selected" : ""}>Jen neaktivní</option>
-        </select>
-      </div>
-      <div style="font-size:12px;color:#9ca3af;padding-bottom:8px;">${filteredOpakovaci.length} z ${opakovaci.length}</div>
-    </div>
     <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:960px;">
       <thead><tr style="background:#f1f5fb;">
