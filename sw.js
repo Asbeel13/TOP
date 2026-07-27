@@ -7,8 +7,8 @@ const APP_SHELL = [
   "tydenni_prehled_mobile.html",
   "ft_loader.js",
   "manifest.json",
-  "icon-192.png",
-  "icon-512.png",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
