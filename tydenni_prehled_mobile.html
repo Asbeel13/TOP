@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TOP — Mobilní přehled</title>
+  <style>
+    :root {
+      --bg: #f0f2f5;
+      --p0: #f87171;
+      --p1: #fdba74;
+      --p2: #93c5fd;
+      --p3: #d1d5db;
+      --px: #fde047;
+      --wait: #f7d24d;
+      --done: #86efac;
+      --danger: #cc1f1a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: #111827;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: #0f172a;
+      color: white;
+      padding: 10px 12px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar-row1 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .topbar h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+    .topbar-actions { display: flex; gap: 6px; }
+    .icon-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 15px;
+      cursor: pointer;
+      min-width: 42px;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-btn:active { background: rgba(255,255,255,0.25); }
+
+    .day-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .day-nav-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      border-radius: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .day-nav-btn:active { background: rgba(255,255,255,0.3); }
+    .day-label {
+      flex: 1;
+      text-align: center;
+    }
+    .day-label .day-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: white;
+    }
+    .day-label .day-date {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .today-btn {
+      background: #1d4ed8;
+      border: none;
+      color: white;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    /* ── OBSAH ── */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .person-block {
+      background: white;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .person-head {
+      background: #1e293b;
+      color: white;
+      padding: 10px 14px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .person-head .code { font-weight: 700; font-size: 15px; }
+    .person-head .name { font-size: 12px; color: #94a3b8; }
+    .person-tasks { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .empty-day {
+      padding: 14px;
+      color: #9ca3af;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    /* ── DLAŽDICE ÚKOLU (stejné barvy jako desktop) ── */
+    .task {
+      border-radius: 10px;
+      padding: 10px 12px;
+      border-left: 4px solid transparent;
+      cursor: pointer;
+    }
+    .task.p0 { background: var(--p0); }
+    .task.p1 { background: var(--p1); }
+    .task.p2 { background: var(--p2); }
+    .task.p3 { background: var(--p3); }
+    .task.px { background: var(--px); border-left-color: #ca8a04; }
+    .task.waiting { background: var(--wait); }
+    .task.done { background: var(--done); color: #166534; }
+    .task.recurring { border-left: 4px solid #6366f1; }
+    .task .recurring-icon { font-size: 10px; color: #4338ca; font-weight: 700; margin-bottom: 3px; }
+    .task .multiday-badge { font-size: 10px; color: #374151; font-weight: 700; margin-bottom: 3px; }
+    .task .title { font-size: 14px; font-weight: 700; line-height: 1.3; }
+    .task .meta { font-size: 12px; color: #374151; margin-top: 4px; }
+    .task .meta .danger { color: var(--danger); font-weight: 700; }
+    .task .spz { font-size: 11px; color: #374151; margin-top: 3px; }
+
+    /* ── MODAL DETAILU (celá šířka na mobilu) ── */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.6);
+      display: none;
+      z-index: 200;
+    }
+    .modal.open { display: flex; align-items: flex-end; }
+    .modal-card {
+      background: white;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+      border-radius: 18px 18px 0 0;
+      padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    }
+    .modal-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .chip {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; line-height: 1.35; }
+    .modal-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; margin-top: 12px; }
+    .modal-text { font-size: 14px; white-space: pre-wrap; }
+    #closeModal {
+      flex-shrink: 0;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      min-height: 40px;
+    }
+
+    /* ── NASTAVENÍ ZOBRAZENÍ ── */
+    #displaySettingsModal .modal-card { max-height: 85vh; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .modal-body { }
+    .person-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eef2f7;
+    }
+    .person-row:last-child { border-bottom: none; }
+    .person-row .person-name {
+      flex: 1;
+      font-size: 13px;
+      color: #17324d;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .person-row .side-btn {
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      min-width: 38px;
+      min-height: 38px;
+    }
+    .person-row .side-btn.active-L { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+    .person-row .side-btn.active-R { background: #0f766e; border-color: #0f766e; color: white; }
+    .person-row .move-btn {
+      padding: 8px 9px; font-size: 14px; border-radius: 6px;
+      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      cursor: pointer; min-width: 38px; min-height: 38px;
+    }
+    .person-row .move-btn:disabled { opacity: 0.25; }
+    .person-row .hide-btn {
+      padding: 8px 9px; font-size: 14px; border-radius: 6px;
+      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      cursor: pointer; min-width: 38px; min-height: 38px;
+    }
+    .person-row .hide-btn.is-hidden { background: #9ca3af; color: white; border-color: #9ca3af; }
+    .person-row.is-hidden .person-name { opacity: 0.4; text-decoration: line-through; }
+
+    /* ── TMAVÝ REŽIM ── */
+    html.dark { --bg: #0b1220; }
+    html.dark body { color: #e2e8f0; }
+    html.dark .person-block { background: #1e293b; box-shadow: none; }
+    html.dark .person-head { background: #0f172a; }
+    html.dark .modal-card { background: #1e293b; color: #e2e8f0; }
+    html.dark .chip { background: #334155; color: #e2e8f0; }
+    html.dark #closeModal { background: #334155; border-color: #475569; color: #e2e8f0; }
+    html.dark .task.p0 { background: #450a0a; }
+    html.dark .task.p1 { background: #431407; }
+    html.dark .task.p2 { background: #1e3a5f; }
+    html.dark .task.p3 { background: #374151; }
+    html.dark .task.px { background: #2a2010; }
+    html.dark .task.done { background: #14532d; color: #bbf7d0; }
+    html.dark .person-row { border-color: #334155; }
+    html.dark .person-row .person-name { color: #e2e8f0; }
+    html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: #475569; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-row1">
+      <h1>TOP · Mobilní přehled</h1>
+      <div class="topbar-actions">
+        <button class="icon-btn" onclick="openDisplaySettingsModal()" title="Nastavení zobrazení">⚙️</button>
+        <button class="icon-btn dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" title="Tmavý režim">🌙</button>
+        <a class="icon-btn" href="tydenni_prehled.html" title="Přepnout na desktopovou verzi" style="text-decoration:none;font-size:13px;">🖥️</a>
+      </div>
+    </div>
+    <div class="day-nav">
+      <button class="day-nav-btn" id="prevDayBtn">‹</button>
+      <div class="day-label">
+        <div class="day-name" id="dayName">—</div>
+        <div class="day-date" id="dayDate">—</div>
+      </div>
+      <button class="day-nav-btn" id="nextDayBtn">›</button>
+    </div>
+    <button class="today-btn" id="todayBtn">Dnes</button>
+  </div>
+
+  <div id="content"></div>
+
+  <div class="modal" id="modal">
+    <div class="modal-card">
+      <header>
+        <div>
+          <div class="chips" id="modalChips"></div>
+          <div class="modal-title" id="modalTitle"></div>
+        </div>
+        <button id="closeModal">Zavřít</button>
+      </header>
+      <div class="modal-label">Upřesnění</div>
+      <div class="modal-text" id="modalNote"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="displaySettingsModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 style="margin:0;font-size:17px;">Nastavení zobrazení</h2>
+        <button id="closeDisplaySettingsBtn" style="border:1px solid #d1d5db;background:white;border-radius:8px;padding:8px 12px;font-size:13px;">Zavřít</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">L = levý, P = pravý (na mobilu se rozdělení stran nepoužívá, jen pořadí a viditelnost) · šipky = pořadí · 👁 = skrýt/zobrazit</div>
+        <div id="peopleFiltersPrehled"></div>
+      </div>
+    </div>
+  </div>
+
+<script src="ft_loader.js"></script>
+<script>
+// ── Dark mode ────────────────────────────────────────────────────────────
+const DARK_KEY = "ft_darkMode";
+function applyDarkMode(dark) {
+  document.documentElement.classList.toggle("dark", dark);
+  localStorage.setItem(DARK_KEY, dark ? "1" : "0");
+  document.querySelectorAll(".dark-mode-btn").forEach(btn => {
+    btn.textContent = dark ? "☀️" : "🌙";
+  });
+}
+function initDarkMode() {
+  const saved = localStorage.getItem(DARK_KEY);
+  const dark = saved !== null ? saved === "1" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyDarkMode(dark);
+}
+initDarkMode();
+
+// ── Fallback data (zobrazí se než dorazí reálná data) ───────────────────
+const FALLBACK_DATA = { tasks: [], owners: [], resitele: [] };
+
+let PEOPLE_LABELS = {};
+function buildPeopleLabels(resitele) {
+  PEOPLE_LABELS = {};
+  (resitele || []).forEach(r => { PEOPLE_LABELS[r.zkratka] = `${r.jmeno} ${r.prijmeni}`.trim(); });
+}
+
+const STORAGE_KEY = "ftDashboardPeopleLayout"; // SDÍLENO s dashboardem a desktopovým přehledem
+let DATA = JSON.parse(JSON.stringify(FALLBACK_DATA));
+
+// ── Perzistence vybraného dne ────────────────────────────────────────────
+const DAY_STATE_KEY = "ftPrehledMobileDayState";
+function loadSavedDay() {
+  try {
+    const saved = localStorage.getItem(DAY_STATE_KEY);
+    return saved ? new Date(saved + "T00:00:00") : null;
+  } catch(e) { return null; }
+}
+function saveDayState() {
+  try { localStorage.setItem(DAY_STATE_KEY, toISO(state.currentDate)); } catch(e) {}
+}
+const _savedDay = loadSavedDay();
+const state = {
+  currentDate: _savedDay || new Date(new Date().setHours(0,0,0,0)),
+};
+
+// ── Výchozí šablona rozložení lidí (stejná jako dashboard/desktop přehled) ──
+const DEFAULT_PEOPLE_LAYOUT = [
+  { owner: "RS",  side: "L" },
+  { owner: "LR",  side: "L" },
+  { owner: "DH",  side: "L" },
+  { owner: "MiH", side: "L" },
+  { owner: "MK",  side: "L" },
+  { owner: "AMa", side: "L" },
+  { owner: "MŽ",  side: "R" },
+  { owner: "PL",  side: "R" },
+  { owner: "JuM", side: "R" },
+  { owner: "JoP", side: "R" },
+  { owner: "SP",  side: "R" },
+  { owner: "NP",  side: "R" },
+  { owner: "MM",  side: "R" },
+  { owner: "JN",  side: "R", hidden: true },
+  { owner: "JK",  side: "R", hidden: true },
+  { owner: "FT",  side: "R", hidden: true },
+  { owner: "FCH", side: "L" },
+];
+
+function getPeopleLayout() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (saved && Array.isArray(saved) && saved.length > 0) {
+      const seen = new Set();
+      return saved.filter(e => {
+        if (seen.has(e.owner)) return false;
+        seen.add(e.owner);
+        return true;
+      });
+    }
+  } catch(e) {}
+  const owners = DATA.owners;
+  const defaultOwners = DEFAULT_PEOPLE_LAYOUT.map(e => e.owner);
+  const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => owners.includes(e.owner)).map(e => ({...e}));
+  const missing = owners.filter(o => !defaultOwners.includes(o));
+  missing.forEach((o, i) => {
+    seeded.push({ owner: o, side: i < Math.ceil(missing.length / 2) ? "L" : "R" });
+  });
+  return seeded;
+}
+
+function savePeopleLayoutPrehled(layout) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch(e) {}
+}
+
+function openDisplaySettingsModal() {
+  buildPeopleFiltersPrehled();
+  document.getElementById("displaySettingsModal").classList.add("open");
+}
+function closeDisplaySettingsModal() {
+  document.getElementById("displaySettingsModal").classList.remove("open");
+}
+
+// Na mobilu se zobrazuje JEDEN svislý seznam všech viditelných lidí (bez ohledu
+// na L/P) v POŘADÍ podle layoutu — nejdřív levá strana, pak pravá, jak je uloženo.
+function buildPeopleFiltersPrehled() {
+  const wrap = document.getElementById("peopleFiltersPrehled");
+  if (!wrap) return;
+  const layout = getPeopleLayout();
+  wrap.innerHTML = "";
+
+  layout.forEach((entry, idx) => {
+    const { owner, side, hidden } = entry;
+    const label = PEOPLE_LABELS[owner] || owner;
+    const sideOwners = layout.filter(e => e.side === side);
+    const posInSide = sideOwners.indexOf(entry);
+
+    const row = document.createElement("div");
+    row.className = "person-row" + (hidden ? " is-hidden" : "");
+
+    const upBtn = document.createElement("button");
+    upBtn.className = "move-btn";
+    upBtn.textContent = "↑";
+    upBtn.disabled = posInSide === 0;
+    upBtn.addEventListener("click", () => {
+      const prevIdx = layout.slice(0, idx).map((e,i)=>({e,i})).filter(x=>x.e.side===side).pop();
+      if (prevIdx !== undefined) {
+        [layout[idx], layout[prevIdx.i]] = [layout[prevIdx.i], layout[idx]];
+        savePeopleLayoutPrehled(layout);
+        buildPeopleFiltersPrehled();
+        renderMobileDay();
+      }
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.className = "move-btn";
+    downBtn.textContent = "↓";
+    downBtn.disabled = posInSide === sideOwners.length - 1;
+    downBtn.addEventListener("click", () => {
+      const nextIdx = layout.slice(idx+1).map((e,i)=>({e,i:i+idx+1})).filter(x=>x.e.side===side).shift();
+      if (nextIdx !== undefined) {
+        [layout[idx], layout[nextIdx.i]] = [layout[nextIdx.i], layout[idx]];
+        savePeopleLayoutPrehled(layout);
+        buildPeopleFiltersPrehled();
+        renderMobileDay();
+      }
+    });
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "person-name";
+    nameSpan.textContent = `${owner} – ${label}`;
+
+    const lBtn = document.createElement("button");
+    lBtn.className = `side-btn ${side === "L" ? "active-L" : ""}`;
+    lBtn.textContent = "L";
+    lBtn.addEventListener("click", () => {
+      layout[idx].side = "L";
+      savePeopleLayoutPrehled(layout);
+      buildPeopleFiltersPrehled();
+      renderMobileDay();
+    });
+
+    const rBtn = document.createElement("button");
+    rBtn.className = `side-btn ${side === "R" ? "active-R" : ""}`;
+    rBtn.textContent = "P";
+    rBtn.addEventListener("click", () => {
+      layout[idx].side = "R";
+      savePeopleLayoutPrehled(layout);
+      buildPeopleFiltersPrehled();
+      renderMobileDay();
+    });
+
+    const hideBtn = document.createElement("button");
+    hideBtn.className = "hide-btn" + (hidden ? " is-hidden" : "");
+    hideBtn.textContent = hidden ? "🚫" : "👁";
+    hideBtn.addEventListener("click", () => {
+      layout[idx].hidden = !layout[idx].hidden;
+      savePeopleLayoutPrehled(layout);
+      buildPeopleFiltersPrehled();
+      renderMobileDay();
+    });
+
+    row.appendChild(upBtn);
+    row.appendChild(downBtn);
+    row.appendChild(nameSpan);
+    row.appendChild(lBtn);
+    row.appendChild(rBtn);
+    row.appendChild(hideBtn);
+    wrap.appendChild(row);
+  });
+}
+
+// ── Datum helpery ────────────────────────────────────────────────────────
+function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
+function toISO(date) { const d = new Date(date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+const DAY_NAMES = ["Neděle","Pondělí","Úterý","Středa","Čtvrtek","Pátek","Sobota"];
+function fmtDayName(date) { return DAY_NAMES[date.getDay()]; }
+function fmtDate(date) {
+  const d = new Date(date);
+  return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+}
+
+function cardClass(task) {
+  const parts = ["task", (task.priority || "P3").toLowerCase()];
+  if (task.waiting) parts.push("waiting");
+  if (String(task.state || "").toLowerCase().includes("dokončeno")) parts.push("done");
+  if (task.recurring) parts.push("recurring");
+  return parts.join(" ");
+}
+function escapeHtml(str) {
+  return (str ?? "").toString()
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+
+// ── Vykreslení jednoho dne (svislý seznam osob) ─────────────────────────
+function renderMobileDay() {
+  document.getElementById("dayName").textContent = fmtDayName(state.currentDate);
+  document.getElementById("dayDate").textContent = fmtDate(state.currentDate);
+
+  const iso = toISO(state.currentDate);
+  const dayTasks = (DATA.tasks || []).filter(t => t.plannedDate === iso);
+
+  const byOwner = new Map();
+  dayTasks.forEach(t => {
+    if (!byOwner.has(t.owner)) byOwner.set(t.owner, []);
+    byOwner.get(t.owner).push(t);
+  });
+
+  const layout = getPeopleLayout();
+  const validOwners = (DATA.resitele && DATA.resitele.length > 0)
+    ? new Set(DATA.resitele.map(r => r.zkratka))
+    : new Set(DATA.owners || []);
+
+  // Pořadí: nejdřív levá strana (v jejím pořadí), pak pravá — odpovídá tomu,
+  // jak je to vidět v nastavení zobrazení.
+  const people = [
+    ...layout.filter(e => e.side === "L" && !e.hidden),
+    ...layout.filter(e => e.side === "R" && !e.hidden),
+  ].map(e => e.owner).filter(o => validOwners.has(o));
+
+  const content = document.getElementById("content");
+  content.innerHTML = "";
+
+  if (!people.length) {
+    content.innerHTML = `<div class="empty-day">Žádní lidé k zobrazení.<br>Uprav v ⚙️ Nastavení zobrazení.</div>`;
+    return;
+  }
+
+  people.forEach(person => {
+    const block = document.createElement("div");
+    block.className = "person-block";
+    const label = PEOPLE_LABELS[person] || person;
+    const items = (byOwner.get(person) || []).sort((a,b) => (a.priority||"").localeCompare(b.priority||""));
+
+    block.innerHTML = `
+      <div class="person-head"><span class="code">${escapeHtml(person)}</span><span class="name">${escapeHtml(label)}</span></div>
+      <div class="person-tasks">
+        ${items.length === 0
+          ? '<div class="empty-day">Žádné úkoly na tento den.</div>'
+          : items.map(task => `
+            <div class="${cardClass(task)}" data-task-id="${escapeHtml(task.id || "")}">
+              ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
+              ${task.isMultiDay ? `<div class="multiday-badge">📅 Den ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}
+              <div class="title">${escapeHtml(task.title)}</div>
+              <div class="meta">${escapeHtml(task.project || "")}</div>
+              ${task.auto ? `<div class="spz">🚗 ${escapeHtml(task.auto)}</div>` : ""}
+            </div>`).join("")}
+      </div>`;
+
+    content.appendChild(block);
+    block.querySelectorAll(".task").forEach((el, i) => {
+      el.addEventListener("click", () => openModal(items[i]));
+    });
+  });
+}
+
+function openModal(task) {
+  const chips = [
+    task.priority || "Bez priority",
+    task.owner || "Bez řešitele",
+    task.project || "Bez projektu",
+    task.state || "Bez stavu",
+  ];
+  if (task.auto) chips.push(`🚗 ${task.auto}`);
+  if (task.recurring) chips.push("🔁 Opakující se");
+  if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
+  document.getElementById("modalChips").innerHTML = chips.map(ch => `<span class="chip">${escapeHtml(ch)}</span>`).join("");
+  document.getElementById("modalTitle").textContent = `${task.id || ""} ${task.title || ""}`.trim();
+  document.getElementById("modalNote").textContent = task.note || "Bez doplňující poznámky";
+  document.getElementById("modal").classList.add("open");
+}
+
+// ── Navigace mezi dny ────────────────────────────────────────────────────
+function goToDay(newDate) {
+  state.currentDate = newDate;
+  saveDayState();
+  renderMobileDay();
+}
+document.getElementById("prevDayBtn").addEventListener("click", () => goToDay(addDays(state.currentDate, -1)));
+document.getElementById("nextDayBtn").addEventListener("click", () => goToDay(addDays(state.currentDate, 1)));
+document.getElementById("todayBtn").addEventListener("click", () => goToDay(new Date(new Date().setHours(0,0,0,0))));
+
+// ── Gesto přejetí prstem (swipe) pro přepnutí dne ───────────────────────
+let touchStartX = null, touchStartY = null;
+const content = document.getElementById("content");
+content.addEventListener("touchstart", e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+content.addEventListener("touchend", e => {
+  if (touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  // Vodorovné přejetí musí být výrazně větší než svislé, ať to nekoliduje s rolováním
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    if (dx < 0) goToDay(addDays(state.currentDate, 1));  // doleva = další den
+    else goToDay(addDays(state.currentDate, -1));         // doprava = předchozí den
+  }
+  touchStartX = null; touchStartY = null;
+}, { passive: true });
+
+// ── Modaly — zavírání ────────────────────────────────────────────────────
+document.getElementById("closeModal").addEventListener("click", () => {
+  document.getElementById("modal").classList.remove("open");
+});
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("modal")) document.getElementById("modal").classList.remove("open");
+});
+document.getElementById("closeDisplaySettingsBtn").addEventListener("click", closeDisplaySettingsModal);
+document.getElementById("displaySettingsModal").addEventListener("click", e => {
+  if (e.target === document.getElementById("displaySettingsModal")) closeDisplaySettingsModal();
+});
+
+// ── FTLoader integrace ───────────────────────────────────────────────────
+function applyData(nextData) {
+  DATA = nextData;
+  DATA.resitele = DATA.resitele || [];
+  DATA.owners = DATA.owners || [];
+  DATA.tasks = DATA.tasks || [];
+  buildPeopleLabels(DATA.resitele);
+  DATA.owners.forEach(owner => { if (!PEOPLE_LABELS[owner]) PEOPLE_LABELS[owner] = owner; });
+  renderMobileDay();
+}
+
+FTLoader.init({
+  onData: (parsedData) => { applyData(parsedData); },
+  onStatus: (msg, isError) => { console.log(msg); },
+});
+
+renderMobileDay();
+</script>
+</body>
+</html>

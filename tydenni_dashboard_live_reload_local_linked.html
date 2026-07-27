@@ -281,6 +281,19 @@
     }
     .add-task-btn:hover { background: #1d4ed8; color: white; border-color: #1d4ed8; }
     body.can-write .cell:hover .add-task-btn { display: block; }
+    /* Na dotykových zařízeních hover neexistuje — tlačítko musí být vidět trvale,
+       jinak by bylo prakticky neobjevitelné. Desktopové chování (jen na hover)
+       zůstává touto podmínkou úplně nedotčené. */
+    @media (hover: none) {
+      body.can-write .add-task-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        font-size: 16px;
+      }
+    }
     .can-write-only { display: none !important; }
     body.can-write .can-write-only { display: inline-block !important; }
     html.dark .add-task-btn { background: rgba(30,41,59,0.9); color: #cbd5e1; border-color: #475569; }
