@@ -36,6 +36,7 @@ const FTLoader = (() => {
 
   // ── Ověření tokenu proti předschválenému seznamu (žádná samoregistrace) ──
   const VERIFIED_FLAG_KEY = "ftUserVerified";
+  const USER_ROLE_KEY = "ftUserRole";
 
   async function resolveUserFromWhitelist(token) {
     const hash = await hashToken(token);
@@ -48,21 +49,31 @@ const FTLoader = (() => {
       const usersDb = JSON.parse(new TextDecoder("utf-8").decode(bytes));
       const existing = (usersDb.users || []).find(u => u.tokenHash === hash);
       if (existing) {
+        // Chybějící role u starších záznamů = "planovac" (zpětná kompatibilita,
+        // beze změny chování pro dosud registrované uživatele).
+        const role = existing.role || "planovac";
         localStorage.setItem(RESOLVED_USER_KEY, existing.zkratka);
         localStorage.setItem(VERIFIED_FLAG_KEY, "true");
-        return { verified: true, zkratka: existing.zkratka };
+        localStorage.setItem(USER_ROLE_KEY, role);
+        return { verified: true, zkratka: existing.zkratka, role };
       }
       localStorage.setItem(VERIFIED_FLAG_KEY, "false");
-      return { verified: false, zkratka: null };
+      localStorage.removeItem(USER_ROLE_KEY);
+      return { verified: false, zkratka: null, role: null };
     } catch (e) {
       console.warn("resolveUserFromWhitelist selhalo:", e);
       // Síťová chyba ap. — nepovažuj to za "neověřeno natrvalo", jen zatím nevíme
-      return { verified: null, zkratka: null };
+      return { verified: null, zkratka: null, role: null };
     }
   }
 
   function isUserVerified() {
     return localStorage.getItem(VERIFIED_FLAG_KEY) === "true";
+  }
+
+  function getUserRole() {
+    if (!isUserVerified()) return null;
+    return localStorage.getItem(USER_ROLE_KEY) || "planovac";
   }
 
   function showTokenDialog(onSuccess) {
@@ -477,7 +488,15 @@ const FTLoader = (() => {
   // I technicky zápisný token bez ověřené identity se chová jako pouze pro čtení.
   async function canActuallyWrite() {
     const [techWrite, verified] = await Promise.all([checkWritePermission(), Promise.resolve(isUserVerified())]);
-    return techWrite && verified;
+    // Plný přístup (editace, mazání, nové úkoly...) jen pro roli "planovac".
+    return techWrite && verified && getUserRole() === "planovac";
+  }
+
+  // Označit hotovo smí plánovači i operátoři — operátoři jinak v appce nesmí nic jiného.
+  async function canMarkDone() {
+    const [techWrite, verified] = await Promise.all([checkWritePermission(), Promise.resolve(isUserVerified())]);
+    const role = getUserRole();
+    return techWrite && verified && (role === "planovac" || role === "operator");
   }
 
   // ── Indikátor "někdo právě edituje" ────────────────────────────────────
@@ -564,7 +583,9 @@ const FTLoader = (() => {
     setCurrentUser: (u) => localStorage.setItem(USER_KEY, u),
     checkWritePermission,
     canActuallyWrite,
+    canMarkDone,
     isUserVerified,
+    getUserRole,
     resolveUserFromWhitelist,
     signalEditing,
     checkActivity,
