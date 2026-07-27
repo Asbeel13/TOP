@@ -584,6 +584,20 @@ function savePeopleLayoutPrehled(layout) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch(e) {}
 }
 
+function resetPeopleLayoutToDefault() {
+  if (!confirm("Opravdu obnovit tovární nastavení? Vlastní pořadí, strany i skrytí lidí se ztratí.")) return;
+  const owners = DATA.owners || [];
+  const defaultOwners = DEFAULT_PEOPLE_LAYOUT.map(e => e.owner);
+  const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => owners.includes(e.owner)).map(e => ({...e}));
+  const missing = owners.filter(o => !defaultOwners.includes(o));
+  missing.forEach((o, i) => {
+    seeded.push({ owner: o, side: i < Math.ceil(missing.length / 2) ? "L" : "R" });
+  });
+  savePeopleLayoutPrehled(seeded);
+  buildPeopleFiltersPrehled();
+  render();
+}
+
 function openDisplaySettingsModal() {
   buildPeopleFiltersPrehled();
   document.getElementById("displaySettingsModal").classList.add("open");
@@ -929,6 +943,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="modal-body">
       <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
       <div id="peopleFiltersPrehled"></div>
+      <button onclick="resetPeopleLayoutToDefault()" style="margin-top:12px;font-size:12px;padding:8px 12px;background:transparent;border:1px solid #d1d5db;color:#6b7280;border-radius:8px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
     </div>
   </div>
 </div>

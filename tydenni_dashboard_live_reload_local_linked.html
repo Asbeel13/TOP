@@ -750,6 +750,7 @@
       <h3>Lidé &amp; sloupce</h3>
       <div style="font-size:10px;color:#64748b;margin-bottom:6px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
       <div id="peopleFilters"></div>
+      <button onclick="resetPeopleLayoutToDefault()" style="margin-top:10px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid #475569;color:#94a3b8;border-radius:6px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
     </div>
 
     <div class="control-card" style="display:flex;justify-content:space-between;align-items:center;">
@@ -1075,6 +1076,21 @@ function savePeopleLayout() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.peopleLayout));
   } catch(e) {}
+}
+
+function resetPeopleLayoutToDefault() {
+  if (!confirm("Opravdu obnovit tovární nastavení? Vlastní pořadí, strany i skrytí lidí se ztratí.")) return;
+  const owners = DATA.owners || [];
+  const defaultOwners = DEFAULT_PEOPLE_LAYOUT.map(e => e.owner);
+  const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => owners.includes(e.owner)).map(e => ({...e}));
+  const missing = owners.filter(o => !defaultOwners.includes(o));
+  missing.forEach((o, i) => {
+    seeded.push({ owner: o, side: i < Math.ceil(missing.length / 2) ? "L" : "R" });
+  });
+  state.peopleLayout = seeded;
+  savePeopleLayout();
+  buildPeopleFilters();
+  render();
 }
 
 // peopleLayout: [{owner, side}] — order within the array = order within that side
