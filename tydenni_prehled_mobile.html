@@ -218,6 +218,20 @@
       cursor: pointer;
       min-height: 40px;
     }
+    #modalDoneBtn {
+      display: none;
+      flex-shrink: 0;
+      border: 1px solid #86efac;
+      background: #ecfdf3;
+      color: #166534;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    html.dark #modalDoneBtn { background: #14532d; border-color: #166534; color: #bbf7d0; }
 
     /* ── NASTAVENÍ ZOBRAZENÍ ── */
     #displaySettingsModal .modal-card { max-height: 85vh; }
@@ -317,7 +331,10 @@
           <div class="chips" id="modalChips"></div>
           <div class="modal-title" id="modalTitle"></div>
         </div>
-        <button id="closeModal">Zavřít</button>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button id="modalDoneBtn">✓ Hotovo</button>
+          <button id="closeModal">Zavřít</button>
+        </div>
       </header>
       <div class="modal-label">Upřesnění</div>
       <div class="modal-text" id="modalNote"></div>
@@ -640,7 +657,77 @@ function openModal(task) {
   document.getElementById("modalChips").innerHTML = chips.map(ch => `<span class="chip">${escapeHtml(ch)}</span>`).join("");
   document.getElementById("modalTitle").textContent = `${task.id || ""} ${task.title || ""}`.trim();
   document.getElementById("modalNote").textContent = task.note || "Bez doplňující poznámky";
+
+  const doneBtn = document.getElementById("modalDoneBtn");
+  const isAlreadyDone = (task.state || "").toLowerCase().includes("dokončeno");
+  if (_canMarkDone && task.id && !isAlreadyDone) {
+    doneBtn.dataset.taskId = task.id;
+    doneBtn.dataset.plannedDate = task.plannedDate || "";
+    doneBtn.dataset.recurring = task.recurring ? "1" : "";
+    doneBtn.dataset.multiDay = task.isMultiDay ? "1" : "";
+    doneBtn.style.display = "inline-block";
+  } else {
+    doneBtn.style.display = "none";
+  }
+
   document.getElementById("modal").classList.add("open");
+}
+
+async function markTaskAsDoneFromModal() {
+  const btn = document.getElementById("modalDoneBtn");
+  const id = btn.dataset.taskId;
+  const plannedDate = btn.dataset.plannedDate;
+  const isRecurring = btn.dataset.recurring === "1";
+  const isMultiDay = btn.dataset.multiDay === "1";
+  if (!id) return;
+  btn.disabled = true;
+  btn.textContent = "Ukládám…";
+  try {
+    const raw = FTLoader.getRawJson();
+    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    const user = FTLoader.getCurrentUser() || "mobilní přehled";
+    const task = (raw.tasks || []).find(t => t.id === id);
+
+    if (isRecurring && !task) {
+      raw.dokonceni = raw.dokonceni || [];
+      const already = raw.dokonceni.find(d => d.id === id && d.datum === plannedDate);
+      if (!already) {
+        raw.dokonceni.push({ id, datum: plannedDate, zaznamenoKym: user, zaznamenoKdy: toISO(new Date()) });
+      }
+      await FTLoader.saveToGitHub(raw, `Dokončení ${id} (${plannedDate}) zaznamenáno uživatelem ${user}`);
+    } else if (task && isMultiDay) {
+      task.completedDays = Array.isArray(task.completedDays) ? task.completedDays : [];
+      if (plannedDate && !task.completedDays.includes(plannedDate)) task.completedDays.push(plannedDate);
+      if (FTLoader.isMultiDayTaskFullyComplete(task)) {
+        task.state = "Dokončeno";
+        if (!task.doneDate) task.doneDate = toISO(new Date());
+      }
+      task.lastUpdated = toISO(new Date());
+      await FTLoader.saveToGitHub(raw, `Den ${plannedDate} úkolu ${id} označen jako hotový uživatelem ${user}`);
+    } else if (task) {
+      task.state = "Dokončeno";
+      if (!task.doneDate) task.doneDate = toISO(new Date());
+      task.lastUpdated = toISO(new Date());
+      await FTLoader.saveToGitHub(raw, `Úkol ${id} označen jako hotový uživatelem ${user}`);
+    } else {
+      throw new Error(`Úkol ${id} nebyl v databázi nalezen.`);
+    }
+
+    document.getElementById("modal").classList.remove("open");
+    await FTLoader.reload();
+  } catch (e) {
+    if (e.message && e.message.includes("CONFLICT")) {
+      if (confirm(`⚠ ${e.message}\n\nKliknout OK pro přenačtení dat.`)) {
+        await FTLoader.reload();
+      }
+    } else {
+      alert(`Uložení se nepodařilo: ${e.message}`);
+      console.error(e);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "✓ Hotovo";
+  }
 }
 
 // ── Navigace mezi dny ────────────────────────────────────────────────────
@@ -695,10 +782,25 @@ function applyData(nextData) {
   renderMobileDay();
 }
 
+let _canMarkDone = false;
+let _permissionCheckedPrehledMobile = false;
+
 FTLoader.init({
-  onData: (parsedData) => { applyData(parsedData); },
+  onData: (parsedData) => {
+    applyData(parsedData);
+    if (!_permissionCheckedPrehledMobile) {
+      _permissionCheckedPrehledMobile = true;
+      // Tlačítko Hotovo je určené VÝHRADNĚ pro roli Operátor — Plánovač má na
+      // tohle Dashboard a Správu úkolů, takže tady vidí přehled beze změny.
+      if (FTLoader.getUserRole() === "operator") {
+        FTLoader.canMarkDone().then(can => { _canMarkDone = can; });
+      }
+    }
+  },
   onStatus: (msg, isError) => { console.log(msg); },
 });
+
+document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
 
 renderMobileDay();
 
