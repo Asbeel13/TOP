@@ -2029,6 +2029,7 @@ function tasksToJson() {
     durationDays: t.durationDays && t.durationDays > 1 ? t.durationDays : undefined,
     lastUpdated: t.lastUpdated || "",
     activeDays: Array.isArray(t.activeDays) && t.activeDays.length > 0 ? t.activeDays : undefined,
+    completedDays: Array.isArray(t.completedDays) && t.completedDays.length > 0 ? t.completedDays : undefined,
   }));
   return {
     ...raw,
@@ -2171,6 +2172,7 @@ function loadFromRaw(raw) {
       durationDays: t.durationDays || 1,
       lastUpdated: t.lastUpdated || "",
       activeDays: Array.isArray(t.activeDays) ? t.activeDays : undefined,
+      completedDays: Array.isArray(t.completedDays) ? t.completedDays : undefined,
       selected: false,
     }));
     auta = raw.auta || [];
