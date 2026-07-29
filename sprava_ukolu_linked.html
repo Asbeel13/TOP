@@ -207,7 +207,7 @@ initDarkMode();
     }
     .filters{
       display:grid;
-      grid-template-columns:1.5fr 1.5fr 1fr 1fr 1fr;
+      grid-template-columns:2fr 1fr 1fr 1fr;
       gap:10px;
       margin-bottom:14px;
     }
@@ -534,7 +534,6 @@ initDarkMode();
       <div class="panel-body">
         <div class="filters">
           <input id="quickProject" placeholder="Projekt" />
-          <input id="quickInternalProject" placeholder="Dodatečné označení projektu" />
           <input id="quickFromDate" type="date" />
           <input id="quickToDate" type="date" />
           <button onclick="resetFilters()">Vyčistit filtry</button>
@@ -698,7 +697,7 @@ initDarkMode();
         </div>
         <div class="grid two">
           <div class="field field-optional"><label>Projekt</label><input id="m_project" /></div>
-          <div class="field field-optional"><label>Dodatečné označení projektu</label><input id="m_internal" /></div>
+          <div class="field field-optional"><label>Interní číslo projektu</label><input id="m_internal" /></div>
         </div>
         <div class="grid">
           <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
@@ -805,7 +804,6 @@ const els = {
   filterDoneMode: document.getElementById("filterDoneMode"),
   showCancelled: document.getElementById("showCancelled"),
   quickProject: document.getElementById("quickProject"),
-  quickInternalProject: document.getElementById("quickInternalProject"),
   quickFromDate: document.getElementById("quickFromDate"),
   quickToDate: document.getElementById("quickToDate"),
   taskTableBody: document.getElementById("taskTableBody"),
@@ -881,9 +879,9 @@ function priorityClass(priority){
 function fillAssigneeFilter(){
   const current = els.filterAssignee.value;
   if (resitele.length > 0) {
-    // Naplň ze seznamu RESITEL
+    // Naplň ze seznamu RESITEL (bez vyřazených)
     els.filterAssignee.innerHTML = '<option value="">Všichni</option>';
-    resitele.forEach(r => {
+    resitele.filter(r => !r.vyrazen).forEach(r => {
       const opt = document.createElement("option");
       opt.value = r.zkratka;
       opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
@@ -909,7 +907,6 @@ function saveSpravaFilterState() {
       priority: els.filterPriority?.value || "",
       doneMode: els.filterDoneMode?.value || "all",
       project: els.quickProject?.value || "",
-      internalProject: els.quickInternalProject?.value || "",
       fromDate: els.quickFromDate?.value || "",
       toDate: els.quickToDate?.value || "",
       showCancelled: els.showCancelled?.checked || false,
@@ -928,7 +925,6 @@ function restoreSpravaFilterState() {
     if (els.filterPriority) els.filterPriority.value = saved.priority || "";
     if (els.filterDoneMode) els.filterDoneMode.value = saved.doneMode || "all";
     if (els.quickProject) els.quickProject.value = saved.project || "";
-    if (els.quickInternalProject) els.quickInternalProject.value = saved.internalProject || "";
     if (els.quickFromDate) els.quickFromDate.value = saved.fromDate || "";
     if (els.quickToDate) els.quickToDate.value = saved.toDate || "";
     if (els.showCancelled) els.showCancelled.checked = saved.showCancelled || false;
@@ -948,7 +944,6 @@ function applyFilters(){
   const priority = els.filterPriority.value;
   const doneMode = els.filterDoneMode.value;
   const project = normalizeText(els.quickProject.value).toLowerCase();
-  const internalProject = normalizeText(els.quickInternalProject.value).toLowerCase();
   const fromDate = els.quickFromDate.value;
   const toDate = els.quickToDate.value;
   const showCancelled = els.showCancelled?.checked || false;
@@ -964,7 +959,6 @@ function applyFilters(){
 
     if(search && !haystack.includes(search)) return false;
     if(project && !task.project.toLowerCase().includes(project)) return false;
-    if(internalProject && !(task.internalProject || "").toLowerCase().includes(internalProject)) return false;
     if(assignee && task.assignee !== assignee) return false;
     if(state && task.state !== state) return false;
     if(priority && task.priority !== priority) return false;
@@ -1048,7 +1042,11 @@ function renderTable(){
       <td><span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority || "P2")}</span></td>
       <td><span class="badge ${stateClass(task.state)}">${escapeHtml(task.state || "Nový")}</span></td>
       <td>${escapeHtml(task.project || "")}</td>
-      <td>${escapeHtml(task.assignee || "Nezařazeno")}</td>
+      <td>${(() => {
+        const r = resitele.find(x => x.zkratka === task.assignee);
+        const label = escapeHtml(task.assignee || "Nezařazeno");
+        return (r && r.vyrazen) ? `<strong style="color:#dc2626;" title="Vyřazený řešitel">${label}</strong>` : label;
+      })()}</td>
       <td>${escapeHtml(formatDate(task.planned))}</td>
       <td>${escapeHtml(formatDate(task.finished))}</td>
       <td>${task.due ? `<span style="color:${task.due < new Date().toISOString().slice(0,10) && !task.finished ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.due))}</span>` : ""}</td>
@@ -1086,7 +1084,6 @@ function resetFilters(){
   els.filterPriority.value = "";
   els.filterDoneMode.value = "all";
   els.quickProject.value = "";
-  els.quickInternalProject.value = "";
   els.quickFromDate.value = "";
   els.quickToDate.value = "";
   applyFilters();
@@ -1149,14 +1146,17 @@ function openTaskModal(task=null){
   setValue("m_priority", task?.priority || "P0");
   setValue("m_project", task?.project || "");
   setValue("m_sales", task?.sales || "");
-  // Řešitel: nastav select, případně přidej neznámou zkratku jako extra option
+  // Řešitel: nastav select, případně přidej neznámou/vyřazenou zkratku jako extra option
   const assigneeSel = document.getElementById("m_assignee");
   if (assigneeSel) {
     const assigneeVal = task?.assignee || "";
     if (assigneeVal && !Array.from(assigneeSel.options).find(o => o.value === assigneeVal)) {
+      const vyrazenyResitel = resitele.find(r => r.zkratka === assigneeVal);
       const opt = document.createElement("option");
       opt.value = assigneeVal;
-      opt.textContent = assigneeVal;
+      opt.textContent = vyrazenyResitel
+        ? `${vyrazenyResitel.zkratka} – ${vyrazenyResitel.jmeno} ${vyrazenyResitel.prijmeni} (vyřazen)`.trim()
+        : assigneeVal;
       assigneeSel.appendChild(opt);
     }
     assigneeSel.value = assigneeVal;
@@ -1305,17 +1305,21 @@ function buildResitelSelect() {
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">— nevybráno —</option>';
-  resitele.forEach(r => {
+  resitele.filter(r => !r.vyrazen).forEach(r => {
     const opt = document.createElement("option");
     opt.value = r.zkratka;
     opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
     sel.appendChild(opt);
   });
-  // Pokud aktuální zkratka není v seznamu, přidej ji
-  if (current && !resitele.find(r => r.zkratka === current)) {
+  // Pokud aktuální zkratka není v seznamu (nevybráno, nebo je to vyřazený
+  // řešitel u staršího úkolu), přidej ji zpět, ať editace úkol tiše nepřehodí
+  if (current && !resitele.some(r => r.zkratka === current && !r.vyrazen)) {
+    const vyrazenyResitel = resitele.find(r => r.zkratka === current);
     const opt = document.createElement("option");
     opt.value = current;
-    opt.textContent = current;
+    opt.textContent = vyrazenyResitel
+      ? `${vyrazenyResitel.zkratka} – ${vyrazenyResitel.jmeno} ${vyrazenyResitel.prijmeni} (vyřazen)`.trim()
+      : current;
     sel.appendChild(opt);
   }
   if (current) sel.value = current;
@@ -1325,7 +1329,7 @@ function buildResitelSelect() {
   if (filter) {
     const filterCurrent = filter.value;
     filter.innerHTML = '<option value="">Všichni</option>';
-    resitele.forEach(r => {
+    resitele.filter(r => !r.vyrazen).forEach(r => {
       const opt = document.createElement("option");
       opt.value = r.zkratka;
       opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
@@ -1645,11 +1649,11 @@ function renderOpakovaciTable() {
 
   const resiteleOptions = (owner) => {
     let html = `<option value="">— nevybráno —</option>`;
-    resitele.forEach(r => {
+    resitele.filter(r => !r.vyrazen).forEach(r => {
       html += `<option value="${escapeHtml(r.zkratka)}" ${r.zkratka === owner ? "selected" : ""}>${escapeHtml(r.zkratka)} – ${escapeHtml(r.jmeno)} ${escapeHtml(r.prijmeni)}</option>`;
     });
-    if (owner && !resitele.find(r => r.zkratka === owner)) {
-      html += `<option value="${escapeHtml(owner)}" selected>${escapeHtml(owner)}</option>`;
+    if (owner && !resitele.some(r => r.zkratka === owner && !r.vyrazen)) {
+      html += `<option value="${escapeHtml(owner)}" selected>${escapeHtml(owner)} (vyřazen)</option>`;
     }
     return html;
   };
@@ -2083,7 +2087,7 @@ async function saveWorkbook(){
 
 [
   els.searchInput, els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode,
-  els.quickProject, els.quickInternalProject, els.quickFromDate, els.quickToDate
+  els.quickProject, els.quickFromDate, els.quickToDate
 ].forEach(el => el.addEventListener("input", applyFilters));
 [
   els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode

@@ -423,6 +423,12 @@ const DEFAULT_PEOPLE_LAYOUT = [
 ];
 
 function getPeopleLayout() {
+  // Aktivní řešitelé = ti bez příznaku vyrazen. Vyřazení se do Přehledu
+  // nezahrnují vůbec — to je oddělené od osobního skrýt/zobrazit níže.
+  const activeZkratky = (DATA.resitele && DATA.resitele.length > 0)
+    ? DATA.resitele.filter(r => !r.vyrazen).map(r => r.zkratka)
+    : DATA.owners;
+
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (saved && Array.isArray(saved) && saved.length > 0) {
@@ -430,14 +436,13 @@ function getPeopleLayout() {
       return saved.filter(e => {
         if (seen.has(e.owner)) return false;
         seen.add(e.owner);
-        return true;
+        return activeZkratky.includes(e.owner);
       });
     }
   } catch(e) {}
-  const owners = DATA.owners;
   const defaultOwners = DEFAULT_PEOPLE_LAYOUT.map(e => e.owner);
-  const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => owners.includes(e.owner)).map(e => ({...e}));
-  const missing = owners.filter(o => !defaultOwners.includes(o));
+  const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => activeZkratky.includes(e.owner)).map(e => ({...e}));
+  const missing = activeZkratky.filter(o => !defaultOwners.includes(o));
   missing.forEach((o, i) => {
     seeded.push({ owner: o, side: i < Math.ceil(missing.length / 2) ? "L" : "R" });
   });
@@ -450,7 +455,9 @@ function savePeopleLayoutPrehled(layout) {
 
 function resetPeopleLayoutToDefault() {
   if (!confirm("Opravdu obnovit tovární nastavení? Vlastní pořadí a skrytí lidí se ztratí.")) return;
-  const owners = DATA.owners || [];
+  const owners = (DATA.resitele && DATA.resitele.length > 0)
+    ? DATA.resitele.filter(r => !r.vyrazen).map(r => r.zkratka)
+    : (DATA.owners || []);
   const defaultOwners = DEFAULT_PEOPLE_LAYOUT.map(e => e.owner);
   const seeded = DEFAULT_PEOPLE_LAYOUT.filter(e => owners.includes(e.owner)).map(e => ({...e}));
   const missing = owners.filter(o => !defaultOwners.includes(o));

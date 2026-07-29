@@ -711,6 +711,50 @@
     #substituteModal .field-optional label { color: #6b7280; }
     html.dark #substituteModal .field-optional label { color: #94a3b8; }
 
+/* ── Správa řešitelů (#resiteleManagementModal, sdílí styl) ── */
+    #resiteleManagementModal .modal-card { width: min(720px, 100%); max-height: 90vh; overflow: auto; }
+    #resiteleManagementModal .modal-head {
+      position: sticky; top: 0; z-index: 2;
+      background: #fff; padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    html.dark #resiteleManagementModal .modal-head { background: #1e293b; border-color: #334155; }
+    #resiteleManagementModal .modal-body { padding: 20px; }
+    #resiteleManagementModal .actions-row { display: flex; gap: 8px; }
+    #resiteleManagementModal .actions-row button { width: auto; }
+    #resiteleManagementModal .grid { display: grid; gap: 12px; margin-bottom: 12px; }
+    #resiteleManagementModal .grid.two { grid-template-columns: 1fr 1fr; }
+    #resiteleManagementModal .field { margin-bottom: 0; }
+    #resiteleManagementModal .field label {
+      display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    }
+    #resiteleManagementModal input, #resiteleManagementModal select, #resiteleManagementModal textarea {
+      width: 100%; border: 1px solid #d1d5db; border-radius: 12px;
+      padding: 11px 12px; font-size: 14px; background: #fff; color: #111827; outline: none;
+    }
+    #resiteleManagementModal button { width: auto; }
+    #resiteleManagementModal textarea { resize: vertical; min-height: 80px; }
+    html.dark #resiteleManagementModal input, html.dark #resiteleManagementModal select, html.dark #resiteleManagementModal textarea {
+      background: #0f172a; color: #e2e8f0; border-color: #334155;
+    }
+    #resiteleManagementModal .field-required label { color: #dc2626; }
+    #resiteleManagementModal .field-required input, #resiteleManagementModal .field-required select {
+      background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d;
+    }
+    html.dark #resiteleManagementModal .field-required input, html.dark #resiteleManagementModal .field-required select {
+      background: #7f1d1d; border: 2px solid #dc2626; color: #fee2e2;
+    }
+    #resiteleManagementModal .field-readonly label { color: #9ca3af; }
+    #resiteleManagementModal .field-readonly input {
+      background: #f3f4f6; border: 1px solid #d1d5db; color: #9ca3af; cursor: not-allowed;
+    }
+    html.dark #resiteleManagementModal .field-readonly input {
+      background: #1e293b; border: 1px solid #334155; color: #64748b; cursor: not-allowed;
+    }
+    #resiteleManagementModal .field-optional label { color: #6b7280; }
+    html.dark #resiteleManagementModal .field-optional label { color: #94a3b8; }
+
     </style>
 </head>
 <body>
@@ -751,6 +795,7 @@
       <div style="font-size:10px;color:#64748b;margin-bottom:6px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
       <div id="peopleFilters"></div>
       <button onclick="resetPeopleLayoutToDefault()" style="margin-top:10px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid #475569;color:#94a3b8;border-radius:6px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
+      <button onclick="openResiteleManagementModal()" style="margin-top:8px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid #475569;color:#94a3b8;border-radius:6px;cursor:pointer;width:100%;">👥 Řešitelé</button>
     </div>
 
     <div class="control-card" style="display:flex;justify-content:space-between;align-items:center;">
@@ -934,7 +979,7 @@
       </div>
       <div class="grid two">
         <div class="field field-optional"><label>Projekt</label><input id="m2_project" /></div>
-        <div class="field field-optional"><label>Dodatečné označení projektu</label><input id="m2_internal" /></div>
+        <div class="field field-optional"><label>Interní číslo projektu</label><input id="m2_internal" /></div>
       </div>
       <div class="grid">
         <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m2_note_internal"></textarea></div>
@@ -983,6 +1028,40 @@
       </div>
       <div class="grid">
         <div class="field field-optional"><label>Poznámka</label><input id="sub_note" placeholder="volitelné, např. 'dovolená RS'" /></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="resiteleManagementModal">
+  <div class="modal-card" id="resiteleManagementModalCard">
+    <div class="modal-head">
+      <div>
+        <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Správa řešitelů</div>
+        <h2 style="margin:4px 0 0; font-size:22px;">Řešitelé</h2>
+      </div>
+      <div class="actions-row">
+        <button onclick="closeResiteleManagementModal()">Zavřít</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">
+        Vyřazený řešitel zmizí z Dashboardu i Přehledu a nepůjde mu přiřadit nové úkoly.
+        Jeho starší úkoly zůstávají ve Správě úkolů zachované (zvýrazněné červeně).
+      </div>
+
+      <h3 style="font-size:14px;margin:0 0 8px;">Aktivní řešitelé</h3>
+      <div id="activeResiteleList" style="margin-bottom:18px;"></div>
+
+      <h3 style="font-size:14px;margin:0 0 8px;">Vyřazení řešitelé</h3>
+      <div id="inactiveResiteleList" style="margin-bottom:18px;"></div>
+
+      <h3 style="font-size:14px;margin:0 0 8px;">Přidat nového řešitele</h3>
+      <div class="grid" style="display:grid;grid-template-columns:80px 1fr 1fr auto;gap:8px;align-items:end;">
+        <div class="field field-required"><label>Zkratka</label><input id="newRes_zkratka" placeholder="AB" /></div>
+        <div class="field field-optional"><label>Jméno</label><input id="newRes_jmeno" /></div>
+        <div class="field field-optional"><label>Příjmení</label><input id="newRes_prijmeni" /></div>
+        <button class="primary" onclick="addNewResitel()" style="height:40px;">+ Přidat</button>
       </div>
     </div>
   </div>
@@ -1094,6 +1173,105 @@ function resetPeopleLayoutToDefault() {
 }
 
 // peopleLayout: [{owner, side}] — order within the array = order within that side
+
+// ── Správa řešitelů (vyřazení / obnovení / přidání nových) ─────────────
+function openResiteleManagementModal() {
+  renderResiteleManagementLists();
+  document.getElementById("resiteleManagementModal").classList.add("open");
+}
+function closeResiteleManagementModal() {
+  document.getElementById("resiteleManagementModal").classList.remove("open");
+}
+
+function renderResiteleManagementLists() {
+  const activeWrap = document.getElementById("activeResiteleList");
+  const inactiveWrap = document.getElementById("inactiveResiteleList");
+  if (!activeWrap || !inactiveWrap) return;
+
+  const resitele = DATA.resitele || [];
+  const active = resitele.filter(r => !r.vyrazen);
+  const inactive = resitele.filter(r => r.vyrazen);
+
+  const rowStyle = "display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;";
+  const nameStyle = "flex:1;font-size:13px;color:#e2e8f0;";
+  const btnStyle = "padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #475569;background:transparent;color:#94a3b8;cursor:pointer;white-space:nowrap;";
+
+  activeWrap.innerHTML = active.length === 0
+    ? '<div style="color:#64748b;font-size:12px;">Žádní aktivní řešitelé.</div>'
+    : active.map(r => `
+        <div style="${rowStyle}">
+          <span style="${nameStyle}">${escapeHtml(r.zkratka)} – ${escapeHtml(r.jmeno || "")} ${escapeHtml(r.prijmeni || "")}</span>
+          <button style="${btnStyle}" onclick="vyraditResitel('${escapeHtml(r.zkratka)}')">Vyřadit</button>
+        </div>`).join("");
+
+  inactiveWrap.innerHTML = inactive.length === 0
+    ? '<div style="color:#64748b;font-size:12px;">Žádní vyřazení řešitelé.</div>'
+    : inactive.map(r => `
+        <div style="${rowStyle}opacity:0.6;">
+          <span style="${nameStyle}text-decoration:line-through;">${escapeHtml(r.zkratka)} – ${escapeHtml(r.jmeno || "")} ${escapeHtml(r.prijmeni || "")}</span>
+          <button style="${btnStyle}background:#1d4ed8;border-color:#1d4ed8;color:white;" onclick="obnovitResitel('${escapeHtml(r.zkratka)}')">Obnovit</button>
+        </div>`).join("");
+}
+
+async function vyraditResitel(zkratka) {
+  const activeTaskCount = (DATA.tasks || []).filter(t => t.owner === zkratka && !String(t.state||"").toLowerCase().includes("dokončeno")).length;
+  const msg = activeTaskCount > 0
+    ? `Řešitel ${zkratka} má ${activeTaskCount} nedokončených úkolů. Zmizí z Dashboardu i Přehledu, ale jeho úkoly zůstanou ve Správě úkolů (červeně zvýrazněné). Opravdu vyřadit?`
+    : `Opravdu vyřadit řešitele ${zkratka}?`;
+  if (!confirm(msg)) return;
+  await saveResiteleChange(zkratka, true);
+}
+
+async function obnovitResitel(zkratka) {
+  if (!confirm(`Obnovit řešitele ${zkratka}? Znovu se objeví v Dashboardu i Přehledu.`)) return;
+  await saveResiteleChange(zkratka, false);
+}
+
+async function saveResiteleChange(zkratka, vyrazen) {
+  try {
+    const raw = FTLoader.getRawJson();
+    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    const resitel = (raw.resitele || []).find(r => r.zkratka === zkratka);
+    if (!resitel) throw new Error(`Řešitel ${zkratka} nebyl nalezen.`);
+    resitel.vyrazen = vyrazen;
+    const user = FTLoader.getCurrentUser() || "dashboard";
+    await FTLoader.saveToGitHub(raw, `Řešitel ${zkratka} ${vyrazen ? "vyřazen" : "obnoven"} uživatelem ${user}`);
+    await FTLoader.reload();
+    renderResiteleManagementLists();
+  } catch (e) {
+    alert(`Uložení se nepodařilo: ${e.message}`);
+    console.error(e);
+  }
+}
+
+async function addNewResitel() {
+  const zkratka = (document.getElementById("newRes_zkratka").value || "").trim();
+  const jmeno = (document.getElementById("newRes_jmeno").value || "").trim();
+  const prijmeni = (document.getElementById("newRes_prijmeni").value || "").trim();
+  if (!zkratka) { alert("Vyplň zkratku."); return; }
+
+  try {
+    const raw = FTLoader.getRawJson();
+    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    raw.resitele = raw.resitele || [];
+    if (raw.resitele.find(r => r.zkratka === zkratka)) {
+      alert(`Zkratka "${zkratka}" už existuje.`);
+      return;
+    }
+    raw.resitele.push({ zkratka, jmeno, prijmeni, vyrazen: false });
+    const user = FTLoader.getCurrentUser() || "dashboard";
+    await FTLoader.saveToGitHub(raw, `Nový řešitel ${zkratka} přidán uživatelem ${user}`);
+    document.getElementById("newRes_zkratka").value = "";
+    document.getElementById("newRes_jmeno").value = "";
+    document.getElementById("newRes_prijmeni").value = "";
+    await FTLoader.reload();
+    renderResiteleManagementLists();
+  } catch (e) {
+    alert(`Uložení se nepodařilo: ${e.message}`);
+    console.error(e);
+  }
+}
+
 
 const XLSX_FILE = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
 const LOCAL_WATCH_INTERVAL_MS = 5000;
@@ -1744,6 +1922,9 @@ async function saveSubstituteModal() {
 els.modal.addEventListener("click", e => {
   if (e.target === els.modal) els.modal.classList.remove("open");
 });
+document.getElementById("resiteleManagementModal").addEventListener("click", e => {
+  if (e.target === document.getElementById("resiteleManagementModal")) closeResiteleManagementModal();
+});
 
 
 function setSyncStatus(message, isError = false) {
@@ -1796,9 +1977,12 @@ function applyData(nextData) {
     if (!PEOPLE_LABELS[owner]) PEOPLE_LABELS[owner] = owner;
   });
 
-  // Primární zdroj řešitelů: list RESITEL (pokud existuje), jinak owners z úkolů
+  // Primární zdroj řešitelů: list RESITEL (pokud existuje), jinak owners z úkolů.
+  // Vyřazení řešitelé (vyrazen: true) se do Dashboardu/Přehledu vůbec nezahrnují —
+  // to je oddělené od osobního "skrýt/zobrazit" v nastavení zobrazení.
+  const activeResitele = DATA.resitele.filter(r => !r.vyrazen);
   const sourceOwners = DATA.resitele.length > 0
-    ? DATA.resitele.map(r => r.zkratka)
+    ? activeResitele.map(r => r.zkratka)
     : DATA.owners;
 
   // Načti uložený layout a zachovej strany/pořadí, ale seznam řešitelů aktualizuj dle sourceOwners
@@ -1855,7 +2039,7 @@ function buildResitelSelectNew() {
   const sel = document.getElementById("m2_assignee");
   if (!sel) return;
   sel.innerHTML = '<option value="">— nevybráno —</option>';
-  (DATA.resitele || []).forEach(r => {
+  (DATA.resitele || []).filter(r => !r.vyrazen).forEach(r => {
     const opt = document.createElement("option");
     opt.value = r.zkratka;
     opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
