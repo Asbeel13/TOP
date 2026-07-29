@@ -72,6 +72,9 @@ na které straně, v jakém pořadí" (nastavitelné z Dashboardu i obou Přehle
 plannedDate, doneDate, dueDate, owner, note, internalNote, auto, cancelled,
 internalProject, durationDays, lastUpdated, activeDays, completedDays`
 
+- `internalProject` — datový název pole beze změny, ale **UI popisek je
+  "Dodatečné označení projektu"** (přejmenováno 2026-07-29, viz Changelog
+  níže — dřív se v UI jmenovalo "Interní číslo projektu")
 - `waiting` — pole "Čeká se na něco" bylo **odstraněno z UI**, ale zůstává v
   datech (zpětná kompatibilita, needitovatelné přes appku)
 - `durationDays` + `activeDays` — vícedenní úkol s výběrem konkrétních dnů v
@@ -285,3 +288,23 @@ workflow, a **respektuj zavedený vzorec**: navrhni testovací plán → po
 schválení otestuj na kopii dat → ukaž výsledky → teprve po schválení nahraj
 finální verzi. Tenhle projekt má za sebou dlouhý vývoj s důrazem na
 opatrnost u produkčních dat (živě používá cca 15+ lidí ve výrobě).
+
+## Historie změn (changelog) — průběžně doplňovat
+
+Hlavní vývoj probíhá v Claude.ai chatu (web/mobil/desktop appka, stejná
+konverzace). Claude Code se používá příležitostně na celkovou kontrolu
+projektu — tahle sekce se aktualizuje po každé takové relaci i po větších
+změnách z chatu, aby Claude Code měl při příštím spuštění aktuální obrázek.
+
+### 2026-07-29 — Přejmenování pole a nový filtr (provedeno přes Claude Code)
+
+- **UI popisek** "Interní číslo projektu" → **"Dodatečné označení
+  projektu"** (ve formuláři úkolu i v rychlém filtru). **Datové pole
+  zůstává beze změny** (`internalProject` v JSON) — jde čistě o
+  přejmenování v uživatelském rozhraní, žádný dopad na existující data.
+- Do Správy úkolů přidán nový rychlý filtr **`quickInternalProject`**
+  vedle filtru Projekt — hledá v poli `internalProject`, zapojený do
+  perzistence filtrů (uloží/obnoví se stejně jako ostatní) i do
+  "Vyčistit filtry".
+- Ověřeno: syntax OK, žádná duplicitní ID, změna je čistě UI/kosmetická
+  bez rizika pro existující data.
