@@ -56,7 +56,7 @@ na které straně, v jakém pořadí" (nastavitelné z Dashboardu i obou Přehle
 ```
 {
   "tasks": [ ... ],           // hlavní úkoly, viz pole níže
-  "resitele": [ {zkratka, jmeno, prijmeni} ],
+  "resitele": [ {zkratka, jmeno, prijmeni, vyrazen} ],  // vyrazen: bool, viz níže
   "auta": [ {popis, spz, zodpovedna, dostupnost, zarazeni} ],
   "auta_rezervace": [ {spz, datum, stav, poznamka} ],
   "opakovaci": [ {id, title, owner, typ, hodnota, aktivni, priority, note} ],
@@ -139,6 +139,14 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
 - PWA pro mobilní přehled (manifest, service worker — cachuje JEN statickou
   kostru appky, NIKDY data z GitHub API)
 - Filtry se persistují v localStorage napříč všemi stránkami/záložkami
+- **Správa řešitelů** (vyřazení/obnovení/přidání nových) — vstup z
+  Dashboardu, tlačítko "👥 Řešitelé". Vyřazený řešitel (`vyrazen: true` na
+  jeho objektu v `resitele`) mizí z Dashboardu i Přehledu (kalendář i
+  nastavení zobrazení) úplně, ale ve Správě úkolů jeho starší úkoly
+  zůstávají (zkratka červeně). **Tohle je koncepčně JINÉ** než
+  "nastavení zobrazení" (localStorage, osobní, jen kdo je vidět/pořadí) —
+  vyřazení je sdílené v databázi, platí pro všechny, ovlivňuje i to, jestli
+  se řešitel vůbec nabízí ve filtrech/dropdownech pro NOVÉ přiřazení.
 
 ## Konvence vývoje — DODRŽOVAT
 
@@ -229,6 +237,18 @@ liší se jen úroveň oprávnění.
 
 ### 7. Copyright/citace při reprodukci commit zpráv apod. — neaplikuje se, je to interní data.
 
+### 8. Sprava_ukolu_linked.html má DVĚ nezávislé místa, která staví dropdown řešitele u úkolu
+
+`buildResitelSelect()` (naplní `#m_assignee` + `#filterAssignee`) a
+samostatný blok přímo v `openTaskModal()` (řádky kolem `assigneeSel...`)
+dělají **podobnou věc** — obě mají vlastní "pokud aktuální hodnota není v
+seznamu, přidej ji zpět" logiku. `openTaskModal()`'s blok běží PO
+`buildResitelSelect()` a **přebíjí** jeho verzi (na tohle jsme narazili
+při implementaci vyřazování řešitelů — oprava jen v `buildResitelSelect()`
+se navenek vůbec neprojevila). Pokud upravuješ chování dropdownu řešitele
+u úkolu, over si OBĚ místa, ne jen jedno. Stálo by za zvážení do budoucna
+tohle sloučit do jedné funkce, ale nebylo to prioritou.
+
 ## Zvážené a zamítnuté / odložené alternativy (neopakuj tuhle diskuzi zbytečně)
 
 - **Mobilní responzivní design** (jedna appka, media queries) —
@@ -308,3 +328,28 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
   "Vyčistit filtry".
 - Ověřeno: syntax OK, žádná duplicitní ID, změna je čistě UI/kosmetická
   bez rizika pro existující data.
+
+### 2026-07-29 — Správa řešitelů: vyřazení/obnovení/přidání nových (provedeno v chatu)
+
+- Nové pole `vyrazen: true/false` na objektu řešitele v `resitele`.
+  Chybí/`false` = aktivní (zpětně kompatibilní, ověřeno regresním testem).
+- Nová sekce ve všech čtyřech souborech: vstup tlačítkem "👥 Řešitelé" v
+  Dashboardu (pod "Obnovit tovární nastavení") → modal se seznamy
+  aktivní/vyřazení + formulář pro přidání nového.
+- **Vyřazený řešitel mizí úplně** z Dashboardu a z obou Přehledů (kalendář
+  i nastavení zobrazení) — ve **Správě úkolů zůstává** viditelný u svých
+  starších úkolů, jen zkratka červeně (`#dc2626`), a nenabízí se ve
+  filtrech/dropdownech pro NOVÉ přiřazení (kromě zachování jako aktuální
+  volby při editaci JEHO existujícího úkolu, ať se needitovaně nepřehodí).
+- Objeven a opraven zásadní architektonický nedostatek: `getPeopleLayout()`
+  v obou Přehledech (na rozdíl od Dashboardu) **neprofiltrovala UŽ
+  ULOŽENÉ** rozložení proti aktuálně platným řešitelům — opraveno na
+  všech třech místech (Dashboard, Přehled desktop, Přehled mobil) +
+  `resetPeopleLayoutToDefault()` na obou Přehledech měla stejnou mezeru.
+- Objevena a opravena redundance dvou nezávislých kódových míst pro
+  dropdown řešitele u úkolu ve Správě úkolů — viz Nástraha č. 8 výše.
+- Ověřeno kompletní sadou testů na kopii živé databáze (793 úkolů, 17
+  řešitelů) — vyřazení, obnovení, přidání nového, zmizení z
+  Dashboardu/Přehledu, zachování v tabulce Správy úkolů s červeným
+  zvýrazněním, zachování řešitele v editačním dropdownu, regresní test
+  zpětné kompatibility.
