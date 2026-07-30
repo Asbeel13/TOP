@@ -160,6 +160,18 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
    `TOP`, ověřeno, ale je to zásadní změna workflow, ptej se první).
 5. Testování přes Playwright + mock GitHub API routes je zavedený vzorec v
    celé historii vývoje — viz "Časté testovací pasti" níže.
+6. **KRITICKÉ — synchronizace mezi chatem a Claude Code:** Chat (tahle
+   konverzace) a Claude Code NEsdílí žádné společné úložiště — každý
+   pracuje se svou vlastní poslední staženou kopií souborů. Pokud
+   uživatel mezi sezeními použil Claude Code (nebo naopak), je nutné si
+   **nejdřív stáhnout aktuální stav z GitHubu** (`asbeel13/TOP`), než se
+   začne pracovat na čemkoliv dalším — jinak hrozí, že nová práce
+   postavená na zastaralé kopii **tiše přepíše** mezitím provedené změny
+   z druhé strany (stalo se to 2026-07-30, viz Changelog — zmizel filtr
+   "Dodatečné označení projektu" přidaný přes Claude Code, protože další
+   práce v chatu vycházela ze starší uložené kopie). Na začátku session,
+   pokud si uživatel není jistý, jestli mezitím něco měnil jinde, zeptej
+   se explicitně, nebo si stáhni čerstvou kopii pro jistotu.
 
 ## Nástrahy a poučení z historie — ČTI POZORNĚ
 
@@ -371,3 +383,37 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
 - Ověřeno testem: 3 po sobě jdoucí kliknutí na "Upravit" → jen 1 nová
   záložka (ne 3), a "Smazat"/"Zrušit dnes" prokazatelně sdílí tu samou
   záložku, ne každé svou vlastní.
+
+### 2026-07-30 — Správa vozidel: vyřazení/obnovení/přidání nových (provedeno v chatu)
+
+- Stejná logika jako u řešitelů, ale pro `auta`. Nové pole `vyrazen` na
+  objektu vozidla. Sekce **zařazená na konec stránky "Přehled aut"** ve
+  Správě úkolů (ne samostatná sekce/modal, na výslovné přání uživatele).
+- Vyřazené vozidlo mizí z dlaždic přehledu i z nabídky pro NOVÉ úkoly
+  (Dashboard i Správa úkolů), ale starší úkoly s tímto vozidlem zůstávají
+  ve Správě úkolů zachované, s poznámkou "(vyřazen)" u SPZ ve sloupci Auto.
+- Audit před implementací potvrdil: `auta` prochází systémem bezpečným
+  přímým průchodem (`auta: auta`), stejně jako `resitele`/`opakovaci` —
+  žádné riziko tichého mazání polí jako u `completedDays`. Přehled (desktop
+  i mobil) auta vůbec nepoužívá, takže se jich tahle změna netýká.
+- Narazili jsme znovu na STEJNÝ vzorec jako u Nástrahy č. 8 (dvě nezávislá
+  místa stavějící dropdown, druhé přebíjí popisek prvního) — tentokrát u
+  `m_auto` v `openTaskModal()`. Opraveno stejným způsobem.
+- Ověřeno kompletní sadou testů na kopii živé databáze (793 úkolů, 21 aut).
+
+### 2026-07-30 — Incident: ztráta filtru "Dodatečné označení projektu" (chat přepsal změnu z Claude Code)
+
+- **Co se stalo:** Uživatel použil Claude Code k přejmenování pole a
+  přidání filtru (viz záznam 2026-07-29 výše). O den později jsem v
+  chatu implementoval Správu vozidel, ale vycházel jsem ze SVÉ starší
+  uložené kopie `sprava_ukolu_linked.html`, která tuhle změnu ještě
+  neobsahovala — moje nahrání ji tiše přepsalo/smazalo.
+- **Náprava:** uživatel poslal starou verzi souboru (tu s filtrem),
+  porovnal jsem ji se svou aktuální kopií, dohledal přesně 7 míst v kódu
+  kde se liší (HTML pole, popisek, `els` reference, uložení/obnovení
+  stavu filtru, filtrovací podmínka, vyčištění filtrů, listener), a
+  ručně je přenesl zpět — beze ztráty čehokoliv z mezitímní práce v
+  chatu (správa řešitelů, správa vozidel, oprava záložek).
+- **Poučení zapsáno jako Konvence č. 6 výše** — před další prací vždy
+  ověřit, jestli se mezitím něco nezměnilo na druhé straně (chat ↔
+  Claude Code), a případně si stáhnout čerstvou kopii z GitHubu.
