@@ -870,8 +870,8 @@
       <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
         <button id="modalDoneBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#ecfdf3;border:1px solid #86efac;color:#166534;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Hotovo</button>
         <button id="modalSubstituteBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 Zástup</button>
-        <a id="modalEditBtn" href="#" target="_blank" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
-        <a id="modalCancelRecurBtn" href="#" target="_blank" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
+        <a id="modalEditBtn" href="#" target="top_edit_window" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
+        <a id="modalCancelRecurBtn" href="#" target="top_edit_window" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
         <button id="modalDeleteBtn" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Smazat</button>
         <button class="secondary" id="closeModal" style="width:auto;color:#111827;background:white">Zavřít</button>
       </div>
@@ -1747,7 +1747,7 @@ document.getElementById("modalDeleteBtn").addEventListener("click", () => {
   if (!id) return;
   if (!confirm(`Opravdu smazat úkol ${id}? Tato akce je nevratná.`)) return;
   els.modal.classList.remove("open");
-  window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}`, "_blank");
+  window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}`, "top_edit_window");
 });
 document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
 document.getElementById("modalSubstituteBtn").addEventListener("click", () => openSubstituteModal(els.modalSubstituteBtn.dataset.ruleId));
