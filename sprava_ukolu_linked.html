@@ -534,6 +534,7 @@ initDarkMode();
       <div class="panel-body">
         <div class="filters">
           <input id="quickProject" placeholder="Projekt" />
+          <input id="quickInternalProject" placeholder="Dodatečné označení projektu" />
           <input id="quickFromDate" type="date" />
           <input id="quickToDate" type="date" />
           <button onclick="resetFilters()">Vyčistit filtry</button>
@@ -697,7 +698,7 @@ initDarkMode();
         </div>
         <div class="grid two">
           <div class="field field-optional"><label>Projekt</label><input id="m_project" /></div>
-          <div class="field field-optional"><label>Interní číslo projektu</label><input id="m_internal" /></div>
+          <div class="field field-optional"><label>Dodatečné označení projektu</label><input id="m_internal" /></div>
         </div>
         <div class="grid">
           <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
@@ -804,6 +805,7 @@ const els = {
   filterDoneMode: document.getElementById("filterDoneMode"),
   showCancelled: document.getElementById("showCancelled"),
   quickProject: document.getElementById("quickProject"),
+  quickInternalProject: document.getElementById("quickInternalProject"),
   quickFromDate: document.getElementById("quickFromDate"),
   quickToDate: document.getElementById("quickToDate"),
   taskTableBody: document.getElementById("taskTableBody"),
@@ -907,6 +909,7 @@ function saveSpravaFilterState() {
       priority: els.filterPriority?.value || "",
       doneMode: els.filterDoneMode?.value || "all",
       project: els.quickProject?.value || "",
+      internalProject: els.quickInternalProject?.value || "",
       fromDate: els.quickFromDate?.value || "",
       toDate: els.quickToDate?.value || "",
       showCancelled: els.showCancelled?.checked || false,
@@ -925,6 +928,7 @@ function restoreSpravaFilterState() {
     if (els.filterPriority) els.filterPriority.value = saved.priority || "";
     if (els.filterDoneMode) els.filterDoneMode.value = saved.doneMode || "all";
     if (els.quickProject) els.quickProject.value = saved.project || "";
+    if (els.quickInternalProject) els.quickInternalProject.value = saved.internalProject || "";
     if (els.quickFromDate) els.quickFromDate.value = saved.fromDate || "";
     if (els.quickToDate) els.quickToDate.value = saved.toDate || "";
     if (els.showCancelled) els.showCancelled.checked = saved.showCancelled || false;
@@ -944,6 +948,7 @@ function applyFilters(){
   const priority = els.filterPriority.value;
   const doneMode = els.filterDoneMode.value;
   const project = normalizeText(els.quickProject.value).toLowerCase();
+  const internalProject = normalizeText(els.quickInternalProject.value).toLowerCase();
   const fromDate = els.quickFromDate.value;
   const toDate = els.quickToDate.value;
   const showCancelled = els.showCancelled?.checked || false;
@@ -959,6 +964,7 @@ function applyFilters(){
 
     if(search && !haystack.includes(search)) return false;
     if(project && !task.project.toLowerCase().includes(project)) return false;
+    if(internalProject && !(task.internalProject || "").toLowerCase().includes(internalProject)) return false;
     if(assignee && task.assignee !== assignee) return false;
     if(state && task.state !== state) return false;
     if(priority && task.priority !== priority) return false;
@@ -1089,6 +1095,7 @@ function resetFilters(){
   els.filterPriority.value = "";
   els.filterDoneMode.value = "all";
   els.quickProject.value = "";
+  els.quickInternalProject.value = "";
   els.quickFromDate.value = "";
   els.quickToDate.value = "";
   applyFilters();
@@ -2191,7 +2198,7 @@ async function saveWorkbook(){
 
 [
   els.searchInput, els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode,
-  els.quickProject, els.quickFromDate, els.quickToDate
+  els.quickProject, els.quickInternalProject, els.quickFromDate, els.quickToDate
 ].forEach(el => el.addEventListener("input", applyFilters));
 [
   els.filterAssignee, els.filterState, els.filterPriority, els.filterDoneMode
