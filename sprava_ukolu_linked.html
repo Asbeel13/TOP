@@ -1051,7 +1051,12 @@ function renderTable(){
       <td>${escapeHtml(formatDate(task.finished))}</td>
       <td>${task.due ? `<span style="color:${task.due < new Date().toISOString().slice(0,10) && !task.finished ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.due))}</span>` : ""}</td>
       <td>${escapeHtml(task.lastUpdated || "—")}</td>
-      <td>${task.auto ? `<strong style="color:#cc1f1a">${escapeHtml(task.auto)}</strong>` : ""}</td>
+      <td>${(() => {
+        if (!task.auto) return "";
+        const a = auta.find(x => x.spz === task.auto);
+        const label = escapeHtml(task.auto);
+        return (a && a.vyrazen) ? `<strong style="color:#cc1f1a">${label}</strong> <span style="color:#9ca3af;font-size:11px;">(vyřazen)</span>` : `<strong style="color:#cc1f1a">${label}</strong>`;
+      })()}</td>
       <td>${escapeHtml(task.note || task.internalNote || "")}</td>
       <td>
         <div class="actions-row">
@@ -1179,14 +1184,15 @@ function openTaskModal(task=null){
   setValue("m_subtask", task?.subtask ? "true" : "false");
   setValue("m_note", task?.note || "");
   setValue("m_note_internal", task?.internalNote || "");
-  // Auto: nastav select, případně přidej jako extra option
+  // Auto: nastav select, případně přidej neznámou/vyřazenou SPZ jako extra option
   const autoSel = document.getElementById("m_auto");
   if (autoSel) {
     const autoVal = task?.auto || "";
     if (autoVal && !Array.from(autoSel.options).find(o => o.value === autoVal)) {
+      const vyrazeneAuto = auta.find(a => a.spz === autoVal);
       const opt = document.createElement("option");
       opt.value = autoVal;
-      opt.textContent = `${autoVal} (ručně)`;
+      opt.textContent = vyrazeneAuto ? `${vyrazeneAuto.popis} — ${autoVal} (vyřazeno)` : `${autoVal} (ručně)`;
       autoSel.appendChild(opt);
     }
     autoSel.value = autoVal;
@@ -1344,17 +1350,19 @@ function buildAutaDatalist() {
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">— bez auta —</option>';
-  auta.forEach(a => {
+  auta.filter(a => !a.vyrazen).forEach(a => {
     const opt = document.createElement("option");
     opt.value = a.spz;
     opt.textContent = `${a.popis} — ${a.spz} (${a.zodpovedna})`;
     sel.appendChild(opt);
   });
-  // Pokud aktuální hodnota není v seznamu, přidej ji jako extra option
-  if (current && !auta.find(a => a.spz === current)) {
+  // Pokud aktuální hodnota není v seznamu (ručně zadaná SPZ, nebo vyřazené
+  // auto u staršího úkolu), přidej ji zpět, ať editace úkol tiše nepřehodí
+  if (current && !auta.some(a => a.spz === current && !a.vyrazen)) {
+    const vyrazeneAuto = auta.find(a => a.spz === current);
     const opt = document.createElement("option");
     opt.value = current;
-    opt.textContent = `${current} (ručně)`;
+    opt.textContent = vyrazeneAuto ? `${vyrazeneAuto.popis} — ${current} (vyřazeno)` : `${current} (ručně)`;
     sel.appendChild(opt);
   }
   if (current) sel.value = current;
@@ -1440,10 +1448,11 @@ function renderAutaTable() {
     "Administrativa":   { bg: "#e5e7eb", border: "#d1d5db" },
   };
 
-  const cardsHtml = auta.length === 0
-    ? `<div style="color:#6b7280;font-size:13px;padding:12px 0;">Žádná auta. Přidejte list AUTA do databáze.</div>`
+  const activeAuta = auta.filter(a => !a.vyrazen);
+  const cardsHtml = activeAuta.length === 0
+    ? `<div style="color:#6b7280;font-size:13px;padding:12px 0;">Žádná aktivní auta.</div>`
     : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
-        ${auta.map(a => {
+        ${activeAuta.map(a => {
           const dnes = getAutoDostupnostDen(a.spz, today);
           const s = stavConfig[dnes] || stavConfig["volné"];
           const z = zarazeniConfig[a.zarazeni] || zarazeniConfig["Provoz Nivnice"];
@@ -1475,7 +1484,7 @@ function renderAutaTable() {
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
       <div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">SPZ</label>
         <input id="rez_spz" list="autaListRez" placeholder="SPZ nebo ručně" style="width:160px;" autocomplete="off" />
-        <datalist id="autaListRez">${auta.map(a => `<option value="${escapeHtml(a.spz)}">${escapeHtml(a.popis)}</option>`).join("")}</datalist>
+        <datalist id="autaListRez">${activeAuta.map(a => `<option value="${escapeHtml(a.spz)}">${escapeHtml(a.popis)}</option>`).join("")}</datalist>
       </div>
       <div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
         <input id="rez_datum" type="date" style="width:160px;" value="${today}" /></div>
@@ -1508,7 +1517,102 @@ function renderAutaTable() {
         </tr>`).join("")}
       ${autaRezervace.length === 0 ? '<tr><td colspan="5" style="padding:12px;color:#6b7280;text-align:center;">Žádné rezervace.</td></tr>' : ""}
       </tbody>
-    </table>`;
+    </table>
+
+    <h3 style="margin:24px 0 12px;font-size:16px;">Správa vozidel</h3>
+    <div style="font-size:12px;color:#6b7280;margin-bottom:14px;">
+      Vyřazené vozidlo zmizí z dlaždic přehledu i z nabídky pro nové úkoly.
+      Starší úkoly s tímto vozidlem zůstávají zachované, jen s poznámkou "vyřazen".
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:18px;">
+      <div>
+        <h4 style="font-size:13px;margin:0 0 8px;color:#374151;">Aktivní vozidla</h4>
+        <div id="activeAutaList"></div>
+      </div>
+      <div>
+        <h4 style="font-size:13px;margin:0 0 8px;color:#374151;">Vyřazená vozidla</h4>
+        <div id="inactiveAutaList"></div>
+      </div>
+    </div>
+    <h4 style="font-size:13px;margin:0 0 8px;color:#374151;">Přidat nové vozidlo</h4>
+    <div style="display:grid;grid-template-columns:1fr 130px 130px 150px auto;gap:8px;align-items:end;max-width:900px;">
+      <div><label style="display:block;font-size:11px;color:#6b7280;margin-bottom:2px;">Popis</label><input id="newAuto_popis" style="width:100%;" /></div>
+      <div><label style="display:block;font-size:11px;color:#6b7280;margin-bottom:2px;">SPZ</label><input id="newAuto_spz" style="width:100%;" /></div>
+      <div><label style="display:block;font-size:11px;color:#6b7280;margin-bottom:2px;">Zodpovědný</label><input id="newAuto_zodpovedna" style="width:100%;" /></div>
+      <div><label style="display:block;font-size:11px;color:#6b7280;margin-bottom:2px;">Zařazení</label>
+        <select id="newAuto_zarazeni" style="width:100%;">
+          <option value="Provoz Nivnice">Provoz Nivnice</option>
+          <option value="TFM">TFM</option>
+          <option value="Administrativa">Administrativa</option>
+        </select>
+      </div>
+      <button class="primary" onclick="addNewAuto()" style="height:38px;">+ Přidat</button>
+    </div>`;
+  renderAutaManagementLists();
+}
+
+function renderAutaManagementLists() {
+  const activeWrap = document.getElementById("activeAutaList");
+  const inactiveWrap = document.getElementById("inactiveAutaList");
+  if (!activeWrap || !inactiveWrap) return;
+
+  const active = auta.filter(a => !a.vyrazen);
+  const inactive = auta.filter(a => a.vyrazen);
+  const rowStyle = "display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #e5e7eb;font-size:12px;";
+  const btnStyle = "padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#6b7280;cursor:pointer;white-space:nowrap;";
+
+  activeWrap.innerHTML = active.length === 0
+    ? '<div style="color:#9ca3af;font-size:12px;">Žádná aktivní vozidla.</div>'
+    : active.map(a => `
+        <div style="${rowStyle}">
+          <span style="flex:1;">${escapeHtml(a.popis)} — <strong style="color:#cc1f1a;">${escapeHtml(a.spz)}</strong></span>
+          <button style="${btnStyle}" onclick="vyraditAuto('${escapeHtml(a.spz)}')">Vyřadit</button>
+        </div>`).join("");
+
+  inactiveWrap.innerHTML = inactive.length === 0
+    ? '<div style="color:#9ca3af;font-size:12px;">Žádná vyřazená vozidla.</div>'
+    : inactive.map(a => `
+        <div style="${rowStyle}opacity:0.6;">
+          <span style="flex:1;text-decoration:line-through;">${escapeHtml(a.popis)} — ${escapeHtml(a.spz)}</span>
+          <button style="${btnStyle}background:#1d4ed8;border-color:#1d4ed8;color:white;" onclick="obnovitAuto('${escapeHtml(a.spz)}')">Obnovit</button>
+        </div>`).join("");
+}
+
+function vyraditAuto(spz) {
+  const auto = auta.find(a => a.spz === spz);
+  if (!auto) return;
+  const activeTaskCount = tasks.filter(t => t.auto === spz && !t.cancelled && !String(t.state||"").toLowerCase().includes("dokončeno")).length;
+  const msg = activeTaskCount > 0
+    ? `Vozidlo ${spz} má ${activeTaskCount} nedokončených úkolů. Zmizí z přehledu i nabídky pro nové úkoly, staré úkoly zůstanou zachované. Opravdu vyřadit?`
+    : `Opravdu vyřadit vozidlo ${spz}?`;
+  if (!confirm(msg)) return;
+  auto.vyrazen = true;
+  renderAutaTable();
+  autoSaveIfPossible();
+}
+
+function obnovitAuto(spz) {
+  const auto = auta.find(a => a.spz === spz);
+  if (!auto) return;
+  if (!confirm(`Obnovit vozidlo ${spz}?`)) return;
+  auto.vyrazen = false;
+  renderAutaTable();
+  autoSaveIfPossible();
+}
+
+function addNewAuto() {
+  const popis = (document.getElementById("newAuto_popis").value || "").trim();
+  const spz = (document.getElementById("newAuto_spz").value || "").trim();
+  const zodpovedna = (document.getElementById("newAuto_zodpovedna").value || "").trim();
+  const zarazeni = document.getElementById("newAuto_zarazeni").value || "Provoz Nivnice";
+  if (!popis || !spz) { alert("Vyplň alespoň popis a SPZ."); return; }
+  if (auta.find(a => a.spz === spz)) { alert(`Vozidlo se SPZ "${spz}" už existuje.`); return; }
+  auta.push({ popis, spz, zodpovedna, dostupnost: "volné", zarazeni, vyrazen: false });
+  document.getElementById("newAuto_popis").value = "";
+  document.getElementById("newAuto_spz").value = "";
+  document.getElementById("newAuto_zodpovedna").value = "";
+  renderAutaTable();
+  autoSaveIfPossible();
 }
 
 function addRezervace() {

@@ -2051,7 +2051,7 @@ function buildAutaSelectNew() {
   const sel = document.getElementById("m2_auto");
   if (!sel) return;
   sel.innerHTML = '<option value="">— bez auta —</option>';
-  (DATA.auta || []).forEach(a => {
+  (DATA.auta || []).filter(a => !a.vyrazen).forEach(a => {
     const opt = document.createElement("option");
     opt.value = a.spz;
     opt.textContent = `${a.popis} — ${a.spz} (${a.zodpovedna})`;
