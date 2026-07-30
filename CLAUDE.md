@@ -353,3 +353,21 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
   Dashboardu/Přehledu, zachování v tabulce Správy úkolů s červeným
   zvýrazněním, zachování řešitele v editačním dropdownu, regresní test
   zpětné kompatibility.
+
+### 2026-07-29 — Oprava hromadění záložek při odkazech z Dashboardu do Správy úkolů
+
+- **Problém:** tlačítka "✏️ Upravit", "🚫 Zrušit dnes" a "🗑️ Smazat" v
+  detailu úkolu měla `target="_blank"` (dva jako HTML atribut, "Smazat"
+  jako `window.open(url, "_blank")` v JS) — každé kliknutí otevřelo
+  **novou** záložku se Správou úkolů, i když už jedna byla otevřená.
+- **Oprava:** všechny tři teď používají stejné **pojmenované okno**
+  `target="top_edit_window"` (resp. `window.open(url, "top_edit_window")`)
+  — první klik otevře záložku, každý další klik (na kterékoliv ze tří
+  tlačítek) tu samou záložku jen přenaviguje, nevytváří novou.
+- **Konvence pro budoucí podobné odkazy:** pokud budeš přidávat DALŠÍ
+  tlačítko v Dashboardu, které vede do Správy úkolů (nebo jinam), použij
+  stejné jméno okna `top_edit_window` — ne `_blank`. Jinak se stejný
+  problém (hromadění záložek) vrátí u nového tlačítka.
+- Ověřeno testem: 3 po sobě jdoucí kliknutí na "Upravit" → jen 1 nová
+  záložka (ne 3), a "Smazat"/"Zrušit dnes" prokazatelně sdílí tu samou
+  záložku, ne každé svou vlastní.
