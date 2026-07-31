@@ -610,6 +610,7 @@ initDarkMode();
           <h2 id="modalTitle" style="margin:4px 0 0; font-size:24px;">Nový úkol</h2>
         </div>
         <div class="actions-row">
+          <button id="modalCancelTaskBtn" class="danger" onclick="cancelSingleTask()" style="display:none;">🗑 Zrušit úkol</button>
           <button onclick="closeTaskModal()">Zavřít</button>
           <button class="primary" onclick="saveTaskFromModal()">Uložit změny</button>
         </div>
@@ -1143,12 +1144,30 @@ function deleteSelected(){
   autoSaveIfPossible();
 }
 
+function cancelSingleTask(){
+  if (currentEditIndex == null) return;
+  const task = tasks.find(t => t.rowIndex === currentEditIndex);
+  if (!task || task.cancelled) return;
+  if (!confirm(`Opravdu zrušit úkol ${task.id || ""}? (lze obnovit)`)) return;
+  task.cancelled = true;
+  task.lastUpdated = formatDateISO(new Date());
+  closeTaskModal();
+  applyFilters();
+  renderTable();
+  renderStats();
+  autoSaveIfPossible();
+}
+
 function openTaskModal(task=null){
   currentEditIndex = task ? task.rowIndex : null;
   els.modalTitle.textContent = task ? `Úprava ${task.id || "úkolu"}` : "Nový úkol";
   buildAutaDatalist();
   buildResitelSelect();
   FTLoader.signalEditing(task ? `upravuje úkol ${task.id}` : "zakládá nový úkol");
+
+  // Tlačítko "Zrušit úkol" jen u existujícího, ještě nezrušeného úkolu
+  const cancelBtn = document.getElementById("modalCancelTaskBtn");
+  if (cancelBtn) cancelBtn.style.display = (task && !task.cancelled) ? "inline-block" : "none";
 
   setValue("m_id", task?.id || "");
   els.modalId = document.getElementById("m_id");
