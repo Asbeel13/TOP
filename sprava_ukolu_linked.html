@@ -1897,7 +1897,7 @@ function renderOpakovaciTable() {
     </table>
     </div>
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">ID</label><input id="newOp_id" placeholder="RFT017" style="width:80px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
+      <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">ID</label><input id="newOp_id_display" readonly style="width:80px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;background:#f9fafb;color:#6b7280;" title="Přiděluje se automaticky při uložení"></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Název</label><input id="newOp_title" placeholder="Název úkolu" style="width:160px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Řešitel</label><select id="newOp_owner" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${resiteleOptions("")}</select></div>
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Priorita</label><select id="newOp_priority" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">${prioOptions("P2")}</select></div>
@@ -1906,6 +1906,9 @@ function renderOpakovaciTable() {
       <div><label style="font-size:11px;color:#6b7280;display:block;margin-bottom:2px;">Poznámka</label><input id="newOp_note" placeholder="volitelné" style="width:140px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></div>
       <button class="primary" onclick="addOpakovaci()" style="padding:7px 16px;">+ Přidat pravidlo</button>
     </div>`;
+
+  const idDisplay = document.getElementById("newOp_id_display");
+  if (idDisplay) idDisplay.value = generateNextOpakovaciId();
 
   // Filtry se vytváří znovu při každém překreslení — navaž listenery znovu
   ["opFilterSearch", "opFilterTyp", "opFilterOwner", "opFilterAktivni"].forEach(id => {
@@ -1954,8 +1957,17 @@ function deleteOpakovaci(ruleId) {
   autoSaveIfPossible();
 }
 
+function generateNextOpakovaciId() {
+  let maxNum = 0;
+  opakovaci.forEach(o => {
+    const m = String(o.id || "").match(/(\d+)$/);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+  });
+  return `RFT${String(maxNum + 1).padStart(3, "0")}`;
+}
+
 function addOpakovaci() {
-  const id = (document.getElementById("newOp_id")?.value || "").trim();
+  const id = generateNextOpakovaciId();
   const title = (document.getElementById("newOp_title")?.value || "").trim();
   const owner = document.getElementById("newOp_owner")?.value || "";
   const priority = document.getElementById("newOp_priority")?.value || "P2";
@@ -1963,8 +1975,7 @@ function addOpakovaci() {
   const hodnota = (document.getElementById("newOp_hodnota")?.value || "1").trim();
   const note = (document.getElementById("newOp_note")?.value || "").trim();
 
-  if (!id || !title) { alert("Vyplň alespoň ID a Název."); return; }
-  if (opakovaci.find(o => o.id === id)) { alert(`ID "${id}" už existuje.`); return; }
+  if (!title) { alert("Vyplň alespoň Název."); return; }
 
   opakovaci.push({ id, title, owner, priority, typ, hodnota, aktivni: true, note });
   renderOpakovaciTable();
