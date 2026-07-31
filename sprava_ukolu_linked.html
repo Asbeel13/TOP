@@ -537,6 +537,7 @@ initDarkMode();
           <input id="quickInternalProject" placeholder="Dodatečné označení projektu" />
           <input id="quickFromDate" type="date" />
           <input id="quickToDate" type="date" />
+          <button id="quickOverdueBtn" onclick="toggleOverdueFilter()">⏰ Po termínu</button>
           <button onclick="resetFilters()">Vyčistit filtry</button>
         </div>
         <div class="table-wrap">
@@ -915,6 +916,7 @@ function saveSpravaFilterState() {
       toDate: els.quickToDate?.value || "",
       showCancelled: els.showCancelled?.checked || false,
       sortLastUpdatedDir: sortLastUpdatedDir,
+      overdueFilterActive: overdueFilterActive,
     }));
   } catch(e) {}
 }
@@ -933,12 +935,23 @@ function restoreSpravaFilterState() {
     if (els.quickFromDate) els.quickFromDate.value = saved.fromDate || "";
     if (els.quickToDate) els.quickToDate.value = saved.toDate || "";
     if (els.showCancelled) els.showCancelled.checked = saved.showCancelled || false;
+    overdueFilterActive = saved.overdueFilterActive || false;
+    updateOverdueBtnStyle();
     if (saved.sortLastUpdatedDir) {
       sortLastUpdatedDir = saved.sortLastUpdatedDir;
       const icon = document.getElementById("sortLastUpdatedIcon");
       if (icon) icon.textContent = sortLastUpdatedDir === "desc" ? "▼" : sortLastUpdatedDir === "asc" ? "▲" : "";
     }
   } catch(e) {}
+}
+
+function isTaskOverdue(task) {
+  const todayIso = formatDateISO(new Date());
+  const dueIso = formatDateISO(task.due);
+  if (dueIso) return dueIso < todayIso;
+  const plannedIso = formatDateISO(task.planned);
+  if (plannedIso) return plannedIso < todayIso;
+  return false;
 }
 
 function applyFilters(){
@@ -974,6 +987,8 @@ function applyFilters(){
     if(doneMode === "open" && isDone) return false;
     if(doneMode === "done" && !isDone) return false;
 
+    if (overdueFilterActive && !isTaskOverdue(task)) return false;
+
     const plannedIso = formatDateISO(task.planned);
     if(fromDate && (!plannedIso || plannedIso < fromDate)) return false;
     if(toDate && (!plannedIso || plannedIso > toDate)) return false;
@@ -998,6 +1013,7 @@ function applyFilters(){
 }
 
 let sortLastUpdatedDir = null; // null | "asc" | "desc"
+let overdueFilterActive = false;
 
 function toggleSortLastUpdated() {
   sortLastUpdatedDir = sortLastUpdatedDir === null ? "desc" : sortLastUpdatedDir === "desc" ? "asc" : null;
@@ -1099,6 +1115,28 @@ function resetFilters(){
   els.quickInternalProject.value = "";
   els.quickFromDate.value = "";
   els.quickToDate.value = "";
+  overdueFilterActive = false;
+  updateOverdueBtnStyle();
+  applyFilters();
+}
+
+function updateOverdueBtnStyle() {
+  const btn = document.getElementById("quickOverdueBtn");
+  if (!btn) return;
+  if (overdueFilterActive) {
+    btn.style.background = "#dc2626";
+    btn.style.color = "white";
+    btn.style.borderColor = "#dc2626";
+  } else {
+    btn.style.background = "";
+    btn.style.color = "";
+    btn.style.borderColor = "";
+  }
+}
+
+function toggleOverdueFilter() {
+  overdueFilterActive = !overdueFilterActive;
+  updateOverdueBtnStyle();
   applyFilters();
 }
 
