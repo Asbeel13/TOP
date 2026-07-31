@@ -92,6 +92,12 @@ počet dní), `"monthly"` (hodnota = den v měsíci). Generují se za běhu v
 task záznamy — pokud existuje "zástup" (viz níže), TEN se persistuje jako
 skutečný task se stejným ID jako pravidlo.
 
+**ID (`RFT0xx`) se generuje AUTOMATICKY** při uložení nového pravidla
+(`generateNextOpakovaciId()` ve Správě úkolů) — uživatel do pole ID
+nezasahuje, jen vidí needitovatelný náhled. Pokud přidáváš jiné místo,
+odkud lze zakládat opakující se pravidlo, použij tuhle funkci pro
+generování ID, ne ruční textové pole.
+
 ## Systém uživatelů a rolí
 
 **users.json** (v `top-data`) obsahuje whitelist: `{tokenHash, zkratka,
@@ -417,3 +423,42 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
 - **Poučení zapsáno jako Konvence č. 6 výše** — před další prací vždy
   ověřit, jestli se mezitím něco nezměnilo na druhé straně (chat ↔
   Claude Code), a případně si stáhnout čerstvou kopii z GitHubu.
+
+### 2026-07-31 — Tlačítko "Zrušit úkol" v editaci záznamu (Správa úkolů)
+
+- Nové tlačítko `#modalCancelTaskBtn` v hlavičce editačního modalu
+  (`openTaskModal`) — ruší **jen ten jeden konkrétně editovaný záznam**
+  (podle `currentEditIndex`/`rowIndex`), nezávisle na stávajícím
+  hromadném "🗑 Zrušit vybrané" (`deleteSelected()`, funguje podle
+  zaškrtávacích políček — beze změny).
+- Nová funkce `cancelSingleTask()` — najde úkol přes
+  `tasks.find(t => t.rowIndex === currentEditIndex)`, ne podle pozice v
+  poli (bezpečné i po filtrování/řazení tabulky).
+- Tlačítko se zobrazuje jen u existujícího, ještě NEzrušeného úkolu —
+  skryté u nového úkolu (nic k rušení) i u už zrušeného (nedává smysl).
+- Ověřeno klíčovým testem: zrušení jednoho úkolu i se souběžně
+  zaškrtnutými JINÝMI úkoly (simulace rozjetého hromadného výběru) —
+  zrušil se prokazatelně jen ten editovaný, počet zrušených úkolů +1
+  přesně. Regresní test na kompletní živé databázi (812 úkolů) bez chyb.
+
+### 2026-07-31 — Automatické generování ID u opakujících se úkolů + oprava starých dat
+
+- **Problém:** ID nových opakujících se pravidel (`RFT0xx`) se muselo
+  zadávat ručně — vedlo to k reálným chybám v datech: překlepy (`RTF`
+  místo `RFT` u 4 záznamů) a jedna kolize ID mezi dvěma RŮZNÝMI pravidly
+  (`RFT015` použité pro čtvrteční i páteční variantu stejného úkolu).
+- **Oprava kódu:** pole ID ve formuláři "Přidat pravidlo" je teď
+  needitovatelné (`#newOp_id_display`, jen náhled) — skutečné ID se
+  vypočítá až v okamžiku uložení přes `generateNextOpakovaciId()`
+  (najde nejvyšší číslo ze VŠECH existujících ID bez ohledu na přesný
+  prefix/formát, vrátí `RFT` + zero-padded číslo+1). Uživatel do ID už
+  nijak nezasahuje.
+- **Oprava starých dat v `top-data`:** přejmenováno 5 překlepů
+  (`RTF022→RFT022`, `RTF024→RFT024`, `RTF25→RFT025`, `RTF027→RFT027`,
+  `RTF028→RFT028`) a přečíslována kolize `RFT015` — čtvrteční varianta
+  zůstala na `RFT015`, páteční přesunuta na nové `RFT029` (uživatel
+  potvrdil, že jde o dvě odlišná pravidla, ne omylem duplicitní zápis).
+- Ověřeno na reálných (v té době ještě nepořádkových) datech — generátor
+  správně vrátil `RFT029` jako další volné číslo i s překlepy/duplicitou
+  v datech. Po opravě dat v databázi ověřeno, že žádné duplicity ani
+  RTF-tvary nezůstaly (28 pravidel celkem).
