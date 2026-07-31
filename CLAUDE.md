@@ -277,6 +277,13 @@ tohle sloučit do jedné funkce, ale nebylo to prioritou.
   to sám upozorňuje, ale je to reálné riziko opomenutí.
 - **Nativní Android aplikace** — zamítnuto jako neúměrné (měsíce práce
   navíc kvůli kompletnímu přepisu UI), PWA je dostatečný kompromis.
+- **Cílová platforma pro mobil je výslovně Android** — uživatel se
+  rozhodl iOS neřešit jako prioritu. Nicméně: od iOS 17 lze appku
+  nainstalovat i v Chrome/Edge na iOS (tlačítko Sdílet → Přidat na
+  plochu, ne automatický banner jako na Androidu) — push notifikace po
+  instalaci ale zůstávají nedostupné (jen Safari 16.4+ to umí, Chrome na
+  iOS ne). Viz Changelog níže — vizuální chyby na iOS/WebKitu se řeší
+  jen když se objeví, ne proaktivně.
 - **Vlastní HW server / plnohodnotný backend** — proběhla hlubší
   teoretická diskuze (viz níže), zůstává otevřená možnost do budoucna,
   motivovaná především chybějícími push notifikacemi (které bez serveru
@@ -462,3 +469,30 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
   správně vrátil `RFT029` jako další volné číslo i s překlepy/duplicitou
   v datech. Po opravě dat v databázi ověřeno, že žádné duplicity ani
   RTF-tvary nezůstaly (28 pravidel celkem).
+
+### 2026-07-31 — Vyšetřování špatného zobrazení mobilního přehledu na iOS/Chrome
+
+- Uživatel nahlásil špatné zobrazení mobilní verze v Chrome na iOS.
+  Zjištěno: Chrome na iOS **musí** (pravidlo Applu) používat WebKit engine
+  (stejný jako Safari), ne vlastní Blink/Chromium engine — proto se může
+  chovat jinak než Chrome na Androidu, i když jde o "stejný" prohlížeč.
+- **Síťové omezení zjištěné na obou stranách:** ani tenhle chat, ani
+  Claude Code (na uživatelově počítači) nemají přístup stáhnout si
+  Playwright WebKit engine pro testování (`cdn.playwright.dev` a MS
+  servery nejsou v allowlistu ani na jedné straně). **Vizuální testování
+  na skutečném WebKitu tedy není momentálně možné ani z jedné strany** —
+  jediná cesta je reálné zařízení (iPhone/iPad) a screenshot od
+  uživatele/kolegy.
+- **Provedena preventivní oprava** nejpravděpodobnějšího viníka:
+  `body { min-height: 100vh }` → doplněno o `min-height: 100dvh`
+  (progressive enhancement, starší prohlížeče použijí `vh` řádek beze
+  změny). `100vh` na iOS/WebKitu nezohledňuje dynamicky se
+  schovávající/objevující lištu prohlížeče, což typicky způsobuje
+  ořezaný nebo poskakující obsah dole na obrazovce — `dvh` je novější
+  jednotka řešící přesně tohle.
+- **Nedokončeno/čeká na ověření:** oprava je preventivní, ne potvrzená
+  jako řešení skutečné příčiny (nemohli jsme to vizuálně ověřit). Až
+  přijde reálný screenshot z iPhonu, ověřit jestli se tím problém
+  vyřešil, nebo jestli je příčina jinde (kandidáti k prozkoumání pak:
+  `max-height: 88vh`/`85vh` v modalech na řádcích ~192 a ~242 — zatím
+  záměrně nedotčené, riziko tam je nižší díky internímu scrollování).
