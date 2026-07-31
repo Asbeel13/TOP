@@ -27,7 +27,12 @@
       color: #111827;
       -webkit-tap-highlight-color: transparent;
     }
-    body { min-height: 100vh; display: flex; flex-direction: column; }
+    body {
+      min-height: 100vh; /* záloha pro starší prohlížeče */
+      min-height: 100dvh; /* na iOS/WebKitu správně zohledňuje schovávající se lištu */
+      display: flex;
+      flex-direction: column;
+    }
 
     /* ── TOP BAR ── */
     .topbar {
