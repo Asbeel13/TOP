@@ -496,3 +496,33 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
   vyřešil, nebo jestli je příčina jinde (kandidáti k prozkoumání pak:
   `max-height: 88vh`/`85vh` v modalech na řádcích ~192 a ~242 — zatím
   záměrně nedotčené, riziko tam je nižší díky internímu scrollování).
+
+### 2026-07-31 — Filtr "⏰ Po termínu" v Databázi úkolů (Správa úkolů)
+
+- Nové tlačítko `#quickOverdueBtn` vedle "Vyčistit filtry" — přepínací
+  (toggle), zčervená při aktivaci. Zapíná/vypíná se přes
+  `toggleOverdueFilter()`, stav v proměnné `overdueFilterActive`,
+  persistovaný stejně jako ostatní filtry (`saveSpravaFilterState`/
+  `restoreSpravaFilterState`), vypne se i přes "Vyčistit filtry".
+- **Logika (`isTaskOverdue()`):** primárně porovnává Datum požadovaného
+  ukončení s dneškem; pokud není vyplněné, spadne na Plánovaný datum
+  realizace. Úkol je "po termínu" jen když je datum OSTŘE starší než
+  dnešek (ne "dnes nebo starší") — úkoly se dneškem jako termín se tedy
+  ještě nepočítají jako pozdní.
+- Kombinuje se přirozeně se všemi ostatními filtry (AND logika v
+  `applyFilters()`) — žádné speciální vyřazení zrušených/dokončených
+  úkolů v samotné funkci není potřeba, protože to už zajišťují stávající
+  filtry "Zobrazit zrušené" a "Zobrazení" při současném použití.
+- **DŮLEŽITÉ ZJIŠTĚNÍ pro budoucí práci se `sprava_ukolu_linked.html`:**
+  názvy polí v PAMĚTI (proměnná `tasks`) se **liší** od názvů v syrovém
+  JSONu! Mapování (`loadFromRaw`/`tasksToJson`): `plannedDate↔planned`,
+  `dueDate↔due`, `createdDate↔created`, `doneDate↔finished`,
+  `owner↔assignee` (`owner` navíc zůstává i pod svým původním jménem).
+  Tenhle soubor NEPOUŽÍVEJ stejné názvy polí jako v `CLAUDE.md`
+  popsaném datovém modelu (ten popisuje syrový JSON) — vždy si to over
+  přímo v `loadFromRaw()`, ať se nestane stejná záměna, na kterou jsem
+  narazil při psaní téhle funkce.
+- Ověřeno testem: 5 scénářů datumové logiky (due v minulosti/budoucnosti,
+  fallback na plán, bez obou dat), kombinace s filtrem Řešitel, vizuální
+  aktivní stav, "Vyčistit filtry", perzistence přes reload, regresní test
+  na kompletní živé databázi (829 úkolů).
