@@ -947,9 +947,9 @@ function restoreSpravaFilterState() {
 
 function isTaskOverdue(task) {
   const todayIso = formatDateISO(new Date());
-  const dueIso = formatDateISO(task.due);
+  const dueIso = formatDateISO(task.dueDate);
   if (dueIso) return dueIso < todayIso;
-  const plannedIso = formatDateISO(task.planned);
+  const plannedIso = formatDateISO(task.plannedDate);
   if (plannedIso) return plannedIso < todayIso;
   return false;
 }
@@ -989,7 +989,7 @@ function applyFilters(){
 
     if (overdueFilterActive && !isTaskOverdue(task)) return false;
 
-    const plannedIso = formatDateISO(task.planned);
+    const plannedIso = formatDateISO(task.plannedDate);
     if(fromDate && (!plannedIso || plannedIso < fromDate)) return false;
     if(toDate && (!plannedIso || plannedIso > toDate)) return false;
 
@@ -1070,9 +1070,9 @@ function renderTable(){
         const label = escapeHtml(task.assignee || "Nezařazeno");
         return (r && r.vyrazen) ? `<strong style="color:#dc2626;" title="Vyřazený řešitel">${label}</strong>` : label;
       })()}</td>
-      <td>${escapeHtml(formatDate(task.planned))}</td>
-      <td>${escapeHtml(formatDate(task.finished))}</td>
-      <td>${task.due ? `<span style="color:${task.due < new Date().toISOString().slice(0,10) && !task.finished ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.due))}</span>` : ""}</td>
+      <td>${escapeHtml(formatDate(task.plannedDate))}</td>
+      <td>${escapeHtml(formatDate(task.doneDate))}</td>
+      <td>${task.dueDate ? `<span style="color:${task.dueDate < new Date().toISOString().slice(0,10) && !task.doneDate ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.dueDate))}</span>` : ""}</td>
       <td>${escapeHtml(task.lastUpdated || "—")}</td>
       <td>${(() => {
         if (!task.auto) return "";
@@ -1145,7 +1145,7 @@ function markAsDone(rowIndex){
   if(!task) return;
   task.state = "Dokončeno";
   task.percent = 1;
-  task.finished = formatDateISO(new Date());
+  task.doneDate = formatDateISO(new Date());
   task.lastUpdated = formatDateISO(new Date());
   applyFilters();
   autoSaveIfPossible();
@@ -1156,7 +1156,7 @@ function markSelectedAsDone(){
   tasks.filter(t => t.selected).forEach(task => {
     task.state = "Dokončeno";
     task.percent = 1;
-    task.finished = formatDateISO(new Date());
+    task.doneDate = formatDateISO(new Date());
     task.lastUpdated = formatDateISO(new Date());
     changed++;
   });
@@ -1232,11 +1232,11 @@ function openTaskModal(task=null){
   }
   setValue("m_state", task?.state || "Nový");
   // m_percent odstraněno — pole se nezobrazuje
-  setValue("m_created", task ? formatDateISO(task.created) : formatDateISO(new Date()));
-  setValue("m_planned", task ? formatDateISO(task.planned) : "");
+  setValue("m_created", task ? formatDateISO(task.createdDate) : formatDateISO(new Date()));
+  setValue("m_planned", task ? formatDateISO(task.plannedDate) : "");
   setValue("m_duration", task?.durationDays || 1);
-  setValue("m_finished", task ? formatDateISO(task.finished) : "");
-  setValue("m_due", task ? formatDateISO(task.due) : "");
+  setValue("m_finished", task ? formatDateISO(task.doneDate) : "");
+  setValue("m_due", task ? formatDateISO(task.dueDate) : "");
   setValue("m_lastUpdated", task?.lastUpdated ? formatDateISO(task.lastUpdated) : "");
 
   // Aktivní dny — pokud úkol nemá nastaveno, defaultně všechny zaškrtnuté (= každý den)
@@ -1291,11 +1291,11 @@ function saveTaskFromModal(){
     subtask: getValue("m_subtask") === "true",
     state: getValue("m_state"),
     percent: 0,
-    created: getValue("m_created"),
-    planned: getValue("m_planned"),
+    createdDate: getValue("m_created"),
+    plannedDate: getValue("m_planned"),
     durationDays: parseInt(getValue("m_duration"), 10) || 1,
-    finished: getValue("m_finished"),
-    due: getValue("m_due"),
+    doneDate: getValue("m_finished"),
+    dueDate: getValue("m_due"),
     assignee: normalizeText(getValue("m_assignee")),
     owner: normalizeText(getValue("m_assignee")),
     note: normalizeText(getValue("m_note")),
@@ -1309,8 +1309,8 @@ function saveTaskFromModal(){
     return;
   }
 
-  if(taskData.state === "Dokončeno" && !taskData.finished){
-    taskData.finished = formatDateISO(new Date());
+  if(taskData.state === "Dokončeno" && !taskData.doneDate){
+    taskData.doneDate = formatDateISO(new Date());
   }
   if(taskData.state === "Dokončeno" && taskData.percent < 1){
     taskData.percent = 1;
@@ -1456,7 +1456,7 @@ function getAutoDostupnostDen(spz, datum) {
   const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
   if (rez) return rez.stav;
   // Kontrola přes úkoly, které mají toto auto přiřazené na daný den
-  const conflict = tasks.find(t => !t.cancelled && t.auto === spz && t.planned === datum);
+  const conflict = tasks.find(t => !t.cancelled && t.auto === spz && t.plannedDate === datum);
   if (conflict) return "používané";
   const auto = auta.find(a => a.spz === spz);
   if (auto && auto.dostupnost !== "volné") return auto.dostupnost;
@@ -1476,7 +1476,7 @@ function checkAutoWarning(spz, datum, currentTaskRowIndex) {
   // Kontrola přes ostatní úkoly
   const conflict = tasks.find(t =>
     t.rowIndex !== currentTaskRowIndex &&
-    t.auto === spz && t.planned === datum
+    t.auto === spz && t.plannedDate === datum
   );
   if (conflict) {
     warn.textContent = `⚠ Auto ${spz} je na ${datum} již přiřazeno k úkolu: ${conflict.id} ${conflict.task}`;
@@ -2090,10 +2090,10 @@ function saveSubstitute() {
     sales: "",
     waiting: false,
     state: "Nový",
-    created: nowIso,
-    planned: fromDate,
-    finished: "",
-    due: "",
+    createdDate: nowIso,
+    plannedDate: fromDate,
+    doneDate: "",
+    dueDate: "",
     assignee: owner,
     owner: owner,
     note: note,
@@ -2206,10 +2206,10 @@ function tasksToJson() {
     sales: t.sales || "",
     waiting: !!t.waiting,
     state: t.state || "Nový",
-    createdDate: t.created || "",
-    plannedDate: t.planned || "",
-    doneDate: t.finished || "",
-    dueDate: t.due || "",
+    createdDate: t.createdDate || "",
+    plannedDate: t.plannedDate || "",
+    doneDate: t.doneDate || "",
+    dueDate: t.dueDate || "",
     owner: t.assignee || t.owner || "Nezařazeno",
     note: t.note || "",
     internalNote: t.internalNote || "",
@@ -2349,10 +2349,10 @@ function loadFromRaw(raw) {
       sales: t.sales || "",
       waiting: !!t.waiting,
       state: t.state || "Nový",
-      created: t.createdDate || "",
-      planned: t.plannedDate || "",
-      finished: t.doneDate || "",
-      due: t.dueDate || "",
+      createdDate: t.createdDate || "",
+      plannedDate: t.plannedDate || "",
+      doneDate: t.doneDate || "",
+      dueDate: t.dueDate || "",
       assignee: t.owner || "Nezařazeno",
       owner: t.owner || "Nezařazeno",
       note: t.note || "",
