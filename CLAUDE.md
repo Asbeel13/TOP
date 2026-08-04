@@ -267,6 +267,27 @@ se navenek vůbec neprojevila). Pokud upravuješ chování dropdownu řešitele
 u úkolu, over si OBĚ místa, ne jen jedno. Stálo by za zvážení do budoucna
 tohle sloučit do jedné funkce, ale nebylo to prioritou.
 
+### 9. Třída `can-write-only` (`!important`) NESMÍ na tlačítka s vlastní JS podmínkou viditelnosti
+
+```css
+.can-write-only { display: none !important; }
+body.can-write .can-write-only { display: inline-block !important; }
+```
+
+Tahle třída je určená pro tlačítka, jejichž viditelnost závisí **jen**
+na oprávnění k zápisu — nic jiného. Pokud ji dostane tlačítko, které MÁ
+i VLASTNÍ dodatečnou podmínku řízenou přes JS (`el.style.display = "none"`
+podle stavu konkrétního úkolu — např. "jen u opakujícího se", "jen u
+nedokončeného"), `!important` **vždy vyhraje** nad JS inline stylem —
+tlačítko se pak zobrazí VŽDY, když má `body` třídu `can-write`, bez
+ohledu na to, co si JS "myslí". Appka navenek vypadá, že tlačítko
+funguje (je vidět), ale interně nemá nastavená potřebná `dataset` pole
+→ klik na něj tiše nic neudělá. Přesně tohle způsobilo, že "Zástup" a
+"Hotovo" v Dashboardu dlouho nefungovaly (viz Changelog 2026-08-04).
+**Pravidlo do budoucna:** tlačítko s vlastní task-specifickou podmínkou
+viditelnosti NEDÁVEJ třídu `can-write-only` — kontrolu oprávnění zahrň
+přímo do JS podmínky (`document.body.classList.contains("can-write")`).
+
 ## Zvážené a zamítnuté / odložené alternativy (neopakuj tuhle diskuzi zbytečně)
 
 - **Mobilní responzivní design** (jedna appka, media queries) —
@@ -548,23 +569,60 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
 - **Poznámka v datovém modelu výše aktualizována** — zjištění o
   rozdílných názvech je teď označené jako vyřešené/historické.
 
-### 2026-08-04 — Vyšetřování: tlačítko "Zástup" v Dashboardu nefunguje (NEUZAVŘENO)
+### 2026-08-04 — VYŘEŠENO: tlačítko "Zástup" v Dashboardu nefungovalo
 
-- Uživatel nahlásil, že tlačítko Zástup v detailu úkolu je vidět, ale
-  klik nic nedělá (žádná chyba v konzoli).
-- **Nepodařilo se zreprodukovat** — otestováno vícero způsoby (syntetická
-  data, kompletní živá databáze, přímé volání `openModal()`, i plná
-  simulace kliknutí na skutečnou dlaždici v kalendáři přes DOM) a
-  tlačítko i modal fungovaly bezchybně ve všech případech.
-- Uživatel potvrdil, že testuje jako role `planovac` (má mít plný
-  přístup, `can-write` třída by měla být nastavená).
-- **Nejpravděpodobnější podezření:** zastaralá cache prohlížeče u
-  uživatele (appka se v poslední době měnila často). Doporučen tvrdý
-  refresh (Ctrl+Shift+R) / anonymní okno.
-- **Pokud problém přetrvá i po tvrdém refresh:** další krok je zjistit
-  konkrétní ID/název úkolu, u kterého se to děje, a jestli se to týká
-  všech opakujících se úkolů nebo jen některých — teprve pak pátrat dál
-  v kódu, protože obecné testování problém neodhalilo.
+**Historie vyšetřování** (ponecháno pro poučení o postupu diagnostiky):
+Uživatel nahlásil, že tlačítko Zástup v detailu úkolu je vidět, ale klik
+nic nedělá, žádná chyba v konzoli. Nepodařilo se to zreprodukovat žádným
+automatizovaným testem (syntetická data, živá databáze, přímé volání
+`openModal()`, simulace kliknutí na dlaždici) — appka se chovala
+bezchybně ve všech mnou vytvořených scénářích. Řešilo se to postupně
+přes uživatele v konzoli prohlížeče (F12): nejdřív ověření chyby v
+konzoli (byla, ale nesouvisela — starý zápis z `activity.json` 409
+konfliktu, zmizelo po vyčištění konzole), pak ověření stavu modalu
+(`classList.contains('open')` → `false`), pak `dataset.ruleId` →
+`undefined`, pak porovnání `els.modalSubstituteBtn.style.display`
+(řekl 'none') se skutečně VIDITELNÝM tlačítkem — a přímý vizuální test
+(`style.background = 'red'` → tlačítko na obrazovce fakt zčervenalo,
+takže šlo o STEJNÝ element, ne o problém s jinou záložkou/oknem).
+
+**Skutečná příčina:** `modalDoneBtn` i `modalSubstituteBtn` měly CSS
+třídu `can-write-only`, která má pravidlo s `!important`:
+```css
+.can-write-only { display: none !important; }
+body.can-write .can-write-only { display: inline-block !important; }
+```
+`!important` **přebilo** JS logiku, která tyhle konkrétní tlačítka
+schovává podle VLASTNÍ podmínky (Zástup: jen platné opakující se
+pravidlo; Hotovo: jen nedokončený úkol) — nezávisle na tom, jestli je
+JS nastavil na `display:none`, CSS třída je stejně silou přepsala na
+viditelné, jakmile měl `body` třídu `can-write`. Výsledek: tlačítko
+Zástup se zobrazovalo **i u běžných jednorázových úkolů**, ale appka si
+interně "myslela", že je schované, takže nikdy nenastavila
+`dataset.ruleId` → klik spustil `openSubstituteModal(undefined)` →
+`if (!rule) return;` → tiše nic. **Stejná chyba postihovala i "Hotovo"**
+u už dokončených úkolů (jen o něco méně nápadně, protože `dataset.taskId`
+mohl zůstat z předchozího úkolu, ne vyloženě `undefined`).
+
+**Oprava:** odstraněna třída `can-write-only` z obou tlačítek, kontrola
+oprávnění (`document.body.classList.contains('can-write')`) přesunuta
+přímo do JS podmínky spolu s tou specifickou logikou pro dané tlačítko.
+
+**Poučení pro budoucí práci — DŮLEŽITÉ:** třída `can-write-only`
+(`display:none/inline-block !important`) se hodí jen pro tlačítka, která
+mají **výhradně binární** viditelnost (jen podle oprávnění, nic jiného).
+Pokud tlačítko potřebuje VLASTNÍ dodatečnou podmínku viditelnosti
+řízenou přes JS inline `style.display` (jako "jen u opakujícího se
+úkolu" nebo "jen u nedokončeného"), třída `can-write-only` se na něj
+NESMÍ dávat — `!important` ji vždy přebije. Řešení: buď kontrolu
+oprávnění zahrnout přímo do JS podmínky (jak je to teď), nebo použít
+jinou CSS třídu bez `!important`.
+- Ověřeno testy: přesný scénář z bug reportu (běžný úkol) → tlačítko
+  správně schované; skutečný opakující se úkol → tlačítko funguje beze
+  změny; uživatel bez oprávnění → obě tlačítka schovaná; Hotovo u
+  dokončeného úkolu → správně schované; regresní test na živé databázi
+  (851 úkolů) bez chyb. **Uživatel potvrdil, že po nasazení opravy
+  tlačítko funguje.**
 
 ### 2026-08-04 — Skrývatelný boční panel v Dashboardu
 
