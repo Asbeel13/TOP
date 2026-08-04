@@ -40,7 +40,52 @@
       display: grid;
       grid-template-columns: 310px 1fr;
       min-height: 100vh;
+      transition: grid-template-columns 0.25s ease;
     }
+    .app.sidebar-collapsed {
+      grid-template-columns: 0px 1fr;
+    }
+    .app.sidebar-collapsed .sidebar {
+      padding: 0;
+      overflow: hidden;
+    }
+    #sidebarCollapseBtn {
+      position: absolute;
+      top: 16px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: rgba(255,255,255,0.06);
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    #sidebarCollapseBtn:hover { background: rgba(255,255,255,0.14); color: white; }
+    #sidebarExpandBtn {
+      position: fixed;
+      top: 16px;
+      left: 12px;
+      z-index: 200;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: #1e293b;
+      color: white;
+      cursor: pointer;
+      font-size: 15px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+    }
+    #sidebarExpandBtn:hover { background: #334155; }
     .sidebar {
       background: #0f172a;
       color: white;
@@ -126,6 +171,9 @@
     .main {
       padding: 12px;
       overflow: auto;
+    }
+    .app.sidebar-collapsed .main {
+      padding-left: 56px;
     }
     .topbar {
       display: flex;
@@ -758,8 +806,10 @@
     </style>
 </head>
 <body>
+<button id="sidebarExpandBtn" onclick="toggleSidebarCollapse()" title="Zobrazit boční panel">▶</button>
 <div class="app">
   <aside class="sidebar">
+    <button id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Skrýt boční panel">◀</button>
     <div class="brand" style="text-align:center;">
       <h1>Týdenní dashboard dílny</h1>
       <img src="icons/icon-192.png" alt="TOP" style="width:72px;height:72px;margin:10px auto 0;border-radius:14px;display:block;" />
@@ -1087,6 +1137,19 @@ function initDarkMode() {
   });
 }
 initDarkMode();
+
+// ── Skrytí/zobrazení bočního panelu ─────────────────────────────────────
+const SIDEBAR_COLLAPSED_KEY = "ftSidebarCollapsed";
+function applySidebarCollapsed(collapsed) {
+  document.querySelector(".app").classList.toggle("sidebar-collapsed", collapsed);
+  document.getElementById("sidebarExpandBtn").style.display = collapsed ? "flex" : "none";
+}
+function toggleSidebarCollapse() {
+  const collapsed = !document.querySelector(".app").classList.contains("sidebar-collapsed");
+  applySidebarCollapsed(collapsed);
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+}
+applySidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="ft_loader.js"></script>
