@@ -918,8 +918,8 @@
         <h3 id="modalTitle" style="margin:10px 0 0;font-size:22px"></h3>
       </div>
       <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
-        <button id="modalDoneBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#ecfdf3;border:1px solid #86efac;color:#166534;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Hotovo</button>
-        <button id="modalSubstituteBtn" class="can-write-only" style="display:none;padding:10px 16px;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 Zástup</button>
+        <button id="modalDoneBtn" style="display:none;padding:10px 16px;background:#ecfdf3;border:1px solid #86efac;color:#166534;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Hotovo</button>
+        <button id="modalSubstituteBtn" style="display:none;padding:10px 16px;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 Zástup</button>
         <a id="modalEditBtn" href="#" target="top_edit_window" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
         <a id="modalCancelRecurBtn" href="#" target="top_edit_window" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
         <button id="modalDeleteBtn" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Smazat</button>
@@ -1591,7 +1591,8 @@ function openModal(task) {
     els.modalDeleteBtn.style.display = "none";
   }
   const isAlreadyDone = normalizeText(task.state).includes("dokončeno");
-  if (task.id && !isAlreadyDone) {
+  const _canWriteNow = document.body.classList.contains("can-write");
+  if (_canWriteNow && task.id && !isAlreadyDone) {
     els.modalDoneBtn.dataset.taskId = task.id;
     els.modalDoneBtn.dataset.plannedDate = task.plannedDate || "";
     els.modalDoneBtn.dataset.recurring = task.recurring ? "1" : "";
@@ -1606,7 +1607,7 @@ function openModal(task) {
   } else {
     els.modalCancelRecurBtn.style.display = "none";
   }
-  if (task.recurring && task.id && (DATA.opakovaci || []).find(o => o.id === task.id)) {
+  if (_canWriteNow && task.recurring && task.id && (DATA.opakovaci || []).find(o => o.id === task.id)) {
     els.modalSubstituteBtn.dataset.ruleId = task.id;
     els.modalSubstituteBtn.style.display = "inline-block";
   } else {
