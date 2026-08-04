@@ -513,16 +513,72 @@ změnách z chatu, aby Claude Code měl při příštím spuštění aktuální 
   `applyFilters()`) — žádné speciální vyřazení zrušených/dokončených
   úkolů v samotné funkci není potřeba, protože to už zajišťují stávající
   filtry "Zobrazit zrušené" a "Zobrazení" při současném použití.
-- **DŮLEŽITÉ ZJIŠTĚNÍ pro budoucí práci se `sprava_ukolu_linked.html`:**
-  názvy polí v PAMĚTI (proměnná `tasks`) se **liší** od názvů v syrovém
-  JSONu! Mapování (`loadFromRaw`/`tasksToJson`): `plannedDate↔planned`,
-  `dueDate↔due`, `createdDate↔created`, `doneDate↔finished`,
-  `owner↔assignee` (`owner` navíc zůstává i pod svým původním jménem).
-  Tenhle soubor NEPOUŽÍVEJ stejné názvy polí jako v `CLAUDE.md`
-  popsaném datovém modelu (ten popisuje syrový JSON) — vždy si to over
-  přímo v `loadFromRaw()`, ať se nestane stejná záměna, na kterou jsem
-  narazil při psaní téhle funkce.
+- **~~DŮLEŽITÉ ZJIŠTĚNÍ~~ VYŘEŠENO 2026-08-04 (viz Changelog níže):** ve
+  `sprava_ukolu_linked.html` se dřív názvy polí v PAMĚTI lišily od
+  syrového JSONu (`planned`/`due`/`created`/`finished` vs.
+  `plannedDate`/`dueDate`/`createdDate`/`doneDate`) — **teď už jsou
+  sjednocené**, v paměti i v JSONu se používají STEJNÉ (dlouhé) názvy.
+  `owner`/`assignee` duální alias zůstává beze změny (netýkalo se
+  přejmenování). Tahle poznámka zůstává jen jako historický kontext, ne
+  jako aktuální upozornění.
 - Ověřeno testem: 5 scénářů datumové logiky (due v minulosti/budoucnosti,
   fallback na plán, bez obou dat), kombinace s filtrem Řešitel, vizuální
   aktivní stav, "Vyčistit filtry", perzistence přes reload, regresní test
   na kompletní živé databázi (829 úkolů).
+
+### 2026-08-04 — Sjednocení názvů datumových polí ve Správě úkolů
+
+- Na žádost uživatele ("nebylo by dobré tyto proměnné sjednotit") jsme
+  přejmenovali v paměti appky `planned→plannedDate`, `due→dueDate`,
+  `created→createdDate`, `finished→doneDate` napříč celým
+  `sprava_ukolu_linked.html` (22 míst: `loadFromRaw`, `tasksToJson`,
+  `applyFilters`, řazení, vykreslení tabulky, `taskData` v
+  `saveTaskFromModal`). HTML input ID (`m_planned`, `m_due` atd.)
+  záměrně ponechána beze změny — nebyla součástí zmatku.
+- **Vědomě zvážené a zamítnuté rozšíření:** duální alias
+  `owner`/`assignee` na tom samém poli jsme NEsjednocovali — je to jiný
+  typ redundance (dva různé názvy pro stejnou hodnotu používané v
+  různých kontextech kódu), ne nekonzistence mezi pamětí a JSONem. Pokud
+  by se řešilo příště, jde o samostatné rozhodnutí.
+- Ověřeno: syntax, žádná duplicitní ID, regresní test na kompletní živé
+  databázi (829 úkolů) bez chyb, kompletní round-trip existujícího i
+  nově vytvořeného úkolu se všemi 4 datumovými poli, filtr "Po termínu"
+  a datumový rozsahový filtr (oba na tomhle mapování závislé) funkční
+  beze změny.
+- **Poznámka v datovém modelu výše aktualizována** — zjištění o
+  rozdílných názvech je teď označené jako vyřešené/historické.
+
+### 2026-08-04 — Vyšetřování: tlačítko "Zástup" v Dashboardu nefunguje (NEUZAVŘENO)
+
+- Uživatel nahlásil, že tlačítko Zástup v detailu úkolu je vidět, ale
+  klik nic nedělá (žádná chyba v konzoli).
+- **Nepodařilo se zreprodukovat** — otestováno vícero způsoby (syntetická
+  data, kompletní živá databáze, přímé volání `openModal()`, i plná
+  simulace kliknutí na skutečnou dlaždici v kalendáři přes DOM) a
+  tlačítko i modal fungovaly bezchybně ve všech případech.
+- Uživatel potvrdil, že testuje jako role `planovac` (má mít plný
+  přístup, `can-write` třída by měla být nastavená).
+- **Nejpravděpodobnější podezření:** zastaralá cache prohlížeče u
+  uživatele (appka se v poslední době měnila často). Doporučen tvrdý
+  refresh (Ctrl+Shift+R) / anonymní okno.
+- **Pokud problém přetrvá i po tvrdém refresh:** další krok je zjistit
+  konkrétní ID/název úkolu, u kterého se to děje, a jestli se to týká
+  všech opakujících se úkolů nebo jen některých — teprve pak pátrat dál
+  v kódu, protože obecné testování problém neodhalilo.
+
+### 2026-08-04 — Skrývatelný boční panel v Dashboardu
+
+- Tlačítko ◀ vedle nadpisu "Týdenní dashboard dílny" skryje celý boční
+  panel (filtry, Lidé & sloupce, Řešitelé...) — `.app` grid
+  (`grid-template-columns: 310px 1fr`) přechází na `0px 1fr` s CSS
+  transition. Plovoucí tlačítko ▶ (fixed top-left, viditelné jen když je
+  panel skrytý) ho zase vrátí.
+- Stav se pamatuje v localStorage (`ftSidebarCollapsed`), přežije reload
+  i zavření prohlížeče.
+- Menší vizuální oprava cestou: plovoucí tlačítko ▶ zpočátku překrývalo
+  nadpis "Týden 32" v hlavním obsahu — opraveno přidáním
+  `padding-left: 56px` na `.main` specificky ve stavu `.sidebar-collapsed`.
+- Ověřeno: syntax, žádná duplicitní ID, regresní test na živých datech,
+  persistence přes reload, a že tlačítko Zástup (viz předchozí
+  neuzavřená položka) funguje beze změny i po týhle úpravě — takže
+  tahle změna vyloučena jako možná příčina toho problému.
