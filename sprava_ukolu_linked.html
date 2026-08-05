@@ -1072,7 +1072,7 @@ function renderTable(){
       })()}</td>
       <td>${escapeHtml(formatDate(task.plannedDate))}</td>
       <td>${escapeHtml(formatDate(task.doneDate))}</td>
-      <td>${task.dueDate ? `<span style="color:${task.dueDate < new Date().toISOString().slice(0,10) && !task.doneDate ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.dueDate))}</span>` : ""}</td>
+      <td>${task.dueDate ? `<span style="color:${task.dueDate < formatDateISO(new Date()) && !task.doneDate ? '#dc2626' : '#374151'}">${escapeHtml(formatDate(task.dueDate))}</span>` : ""}</td>
       <td>${escapeHtml(task.lastUpdated || "—")}</td>
       <td>${(() => {
         if (!task.auto) return "";
@@ -1393,20 +1393,10 @@ function buildResitelSelect() {
     sel.appendChild(opt);
   }
   if (current) sel.value = current;
-
-  // Naplní také filtr řešitelů v topbaru
-  const filter = document.getElementById("filterAssignee");
-  if (filter) {
-    const filterCurrent = filter.value;
-    filter.innerHTML = '<option value="">Všichni</option>';
-    resitele.filter(r => !r.vyrazen).forEach(r => {
-      const opt = document.createElement("option");
-      opt.value = r.zkratka;
-      opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();
-      filter.appendChild(opt);
-    });
-    filter.value = filterCurrent;
-  }
+  // #filterAssignee (filtr v topbaru) plní výhradně fillAssigneeFilter() —
+  // ta má navíc fallback na `tasks`, když je `resitele` prázdné (viz Nástraha
+  // "dva nezávislé buildery stejného dropdownu"). Kdo volá buildResitelSelect()
+  // a potřebuje i obnovit filtr, ať zavolá fillAssigneeFilter() zvlášť.
 }
 
 function buildAutaDatalist() {
@@ -1497,7 +1487,7 @@ function checkAutoWarning(spz, datum, currentTaskRowIndex) {
 function renderAutaTable() {
   const wrap = document.getElementById("autaTableWrap");
   if (!wrap) return;
-  const today = new Date().toISOString().slice(0,10);
+  const today = formatDateISO(new Date());
 
   const stavConfig = {
     "volné":       { color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0", label: "volné" },
@@ -1787,13 +1777,13 @@ async function addVyjimkaAuto(id, datum) {
   // Zkontroluj duplicitu
   const exists = opakovaciVyjimky.find(v => v.id === id && v.datum === datum);
   if (exists) {
-    showVyjimkaConfirm(id, datum, `Výjimka pro ${id} na ${datum} již existuje.`, false);
+    showVyjimkaConfirm(id, datum, `Výjimka pro ${escapeHtml(id)} na ${escapeHtml(datum)} již existuje.`, false);
     return;
   }
   opakovaciVyjimky.push({ id, datum, duvod: "Zrušeno z dashboardu" });
   renderVyjimkyTable();
   await saveWorkbook();
-  showVyjimkaConfirm(id, datum, `✅ Výjimka přidána a uložena. Opakující se úkol ${id} se ${datum} nezobrazí.`, true);
+  showVyjimkaConfirm(id, datum, `✅ Výjimka přidána a uložena. Opakující se úkol ${escapeHtml(id)} se ${escapeHtml(datum)} nezobrazí.`, true);
 }
 
 function showVyjimkaConfirm(id, datum, msg, success) {
@@ -1915,7 +1905,7 @@ function renderOpakovaciTable() {
           ? '<tr><td colspan="9" style="padding:12px;color:#6b7280;text-align:center;">Žádná pravidla neodpovídají filtru.</td></tr>'
           : filteredOpakovaci.map(o => `
             <tr style="border-bottom:1px solid #e5e7eb;${o.aktivni ? "" : "opacity:0.5;"}">
-              <td style="padding:6px 8px;"><input value="${escapeHtml(o.id)}" onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'id', this.value)" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
+              <td style="padding:6px 8px;"><input value="${escapeHtml(o.id)}" readonly title="ID nejde měnit — zamezuje náhodným kolizím mezi pravidly" style="width:80px;padding:4px 6px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;background:#f9fafb;color:#6b7280;"></td>
               <td style="padding:6px 8px;"><input value="${escapeHtml(o.title)}" onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'title', this.value)" style="width:160px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;"></td>
               <td style="padding:6px 8px;"><select onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'owner', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${resiteleOptions(o.owner)}</select></td>
               <td style="padding:6px 8px;"><select onchange="updateOpakovaciField('${escapeHtml(o.id)}', 'priority', this.value)" style="padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">${prioOptions(o.priority)}</select></td>
@@ -2114,7 +2104,7 @@ function saveSubstitute() {
 function renderVyjimkyTable() {
   const wrap = document.getElementById("vyjimkyTableWrap");
   if (!wrap) return;
-  const today = new Date().toISOString().slice(0,10);
+  const today = formatDateISO(new Date());
   wrap.innerHTML = `
     <h3 style="margin:0 0 12px;font-size:16px;">Výjimky opakujících se úkolů</h3>
     <div id="vyjimkaConfirm"></div>
@@ -2216,6 +2206,7 @@ function tasksToJson() {
     auto: t.auto || "",
     cancelled: !!t.cancelled,
     internalProject: t.internalProject || "",
+    subtask: !!t.subtask,
     durationDays: t.durationDays && t.durationDays > 1 ? t.durationDays : undefined,
     lastUpdated: t.lastUpdated || "",
     activeDays: Array.isArray(t.activeDays) && t.activeDays.length > 0 ? t.activeDays : undefined,
@@ -2233,9 +2224,10 @@ function tasksToJson() {
 }
 
 let _isSaving = false;
+let _saveAgainRequested = false; // rychlá akce přišla, dokud právě probíhalo jiné uložení
 
 async function saveWorkbook(){
-  if (_isSaving) return; // Ochrana proti dvojkliku
+  if (_isSaving) { _saveAgainRequested = true; return; }
   _isSaving = true;
 
   const saveBtn = document.querySelector('button[onclick="saveWorkbook()"]');
@@ -2260,6 +2252,10 @@ async function saveWorkbook(){
   } finally {
     _isSaving = false;
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Uložit změny"; }
+    if (_saveAgainRequested) {
+      _saveAgainRequested = false;
+      saveWorkbook(); // zachytí stav včetně změny, která přišla během právě dokončeného uložení
+    }
   }
 }
 
@@ -2344,6 +2340,7 @@ function loadFromRaw(raw) {
       task: t.title || "",
       title: t.title || "",
       internalProject: t.internalProject || "",
+      subtask: !!t.subtask,
       priority: t.priority || "P3",
       project: t.project || "",
       sales: t.sales || "",
