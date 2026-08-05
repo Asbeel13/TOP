@@ -352,6 +352,26 @@ odpověď: **kdo bude vyvíjet/dokončí migraci** (ne kdo bude server
 provozovat — to je vyřešeno). Doporučeno postupné nasazení (nejdřív
 backend+auth+notifikace, zbytek postupně), ne najednou.
 
+## Nápady uživatele (JK) na budoucí rozvoj — jen zaznamenáno, neplánováno
+
+Tohle jsou JK vlastní myšlenky, zmíněné 2026-08-05 jako věci k budoucímu
+zvážení — zatím čistě poznámka, žádná analýza proveditelnosti ani
+implementace. Až se k tomu bude přistupovat, projít to jako novou
+funkci s vlastním návrhem/rozvahou (samostatná stránka vs. nástavba nad
+stávající, testování na kopii dat atd.) — stejně jako u Kanbanu výše.
+
+1. **Systém pro řízení výroby** — nástavba nad úkoly, umožňující řízení a
+   sdružování úkolů a podúkolů do přehledných celků (JK to takhle
+   popsal, bez dalších detailů zatím). Pole `subtask` na úkolu už
+   existuje v datovém modelu (viz Changelog 2026-08-05, oprava č. 3),
+   ale nese jen `true/false` — nepředstavuje žádnou skutečnou hierarchii
+   nebo seskupení. Tohle by byla zásadně větší funkce.
+2. **Evidence dovolených** — zatím bez dalších detailů (čí dovolené, jak
+   se zapisují, propojení s "Zástupem" u opakujících se úkolů?). Stojí
+   za zvážení souvislost s existujícím mechanismem "Zástup" (viz Hlavní
+   implementované funkce výše) — dovolená konkrétního řešitele by mohla
+   přirozeně navazovat na tenhle už fungující koncept zastupitelnosti.
+
 ## Doporučení pro budoucí práci (moje vlastní návrhy, neimplementované)
 
 - **Vizuální upozornění na aktivní filtr** — když je ve Správě úkolů
