@@ -158,6 +158,12 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
   "nastavení zobrazení" (localStorage, osobní, jen kdo je vidět/pořadí) —
   vyřazení je sdílené v databázi, platí pro všechny, ovlivňuje i to, jestli
   se řešitel vůbec nabízí ve filtrech/dropdownech pro NOVÉ přiřazení.
+- **Kanban zobrazení** ve Správě úkolů, záložka Databáze úkolů — tlačítko
+  "📌 Kanban" přepíná mezi tabulkou a nástěnkou se sloupci podle stavu.
+  Sdílí `filteredTasks` s tabulkou (stejné filtry, žádná zdvojená logika).
+  Sloupce se generují DYNAMICKY z reálných hodnot `state` v datech (ne
+  pevná sada) — viz Changelog 2026-08-05, důležité pro zabránění tichému
+  mizení úkolů s neobvyklou hodnotou stavu.
 
 ## Konvence vývoje — DODRŽOVAT
 
@@ -853,3 +859,50 @@ potvrzení, obzvlášť když `git diff --stat` může být zavádějící.
 `tydenni_prehled_mobile.html`) potvrzeny bajt-po-bajtu identické s
 `origin/main` — kompletní audit (24 nálezů) je tímto uzavřený, se všemi
 rozhodnutími zaznamenanými výše.
+
+### 2026-08-05 — Kanban zobrazení v Databázi úkolů (provedeno v chatu)
+
+- **Návrh:** stejná stránka, ne samostatná (na rozdíl od mobilního
+  Přehledu) — Kanban je jen alternativní POHLED na tytéž filtrované úkoly,
+  ne fundamentálně jiná datová sada, takže zdvojení filtrovací logiky by
+  bylo čistě riziko bez přínosu (přesně poučení z incidentu s filtrem
+  "Dodatečné označení projektu", 2026-07-30).
+- Tlačítko "📌 Kanban"/"📋 Tabulka" vedle "Vyčistit filtry" v záložce
+  Databáze úkolů. `renderCurrentView()` volá buď `renderTable()` nebo
+  novou `renderKanban()` podle `kanbanViewActive` (persistováno v
+  localStorage `ftKanbanViewActive`), obojí čte ze STEJNÉHO `filteredTasks`
+  pole naplněného `applyFilters()`.
+- Karty = úkoly, klik otevře stejný `editTask()`/`openTaskModal()` jako
+  řádek tabulky. Přetažení karty mezi sloupci mění `task.state` (+
+  `lastUpdated`; při přesunu DO "Dokončeno" nastaví `doneDate`+`percent:1`
+  pokud chybí, při přesunu PRYČ z "Dokončeno" je vynuluje) a ukládá přes
+  stávající `autoSaveIfPossible()` → `saveWorkbook()` frontu (bezpečné i
+  při rychlém přetahování více karet za sebou).
+- Zrušené úkoly (`task.cancelled`) se zobrazují ztlumené a nejdou
+  přetáhnout (`draggable=false`), stejně jako v tabulce.
+
+**Kritický nález během testování (oprava PŘED nasazením):** reálná data
+obsahují **pátou hodnotu `state`** — `"Nezahájeno"` (27 úkolů), starší
+záznam, který dnešní dropdown `#m_state` už nenabízí jako volbu, ale v
+databázi existuje. Původní návrh s pevnými 4 sloupci (Nový/Probíhá/Čeká
+se/Dokončeno) by tyhle úkoly TICHOU CESTOU vynechal ze zobrazení — objeveno
+součtovým testem (počet karet v Kanbanu ≠ počet `filteredTasks`, rozdíl
+přesně 27). **Oprava:** sloupce se generují dynamicky — 4 known stavy +
+jakékoliv DALŠÍ hodnoty `state`, které se v `filteredTasks` skutečně
+vyskytují (`[...new Set(...)].sort()`), takže žádná legacy/neobvyklá
+hodnota stavu nikdy nezpůsobí tiché zmizení úkolu ze zobrazení. **Poučení
+pro budoucí práci:** kdykoliv se staví NOVÉ zobrazení nad `tasks`/
+`filteredTasks` se sloupci/kategoriemi odvozenými z nějakého pole (stav,
+priorita, projekt...), nikdy nepředpokládej, že aktuální `<option>` volby
+ve formuláři pokrývají VŠECHNY hodnoty, co se v reálných (často letitých)
+datech vyskytují — over si to na živé databázi součtovým testem.
+
+Ověřeno: syntax, žádná duplicitní ID, součet karet = `filteredTasks.length`
+přesně (785, pak 882 po opravě), klik na kartu otevírá modal, přetažení
+mění stav (i s korektním nastavením/mazáním `doneDate`), **kritický test
+bezpečnosti dat** (kompletní JSON snapshot všech 882 úkolů před/po dvou
+přetaženích — všech 881 ostatních záznamů bajt-po-bajtu beze změny),
+filtry zužují Kanban stejně jako tabulku, zrušené úkoly nedraggable,
+perzistence přes reload, přepínání záložek (Databáze/Auta/Opakující se) s
+aktivním Kanbanem beze změny. Týká se VÝHRADNĚ `sprava_ukolu_linked.html`
+— žádná jiná stránka nepotřebovala úpravu.
