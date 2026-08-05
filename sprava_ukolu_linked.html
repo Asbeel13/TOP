@@ -260,6 +260,61 @@ initDarkMode();
     .state-progress{background:#fff7ed;color:#c2410c}
     .state-wait{background:#eff6ff;color:#1d4ed8}
     .state-new{background:#fff1f2;color:#be123c}
+
+    /* ── Kanban ── */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+    .kanban-col {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+    }
+    .kanban-col.drag-over { background: #eff6ff; border-color: #93c5fd; }
+    .kanban-col-head {
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      border-bottom: 1px solid #e5e7eb;
+      border-radius: 10px 10px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .kanban-col-body {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      max-height: 65vh;
+    }
+    .kanban-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: grab;
+      font-size: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .kanban-card:hover { border-color: #93c5fd; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .kanban-card.dragging { opacity: 0.4; }
+    .kanban-card.cancelled { opacity: 0.5; cursor: not-allowed; text-decoration: line-through; }
+    .kanban-card .kc-title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+    .kanban-card .kc-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: #6b7280; }
+    .kanban-card .kc-overdue { color: #dc2626; font-weight: 700; }
+    html.dark .kanban-col { background: #1e293b; border-color: #334155; }
+    html.dark .kanban-col-head { border-color: #334155; }
+    html.dark .kanban-card { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+    html.dark .kanban-card .kc-meta { color: #94a3b8; }
+    html.dark .kanban-col.drag-over { background: #1e3a5f; }
     .actions-row{
       display:flex;
       gap:8px;
@@ -539,8 +594,9 @@ initDarkMode();
           <input id="quickToDate" type="date" />
           <button id="quickOverdueBtn" onclick="toggleOverdueFilter()">⏰ Po termínu</button>
           <button onclick="resetFilters()">Vyčistit filtry</button>
+          <button id="viewToggleBtn" onclick="toggleKanbanView()" style="margin-left:auto;">📌 Kanban</button>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" id="tableViewWrap">
           <table>
             <thead>
               <tr>
@@ -562,6 +618,9 @@ initDarkMode();
             </thead>
             <tbody id="taskTableBody"></tbody>
           </table>
+        </div>
+        <div id="kanbanViewWrap" style="display:none;">
+          <div class="kanban-board" id="kanbanBoard"></div>
         </div>
         <div class="footer-note">
           Sloupce jsou mapované na Excel: A ID, C Úkol, D Priorita, E Projekt, G Čeká se, I Stav, J %, L Plánovaný datum realizace, N Datum dokončení, S Řešitel, T Upřesnění / poznámka, U Poznámka Interní JK, V Auto.
@@ -943,6 +1002,8 @@ function restoreSpravaFilterState() {
       if (icon) icon.textContent = sortLastUpdatedDir === "desc" ? "▼" : sortLastUpdatedDir === "asc" ? "▲" : "";
     }
   } catch(e) {}
+  kanbanViewActive = localStorage.getItem(KANBAN_VIEW_KEY) === "1";
+  applyKanbanViewVisibility();
 }
 
 function isTaskOverdue(task) {
@@ -1009,7 +1070,17 @@ function applyFilters(){
   }
 
   renderStats();
-  renderTable();
+  renderCurrentView();
+}
+
+let kanbanViewActive = false;
+
+function renderCurrentView() {
+  if (kanbanViewActive) {
+    renderKanban();
+  } else {
+    renderTable();
+  }
 }
 
 let sortLastUpdatedDir = null; // null | "asc" | "desc"
@@ -1097,6 +1168,118 @@ function renderTable(){
 function toggleSelection(rowIndex, checked){
   const task = tasks.find(t => t.rowIndex === rowIndex);
   if(task) task.selected = checked;
+}
+
+// ── Kanban zobrazení ─────────────────────────────────────────────────────
+const KANBAN_VIEW_KEY = "ftKanbanViewActive";
+const KANBAN_COLUMNS = ["Nový", "Probíhá", "Čeká se", "Dokončeno"];
+
+function toggleKanbanView() {
+  kanbanViewActive = !kanbanViewActive;
+  localStorage.setItem(KANBAN_VIEW_KEY, kanbanViewActive ? "1" : "0");
+  applyKanbanViewVisibility();
+  renderCurrentView();
+}
+
+function applyKanbanViewVisibility() {
+  document.getElementById("tableViewWrap").style.display = kanbanViewActive ? "none" : "";
+  document.getElementById("kanbanViewWrap").style.display = kanbanViewActive ? "" : "none";
+  const btn = document.getElementById("viewToggleBtn");
+  if (btn) btn.textContent = kanbanViewActive ? "📋 Tabulka" : "📌 Kanban";
+}
+
+function renderKanban() {
+  const board = document.getElementById("kanbanBoard");
+  if (!board) return;
+
+  // Sloupce = 4 standardní stavy + jakékoliv JINÉ hodnoty state, které se
+  // v datech skutečně vyskytují (starší/legacy záznamy, např. "Nezahájeno").
+  // Tohle zaručuje, že žádný úkol nikdy tiše nezmizí z Kanbanu jen proto,
+  // že má neobvyklou hodnotu state.
+  const extraStates = [...new Set(
+    filteredTasks.map(t => t.state || "Nový").filter(s => !KANBAN_COLUMNS.includes(s))
+  )].sort();
+  const columns = [...KANBAN_COLUMNS, ...extraStates];
+
+  board.style.gridTemplateColumns = `repeat(${columns.length}, minmax(220px, 1fr))`;
+  board.innerHTML = columns.map(colState => {
+    const colTasks = filteredTasks.filter(t => (t.state || "Nový") === colState);
+    const colClass = KANBAN_COLUMNS.includes(colState) ? stateClass(colState) : "state-progress";
+    return `
+      <div class="kanban-col" data-state="${escapeHtml(colState)}"
+           ondragover="kanbanDragOver(event)" ondragleave="kanbanDragLeave(event)" ondrop="kanbanDrop(event)">
+        <div class="kanban-col-head badge ${colClass}">
+          <span>${escapeHtml(colState)}</span>
+          <span>${colTasks.length}</span>
+        </div>
+        <div class="kanban-col-body">
+          ${colTasks.map(t => kanbanCardHtml(t)).join("") || '<div style="padding:8px;color:#9ca3af;font-size:12px;">Žádné úkoly</div>'}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function kanbanCardHtml(task) {
+  const overdue = !task.cancelled && isTaskOverdue(task);
+  const draggable = !task.cancelled;
+  const r = resitele.find(x => x.zkratka === task.assignee);
+  const assigneeLabel = task.assignee || "Nezařazeno";
+  const assigneeStyle = (r && r.vyrazen) ? "color:#dc2626;font-weight:700;" : "";
+  return `
+    <div class="kanban-card ${task.cancelled ? "cancelled" : ""}"
+         draggable="${draggable}"
+         ${draggable ? `ondragstart="kanbanDragStart(event, ${task.rowIndex})" ondragend="kanbanDragEnd(event)"` : ""}
+         onclick="editTask(${task.rowIndex})">
+      <div class="kc-title">${escapeHtml(task.id || "")} ${escapeHtml(task.task || "")}</div>
+      <div class="kc-meta">
+        <span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority || "P2")}</span>
+        <span style="${assigneeStyle}">${escapeHtml(assigneeLabel)}</span>
+        ${task.plannedDate ? `<span>${escapeHtml(formatDate(task.plannedDate))}</span>` : ""}
+        ${overdue ? `<span class="kc-overdue">⏰ po termínu</span>` : ""}
+      </div>
+    </div>`;
+}
+
+let _kanbanDragRowIndex = null;
+
+function kanbanDragStart(e, rowIndex) {
+  _kanbanDragRowIndex = rowIndex;
+  e.target.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+}
+function kanbanDragEnd(e) {
+  e.target.classList.remove("dragging");
+  _kanbanDragRowIndex = null;
+}
+function kanbanDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add("drag-over");
+}
+function kanbanDragLeave(e) {
+  e.currentTarget.classList.remove("drag-over");
+}
+function kanbanDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  const newState = e.currentTarget.dataset.state;
+  if (_kanbanDragRowIndex == null || !newState) return;
+
+  const task = tasks.find(t => t.rowIndex === _kanbanDragRowIndex);
+  if (!task || task.cancelled) return;
+  if (task.state === newState) return;
+
+  task.state = newState;
+  task.lastUpdated = formatDateISO(new Date());
+  if (newState === "Dokončeno") {
+    if (!task.doneDate) task.doneDate = formatDateISO(new Date());
+    task.percent = 1;
+  } else {
+    task.doneDate = "";
+    task.percent = 0;
+  }
+
+  applyFilters();
+  autoSaveIfPossible();
 }
 
 els.selectAll.addEventListener("change", (e) => {
