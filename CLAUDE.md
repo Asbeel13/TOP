@@ -70,11 +70,16 @@ na které straně, v jakém pořadí" (nastavitelné z Dashboardu i obou Přehle
 
 `id, title, priority, project, sales, waiting, state, createdDate,
 plannedDate, doneDate, dueDate, owner, note, internalNote, auto, cancelled,
-internalProject, durationDays, lastUpdated, activeDays, completedDays`
+internalProject, subtask, durationDays, lastUpdated, activeDays, completedDays`
 
 - `internalProject` — datový název pole beze změny, ale **UI popisek je
   "Dodatečné označení projektu"** (přejmenováno 2026-07-29, viz Changelog
   níže — dřív se v UI jmenovalo "Interní číslo projektu")
+- `subtask` — checkbox "Podúkol" v Dashboardu i ve Správě úkolů (boolean).
+  Přidáno do appky po původním 21-polím auditu a do 2026-08-05 chybělo v
+  `tasksToJson()`/`loadFromRaw()` ve Správě úkolů → tiše se mazalo při
+  KAŽDÉM uložení (viz Changelog níže). Opraveno, pole je teď součástí
+  kompletního seznamu.
 - `waiting` — pole "Čeká se na něco" bylo **odstraněno z UI**, ale zůstává v
   datech (zpětná kompatibilita, needitovatelné přes appku)
 - `durationDays` + `activeDays` — vícedenní úkol s výběrem konkrétních dnů v
@@ -288,6 +293,25 @@ funguje (je vidět), ale interně nemá nastavená potřebná `dataset` pole
 viditelnosti NEDÁVEJ třídu `can-write-only` — kontrolu oprávnění zahrň
 přímo do JS podmínky (`document.body.classList.contains("can-write")`).
 
+### 10. Stejná byznys logika zkopírovaná do více souborů = stejný bug na více místech
+
+Audit z 2026-08-04/05 (viz Changelog) našel funkci "označit úkol hotovým"
+(`markTaskAsDoneFromModal`) nezávisle zkopírovanou do Dashboardu, Přehledu
+desktop i Přehledu mobil — všechny tři hledaly úkol podle `t.id === id` bez
+kontroly data, což u opakujícího se úkolu se "zástupem" mohlo omylem
+označit hotovým špatný (starší) záznam se stejným id. Oprava musela proběhnout
+identicky na **všech třech místech** zvlášť, protože žádná sdílená funkce
+neexistuje. Je to stejný architektonický vzorec jako Nástraha č. 8 (dva
+nezávislé buildery dropdownu), jen o úroveň výš — týká se celé business
+logiky, ne jen jednoho UI prvku, a týká se tří souborů najednou, ne dvou
+míst v jednom souboru.
+
+**Poučení pro budoucí práci:** než zkopíruješ logiku z jednoho souboru do
+dalšího (zvlášť cokoliv, co čte/zapisuje `raw.tasks`), zvaž, jestli nepatří
+jako sdílená funkce do `ft_loader.js` — ušetří to budoucí "oprava na jednom
+místě, bug přežívá na zbylých". Zatím to nebylo přesunuto (viz Doporučení
+pro budoucí práci níže), jen opraveno na všech třech místech stejně.
+
 ## Zvážené a zamítnuté / odložené alternativy (neopakuj tuhle diskuzi zbytečně)
 
 - **Mobilní responzivní design** (jedna appka, media queries) —
@@ -332,6 +356,35 @@ backend+auth+notifikace, zbytek postupně), ne najednou.
   implementovaný jako součást širší úpravy záložek ve Správě úkolů.
 - Přeskládání dlaždic aut podle dostupnosti/abecedy/osoby — bylo zmíněno
   jako nápad na příště, pak realizováno (pořadí podle screenshotu).
+- **Sdílená funkce pro "označit hotovo"** v `ft_loader.js` — viz Nástraha
+  č. 10. Aktuálně tři nezávislé kopie (Dashboard, Přehled desktop, Přehled
+  mobil), opravené 2026-08-05 identicky na všech třech místech. Přesun do
+  jedné sdílené funkce by tuhle třídu chyb do budoucna vyloučil, ale
+  vyžaduje opatrnou migraci (tři různé volající kontexty). Neimplementováno.
+- **CSP hlavička** (`<meta http-equiv="Content-Security-Policy">`) jako
+  druhá linie obrany proti XSS — appka je veřejná na GitHub Pages a token
+  pro zápis leží v `localStorage`, viz Changelog 2026-08-05 (oprava XSS).
+  Neimplementováno.
+- ~~Kontrola duplicity ID i pro RUČNÍ editaci existujícího řádku v tabulce
+  opakujících se pravidel~~ — **VYŘEŠENO 2026-08-05 jinak, než bylo
+  navrženo:** místo validace na kolizi je pole ID u existujících pravidel
+  teď needitovatelné (`readonly`), stejně jako už bylo u zakládání nových
+  pravidel. Uživatel (JK) tohle řešení výslovně preferoval — jde tak
+  nastavit jen automaticky, měnit se nedá vůbec.
+- Zbývající neopravené nálezy z auditu 2026-08-04/05 (z 24 celkem, po
+  vyřešení všech kritických/středních/drobných 2026-08-05 zůstávají
+  vědomě neopravené jen tyhle 3, všechny nízké riziko, rozhodnutí JK):
+  - **canMarkDone() permanentně cachuje `false` po jednom výpadku sítě**
+    (`ft_loader.js`) — refresh stránky to řeší, přeskočeno.
+  - **Krátké okno bez tlačítka Hotovo při prvním otevření modalu**
+    (mobilní Přehled, těsně po načtení appky) — nízká pravděpodobnost,
+    žádná ztráta dat, přeskočeno.
+  - **`88vh`/`85vh` u modálů v mobilním Přehledu** — součást otevřeného
+    iOS/WebKit vyšetřování z 2026-07-31, vědomě ponecháno nedotčené do
+    potvrzení na reálném iPhonu (stejně jako předtím).
+  Plný text původního reportu (24 nálezů) byl předán uživateli mimo tenhle
+  repozitář, není tady uložený — jen výsledné rozhodnutí u každého bodu je
+  zaznamenané v Changelogu níže (2026-08-05).
 
 ## Jak appka funguje prakticky (pro rychlou orientaci)
 
@@ -640,3 +693,163 @@ jinou CSS třídu bez `!important`.
   persistence přes reload, a že tlačítko Zástup (viz předchozí
   neuzavřená položka) funguje beze změny i po týhle úpravě — takže
   tahle změna vyloučena jako možná příčina toho problému.
+
+### 2026-08-05 — Kompletní audit kódu + oprava všech 5 kritických nálezů (provedeno přes Claude Code)
+
+Na žádost uživatele proveden systematický průchod celého projektu (`ft_loader.js`
++ všechny 4 hlavní HTML stránky) s cílem najít další instance devíti do té
+doby zdokumentovaných tříd chyb (Nástrahy 1–9), po vzoru srpnového bugu s
+`can-write-only`/`!important`. Audit našel **24 nálezů** (5 kritických, 10
+středních, 9 drobných) + seznam mrtvého kódu; kompletní report byl předán
+uživateli jako samostatný dokument (není součástí repozitáře). Uživatel
+požádal o opravu všech 5 kritických nálezů, jednu po druhé, s testem po
+každé opravě — zbylých 14 (střední/drobné) zatím **neopraveno**, viz
+Doporučení pro budoucí práci výše.
+
+**1) XSS v `addVyjimkaAuto`/`showVyjimkaConfirm`** (`sprava_ukolu_linked.html`)
+— `id`/`datum` z URL parametrů (`?vyjimka=...&datum=...`, odkaz z
+Dashboardu) se vkládaly do `innerHTML` bez `escapeHtml()`. Appka je veřejná
+na GitHub Pages a token pro zápis do `top-data` leží v `localStorage` —
+stačilo poslat ověřenému uživateli odkaz. Oprava: `escapeHtml()` na obou
+místech, kde se `id`/`datum` vkládají do zprávy. Ověřeno přímým voláním v
+konzoli: škodlivý payload (`<img onerror=...>`) se nespustil a zobrazil se
+jako neškodný text, normální přidání/detekce duplicitní výjimky beze změny.
+
+**2) "Hotovo" hledalo úkol jen podle `id`, bez data** — nezávisle stejná
+chyba v Dashboardu, Přehledu desktop i Přehledu mobil (`markTaskAsDoneFromModal`
+ve všech třech, viz nová Nástraha č. 10). U opakujícího se úkolu, který má
+"zástup" na JINÉ datum (stejné `id`, jiný `plannedDate`), `raw.tasks.find(t
+=> t.id === id)` mohl najít ten starý zástup záznam místo aktuálně
+klikaného výskytu — kliknutí na Hotovo pak potichu označilo hotovým špatný
+den/záznam. Oprava: hledání se teď u opakujících se výskytů dodatečně
+ověřuje proti `plannedDate` (`rawTask.plannedDate !== plannedDate ⇒
+považovat za "žádný task"`); u vícedenních a běžných úkolů beze změny
+(raw záznam vícedenního úkolu má vlastní `plannedDate` = počáteční den,
+proto se date-check aplikuje JEN pro opakující se výskyty). Ověřeno na
+všech třech souborech identickou sadou 5 scénářů (běžný úkol, opakující se
+bez konfliktu, opakující se se zástupem na JINÝ den — to je ten bug,
+opakující se přesně v den zástupu, vícedenní úkol) — všech 15 běhů beze
+změny očekávaného chování a bez regrese.
+
+**3) Pole "Podúkol" (`subtask`) se tiše mazalo při každém uložení** —
+přidáno do appky po původním 21-polím auditu (viz Nástraha č. 1) a
+zapomenuto v `tasksToJson()`/`loadFromRaw()` ve Správě úkolů → smazalo se
+pro VŠECHNY úkoly při jakémkoliv uložení. Navíc `#m2_subtask` v Dashboardu
+(rychlé přidání úkolu) se nikdy nečetlo do `newTask` — hodnota byla čistě
+dekorativní. Oprava: `subtask: !!t.subtask` doplněno do `tasksToJson()` i
+`loadFromRaw()`, a `subtask: ...` doplněno do `newTask` v
+`saveNewTaskFromModal()`. Ukládací strana (`tasksToJson`) ověřena přímým
+voláním s syntetickým úkolem přes všech 22 polí najednou (subtask i
+ostatních 18 kontrolovaných polí beze ztráty, legacy záznam bez `subtask`
+defaultuje na `false`). Čtecí strana (`loadFromRaw`) ověřena JEN čtením
+kódu — funkce je (dle Nástrahy k testovacím pastem výše) uzavřená v IIFE a
+nejde zavolat přímo z konzole. Dashboardova oprava ověřena přímým voláním
+`saveNewTaskFromModal()` — `subtask: true/false` se teď správně dostane do
+uloženého záznamu.
+
+**4) Pád vykreslení Dashboardu při prázdném poli Projekt** — `task.project
+.toLowerCase()` (zvýraznění "Ford") bez ošetření `undefined`, jeden řádek
+vedle správně ošetřeného `escapeHtml(task.project || "")`. Jakýkoliv úkol
+bez vyplněného projektu v aktuálním týdnu by shodil `render()` pro úplně
+všechny uživatele (volá se po každém pollu). Oprava: `(task.project ||
+"").toLowerCase()`. Ověřeno vložením testovacího úkolu s `project:
+undefined` do živých dat a voláním `render()` — bez pádu; zvýraznění
+"Ford" i "ne-Ford" projektů ověřeno beze změny chování.
+
+**5) `FALLBACK_DATA` — cca 110 kB reálných produkčních dat natvrdo v
+Dashboardu**, viditelných i bez tokenu (veřejné GitHub Pages), vykreslených
+před prvním živým načtením. Uživatel zvolil nahrazení prázdnou kostrou
+(doporučená varianta z auditu). Oprava: `FALLBACK_DATA` nahrazeno
+`{tasks: [], backlog: [], owners: [], generatedAt: null}` (stejný tvar
+klíčů jako předtím), soubor se zmenšil o ~100 kB. Přidán viditelný
+indikátor `setSyncStatus("Načítám data z GitHubu…")` hned na startu, ať
+prázdný kalendář před prvním načtením nepůsobí jako chyba. Ověřeno: po
+načtení appka nemá v `DATA.tasks` ani v HTML zdroji žádnou reálnou starou
+položku (test na název `"VERA 3NINE"` z původního snapshotu), status se
+správně zobrazí a po simulovaném příchodu živých dat (`applyData()` +
+`render()`) appka funguje normálně.
+
+**Souhrn ověření:** žádná z pěti oprav neprošla bez testu, všechny testy
+proběhly přímým voláním appkových funkcí v prohlížeči (Chromium, ne
+WebKit — viz stále nevyřešené omezení z 2026-07-31) s mockovaným
+`FTLoader` (žádné skutečné zápisy na GitHub během testování). Soubory byly
+po opravě lokálně otestované, ale **nenahrané na GitHub** — uživatel je
+nahrává sám dle zavedeného workflow (Konvence č. 4).
+
+### 2026-08-05 — Vyřešení zbylých 19 nálezů z auditu (10 středních + 9 drobných, provedeno přes Claude Code)
+
+Navazuje na kritické opravy výše. Uživatel (JK) prošel zbylé nálezy
+jeden po druhém a u KAŽDÉHO se rozhodl zvlášť — buď opravit (s testem),
+nebo vědomě přeskočit. Otevřené body ze skipnutých nálezů jsou zapsané
+výše v "Doporučení pro budoucí práci". Opraveno bylo 7 středních nálezů
+a 4 drobné (+ 1 smazání mrtvého kódu), ve 3 souborech:
+
+**Střední (opraveno):**
+- `sprava_ukolu_linked.html`: fronta na uložení místo tichého zahození
+  druhé rychlé akce (`_isSaving`/`_saveAgainRequested` — viz `saveWorkbook()`),
+  ID opakujícího se pravidla uzamčeno proti editaci (viz Doporučení výše),
+  smazán třetí křehký duplicitní builder `#filterAssignee` v
+  `buildResitelSelect()` (jediný zdroj pravdy je teď `fillAssigneeFilter()`),
+  sjednoceno UTC→lokální datum na **3** místech (červené zvýraznění po
+  termínu, "DNES" u rezervací aut, dimování prošlých výjimek — třetí místo
+  se objevilo až při testu, nebylo v původním reportu).
+- `tydenni_dashboard_live_reload_local_linked.html`: dropdown "Zástup"
+  (`openSubstituteModal`) teď filtruje vyřazené řešitele stejně jako
+  sesterský builder, `resetPeopleLayoutToDefault()` odvozuje `owners`
+  stejně jako `applyData()` (nemůže už vrátit vyřazeného řešitele zpět),
+  `modalChips` escapovány.
+- `tydenni_prehled.html`: `modalChips` escapovány.
+- Pole "Podúkol" v rychlém přidání (Dashboard) — už vyřešeno vedlejším
+  efektem kritické opravy č. 3, žádná další akce.
+
+**Střední (vědomě přeskočeno):** `canMarkDone()` permanentní cache po
+výpadku sítě, krátké okno bez Hotovo při prvním otevření modalu na
+mobilu — oba zapsané výše v Doporučení pro budoucí práci s důvodem.
+
+**Drobné (opraveno):**
+- `tydenni_dashboard_live_reload_local_linked.html`: smazán celý mrtvý
+  panel "Dílna a externisti" (`DATA.backlog` je v `ft_loader.js` navždy
+  `[]`, nic ho nikdy neplnilo — HTML sekce, `els.backlog`, renderovací
+  kód i CSS grid smazány/zjednodušeny na 1 sloupec); `.modal` dostal
+  explicitní `z-index:10000` (byl bez z-indexu, `.fab-nav` s `9999` ho
+  proto překrýval — plovoucí tlačítka šla proklikat skrz otevřený modál);
+  `showReadOnlyRedirect` posunut na `10001`, ať zůstane nade vším.
+- `tydenni_prehled.html`: jméno/zkratka osoby v hlavičce sloupce
+  escapovány (`renderSide`); detail úkolu dostal `max-height:88vh` +
+  `overflow:auto` jako **samostatné** pravidlo `#modal .modal-card` (NE
+  úprava sdíleného `.modal-card` — viz Nástraha č. 4 o nebezpečí
+  slučování selektorů), ať se dlouhá poznámka dá doscrollovat místo
+  tichého oříznutí.
+
+**Drobné (vědomě přeskočeno/ověřeno jako neproblém):** nesourodá výchozí
+priorita P0/P3 (JK ověřil, že appka prioritu vždy vynucuje — fallback je
+nedosažitelný), apostrof ve zkratce řešitele (riziko prakticky nulové),
+`100vh` bez `dvh` v desktopovém Přehledu (nízká expozice, cílí na
+desktop), mobil nesleduje živě systémový tmavý režim (kosmetické),
+`88vh`/`85vh` u mobilních modálů (součást otevřeného iOS vyšetřování,
+viz Doporučení výše).
+
+Každá jednotlivá oprava byla otestovaná zvlášť (přímé volání funkcí v
+prohlížeči, syntetická data, mockovaný `FTLoader` — stejná metoda jako u
+kritických oprav).
+
+**Ověření uploadu — poučení k zapsání:** Po dokončení všech oprav se
+uživatel zeptal, jestli jsou soubory na GitHubu, s tím, že je sám
+nahrál. Ověřil jsem to přes `git fetch` + bajt-po-bajtu porovnání
+(`cmp`) lokálních souborů proti `origin/main` (POZOR: `git diff --stat`
+samotné bylo na `tydenni_prehled.html`/`tydenni_prehled_mobile.html`
+zavádějící — hlásilo obří diff, i když soubory byly ve skutečnosti
+identické; `cmp`/`diff` napřímo je spolehlivější). První kontrola
+odhalila, že `sprava_ukolu_linked.html` nebyl nahraný kompletně —
+chyběly mu KONKRÉTNĚ oprava XSS a oprava mazání "Podúkol" (obě
+kritické) plus všechny střední opravy pro ten soubor. Uživatel nahrál
+znovu, druhá kontrola potvrdila shodu. **Poučení:** "uživatel řekl, že
+nahrál" není totéž jako "je to na GitHubu" — u bezpečnostních/datových
+oprav vždy ověřit přes `git fetch` + `cmp`, ne věřit jen ústnímu
+potvrzení, obzvlášť když `git diff --stat` může být zavádějící.
+
+**Stav k 2026-08-05:** všechny 4 upravené soubory (`sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`,
+`tydenni_prehled_mobile.html`) potvrzeny bajt-po-bajtu identické s
+`origin/main` — kompletní audit (24 nálezů) je tímto uzavřený, se všemi
+rozhodnutími zaznamenanými výše.
