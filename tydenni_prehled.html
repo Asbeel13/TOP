@@ -258,6 +258,10 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
       overflow: hidden;
     }
+    /* Dlouhá poznámka může kartu roztáhnout přes okraj obrazovky — samostatné
+       pravidlo jen pro tenhle modál (ne úprava sdíleného .modal-card), ať se
+       neopakuje Nástraha č. 4 (naivní sloučení selektorů). */
+    #modal .modal-card { max-height: 88vh; overflow: auto; }
 
     /* ── Nastavení zobrazení (lidé & sloupce) ── */
     #displaySettingsModal .modal-card { max-width: 480px; max-height: 85vh; overflow: auto; }
@@ -794,7 +798,7 @@ function renderSide(targetEl, side) {
     const personCell = document.createElement("div");
     personCell.className = "person";
     const label = PEOPLE_LABELS[person] || person;
-    personCell.innerHTML = `<div><div class="code">${person}</div><div class="name">${label}</div></div>`;
+    personCell.innerHTML = `<div><div class="code">${escapeHtml(person)}</div><div class="name">${escapeHtml(label)}</div></div>`;
     targetEl.appendChild(personCell);
 
     dates.forEach((d, idx) => {
@@ -916,7 +920,7 @@ function openModal(task) {
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
-  document.getElementById("modalChips").innerHTML = chips.map(ch => `<span class="chip">${ch}</span>`).join("");
+  document.getElementById("modalChips").innerHTML = chips.map(ch => `<span class="chip">${escapeHtml(String(ch))}</span>`).join("");
   document.getElementById("modalTitle").textContent = `${task.id || ""} ${task.title || ""}`.trim();
   document.getElementById("modalNote").textContent = task.note || "Bez doplňující poznámky";
 
@@ -948,7 +952,11 @@ async function markTaskAsDoneFromModal() {
     const raw = FTLoader.getRawJson();
     if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
     const user = FTLoader.getCurrentUser() || "přehled";
-    const task = (raw.tasks || []).find(t => t.id === id);
+    // Hledat jen podle id nestačí: reálný záznam se stejným id může existovat
+    // pro JINÉ datum (typicky "zástup" u opakujícího se pravidla) — takový
+    // záznam nepatří k tomuto konkrétnímu výskytu, i když má stejné id.
+    const rawTask = (raw.tasks || []).find(t => t.id === id);
+    const task = (isRecurring && rawTask && rawTask.plannedDate !== plannedDate) ? null : rawTask;
 
     if (isRecurring && !task) {
       raw.dokonceni = raw.dokonceni || [];
