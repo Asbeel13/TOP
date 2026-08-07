@@ -576,6 +576,40 @@ const FTLoader = (() => {
     return allDates.length > 0 && allDates.every(d => completed.includes(d));
   }
 
+  // ── Generování ID nových úkolů ──────────────────────────────────────────
+  // DŘÍVE: "nejvyšší číslo v datech + 1", počítáno NEZÁVISLE v Dashboardu
+  // (generateNextIdNew) i ve Správě úkolů (generateNextId) — dvě oddělené
+  // kopie stejné logiky. Když dva lidé zakládali nový úkol skoro současně
+  // (jeden v Dashboardu, druhý ve Správě úkolů, nebo dva v tom samém
+  // souboru v různých záložkách), obě funkce mohly nezávisle na sobě
+  // vypočítat STEJNÉ "další volné" číslo ze své vlastní, mírně zastaralé
+  // kopie dat — reálně se to stalo opakovaně (viz CLAUDE.md, čištění
+  // duplicitních ID 2026-08-xx).
+  //
+  // NOVĚ: ID se odvozuje z aktuálního času (v milisekundách), ne z pořadí
+  // v datech. Dva lidé by museli uložit úkol v tom samém MILISEKUNDOVÉM
+  // okamžiku, aby došlo ke kolizi — u lidmi ovládaných kliknutí prakticky
+  // nemožné. Navíc funkce jako pojistku navíc kontroluje kolizi proti
+  // aktuálně známým ID a v nepravděpodobném případě shody připojí náhodný
+  // znak navíc. Formát "*Txxxxxx*" (T + 6 znaků v soustavě base36) se
+  // vizuálně i strukturně nemůže srazit se starými číselnými ID
+  // ("*0001*"..) ani s ID opakujících se pravidel ("RFT001"..).
+  function generateNextTaskId(existingTasks) {
+    const existingIds = new Set((existingTasks || []).map(t => t && t.id).filter(Boolean));
+    // 8 znaků base36 z milisekundové značky = perioda opakování ~89 let
+    // (36^8 ms). Kratší (6 znaků) by se opakovalo už po ~25 dnech - kolize
+    // by se řešila jen záchrannou kontrolou níže, ne tím, že by k ní
+    // vůbec nemělo reálně dojít. Tohle je hlavní obrana, kontrola je
+    // druhá vrstva navíc.
+    const suffix = Date.now().toString(36).toUpperCase().padStart(8, "0").slice(-8);
+    let candidate = `*T${suffix}*`;
+    while (existingIds.has(candidate)) {
+      const rand = Math.floor(Math.random() * 36).toString(36).toUpperCase();
+      candidate = `*T${suffix}${rand}*`;
+    }
+    return candidate;
+  }
+
   return {
     init, reload, saveToGitHub, getRawJson,
     getAutoDostupnost, setFileHandle, loadRaw, pushWorkbook, isAuthenticated,
@@ -591,6 +625,7 @@ const FTLoader = (() => {
     checkActivity,
     getMultiDayOccurrenceDates,
     isMultiDayTaskFullyComplete,
+    generateNextTaskId,
   };
 
 })();
