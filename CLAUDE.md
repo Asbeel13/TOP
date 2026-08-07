@@ -926,3 +926,29 @@ filtry zužují Kanban stejně jako tabulku, zrušené úkoly nedraggable,
 perzistence přes reload, přepínání záložek (Databáze/Auta/Opakující se) s
 aktivním Kanbanem beze změny. Týká se VÝHRADNĚ `sprava_ukolu_linked.html`
 — žádná jiná stránka nepotřebovala úpravu.
+
+### 2026-08-06 — Vyčištění neplatných hodnot `state` v živé databázi
+
+Přímý zásah do dat (`top-data/database.json`), žádná změna kódu.
+Uživatel si všiml (screenshot z Kanbanu) hodnoty "Nezahájeno", která už
+není v dropdownu `#m_state` nabízená — přesně nález z implementace
+Kanbanu 2026-08-05. Při kontrole nalezena i třetí neplatná hodnota,
+kterou uživatel nezmínil: "Blokováno".
+
+- **"Nezahájeno" (33 úkolů)** → převedeno na `"Nový"`.
+- **"Blokováno" (3 úkoly)** → převedeno na `"Nový"`. Zajímavé zjištění:
+  všechny tři už měly `cancelled: true` (interní poznámky doslova
+  obsahovaly "Zrušeno") — čistě zastaralá hodnota `state` na už
+  zrušených záznamech, ne skutečně blokované aktivní úkoly.
+- Ověřeno přímo na GitHubu po každém kroku — součet podle stavu sedí,
+  `cancelled` potvrzeno `true` u všech tří "Blokováno" záznamů.
+- Databáze teď obsahuje výhradně 4 platné hodnoty `state`: **Nový,
+  Probíhá, Čeká se, Dokončeno** — přesně sadu, kterou appka v dropdownu
+  nabízí.
+- Počet úkolů mezi oběma kroky vzrostl (904→910) — normální souběžné
+  používání appky kolegy mezi jednotlivými zásahy, ne chyba (data se
+  před každou úpravou stahovala znovu čerstvá, nic nepřepsáno).
+- **Kanbanův mechanismus dynamických sloupců** (viz Changelog výše) by
+  i bez tohohle úklidu žádný úkol netratil ze zobrazení — tenhle úklid
+  je tedy čistě kosmetický/preventivní pro budoucí přehlednost dat, ne
+  oprava skutečné chyby v appce.
