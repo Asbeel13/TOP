@@ -1057,3 +1057,23 @@ kterou uživatel nezmínil: "Blokováno".
   rozhodující zdroj při rozporu — zapsáno jako Konvence č. 7 výše.
 - Přístup k `Esperanto` repu ověřen — stejný token jako pro `top-data`/
   `TOP` funguje i tady (čtení i zápis potvrzen dry-run testem).
+
+### 2026-08-11 — SPA-side Claude rozšířil `INTEGRACE.md`, doplněna sekce 7 (přehled TOP)
+
+- SPA-side Claude na žádost JK rozšířil účel `INTEGRACE.md` — z čistě
+  rozhraní TOP↔SPA na **hlavní centrální dokument o obou projektech**
+  (aktuální stav, ne den-po-dni historie, ta zůstává ve vlastních
+  `CLAUDE.md`). Přidal sekci 6 (kompletní přehled SPA — architektura,
+  datový model, role, implementované funkce, stav).
+- **Rozhodnutí JK zaznamenané SPA stranou, týká se mapování polí (sekce
+  2):** `poznamka` ze SPA jde do `title` (formát `"<stav> - <poznámka>"`),
+  ne do `note` (to zůstává vždy prázdné) — ať je vidět rovnou v přehledu
+  úkolu bez nutnosti otevřít detail. Žádná změna kódu na TOP straně
+  potřeba — `title` je běžné textové pole, delší obsah funguje bez úprav.
+- Doplnil jsem **sekci 7 — obdobný ucelený přehled TOP** (architektura,
+  datový model, role, implementované funkce, aktuální stav, backlog),
+  ve stejné struktuře a hloubce jako sekce 6 od SPA, kondenzované z
+  tohohle `CLAUDE.md`, ne kopie celého changelogu.
+- Soubor teď 377 řádků, obě sekce (6 a 7) slouží jako rychlá orientace
+  pro Claude instanci NEBO člověka, kdo do některého z projektů teprve
+  vstupuje, bez nutnosti číst celou historii každého zvlášť.
