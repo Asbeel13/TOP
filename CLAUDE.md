@@ -172,9 +172,16 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
    porovnávající staré chování se novým na REÁLNÝCH datech.
 2. **Kontroluj duplicitní ID** po každé change týkající se `tasks` pole.
 3. **Ověřuj syntax** (`node --check`) po každé úpravě před nasazením.
-4. Uživatel obvykle **sám nahrává soubory na GitHub** (kopíruje z výstupu) —
-   ověř, jestli chce, abys nahrával přímo (token na `top-data` MÁ zápis i do
-   `TOP`, ověřeno, ale je to zásadní změna workflow, ptej se první).
+4. **PRAVIDLO (potvrzeno JK 2026-08-12, definitivní):** u souborů
+   appky (`*.html`, `ft_loader.js`, `manifest.json`, `sw.js` atd.)
+   **vždy jen připrav a otestuj, nahrává VÝHRADNĚ uživatel** — i když
+   je změna malá a dobře otestovaná, i když technicky mám zápisové
+   oprávnění. **Přímý zápis smíš dělat jen do `CLAUDE.md` a
+   `INTEGRACE.md`** (dokumentace, ne kód appky). Stalo se jednou
+   (2026-08-11 při opravě `.prio-PX`), že jsem tohle rozlišení
+   nedodržel — soubor kódu nahrál rovnou, bez zeptání. Nízké riziko v
+   tom konkrétním případě, ale princip byl porušen bez svolení. **Nikdy
+   to neopakuj u kódových souborů, ať je změna sebemenší.**
 5. Testování přes Playwright + mock GitHub API routes je zavedený vzorec v
    celé historii vývoje — viz "Časté testovací pasti" níže.
 6. **KRITICKÉ — synchronizace mezi chatem a Claude Code:** Chat (tahle
