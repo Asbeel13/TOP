@@ -189,6 +189,14 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
    práce v chatu vycházela ze starší uložené kopie). Na začátku session,
    pokud si uživatel není jistý, jestli mezitím něco měnil jinde, zeptej
    se explicitně, nebo si stáhni čerstvou kopii pro jistotu.
+7. **Integrace s projektem SPA — `INTEGRACE.md` v repozitáři
+   `Asbeel13/Esperanto`:** stanoveno JK 2026-08-11. Cokoliv se týká
+   rozhraní TOP↔SPA (formát dat, ID schéma, stav implementace, otevřené
+   otázky, handoffy) se zapisuje **VŽDY do obou** — sem (`TOP/CLAUDE.md`)
+   i do `INTEGRACE.md` — ne jen na jedno místo. **`INTEGRACE.md` je
+   hlavní/rozhodující zdroj**, pokud by se obsah někdy rozešel. Přístup
+   k `Esperanto` repu ověřen funkční (stejný token jako pro `top-data`
+   a `TOP`, i zápis).
 
 ## Nástrahy a poučení z historie — ČTI POZORNĚ
 
@@ -1034,3 +1042,18 @@ kterou uživatel nezmínil: "Blokováno".
   doplnit (kosmetika, nízké riziko)? Mají se SPA-syncnuté úkoly nějak
   skrývat/odlišovat ve Správě úkolů (tabulka/Kanban/filtry), nebo stačí,
   že existující filtr Priorita už PX nabízí?
+
+### 2026-08-11 — Založen `INTEGRACE.md` (repozitář `Asbeel13/Esperanto`)
+
+- Na žádost JK vznikl **samostatný sdílený dokument** pro rozhraní
+  TOP↔SPA — ne uvnitř žádného z obou projektů, ale v novém, neutrálním
+  repozitáři `Esperanto`, aby nepatřil ani jedné straně. Obsahuje
+  kompletní dohodnutý kontrakt (mapování polí, ID schéma,
+  synchronizační mechanismus), stav implementace, otevřené otázky,
+  chronologickou historii mezi-projektových handoffů — vše, co bylo
+  předtím jen v changelogu 2026-08-11 výše.
+- **Pravidlo od JK: při aktualizaci cokoliv o integraci zapisovat VŽDY
+  do obou míst** (sem i do `INTEGRACE.md`), `INTEGRACE.md` je
+  rozhodující zdroj při rozporu — zapsáno jako Konvence č. 7 výše.
+- Přístup k `Esperanto` repu ověřen — stejný token jako pro `top-data`/
+  `TOP` funguje i tady (čtení i zápis potvrzen dry-run testem).
