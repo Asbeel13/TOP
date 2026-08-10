@@ -366,11 +366,12 @@ stávající, testování na kopii dat atd.) — stejně jako u Kanbanu výše.
    existuje v datovém modelu (viz Changelog 2026-08-05, oprava č. 3),
    ale nese jen `true/false` — nepředstavuje žádnou skutečnou hierarchii
    nebo seskupení. Tohle by byla zásadně větší funkce.
-2. **Evidence dovolených** — zatím bez dalších detailů (čí dovolené, jak
-   se zapisují, propojení s "Zástupem" u opakujících se úkolů?). Stojí
-   za zvážení souvislost s existujícím mechanismem "Zástup" (viz Hlavní
-   implementované funkce výše) — dovolená konkrétního řešitele by mohla
-   přirozeně navazovat na tenhle už fungující koncept zastupitelnosti.
+2. **Evidence dovolených** — **AKTUALIZACE:** už není jen nápad, ale
+   aktivní samostatný projekt **SPA (Správa Pracovních Absencí)**,
+   vlastní repozitář, vlastní SQL databáze, vlastní Claude instance.
+   Jednosměrná synchronizace SPA → TOP (schválená dovolená se zapíše do
+   `tasks[]` jako task s `priority: "PX"`, ID prefix `SPA-`) — viz
+   Changelog 2026-08-11 níže pro detaily prvního review handoffu.
 
 ## Doporučení pro budoucí práci (moje vlastní návrhy, neimplementované)
 
@@ -952,3 +953,84 @@ kterou uživatel nezmínil: "Blokováno".
   i bez tohohle úklidu žádný úkol netratil ze zobrazení — tenhle úklid
   je tedy čistě kosmetický/preventivní pro budoucí přehlednost dat, ne
   oprava skutečné chyby v appce.
+
+### 2026-08-10 — KRITICKÁ OPRAVA: sjednocení generování ID úkolů, přechod na časovou logiku
+
+- **Uživatel si sám všiml a správně diagnostikoval příčinu** opakujících
+  se duplicitních ID (viz Changelog 2026-08-08/09 čištění duplicit výše)
+  — zeptal se přímo "nebude dobré udělat buffer, který bude naskládávat
+  zakázky a sám přiřazovat ID?". Analýza potvrdila přesně tohle.
+- **Kořenová příčina:** Dashboard (`generateNextIdNew()`) a Správa úkolů
+  (`generateNextId()`) měly KAŽDÝ svou vlastní, nezávislou kopii logiky
+  "nejvyšší číslo v datech + 1", počítanou z LOKÁLNÍ (potenciálně
+  zastaralé) kopie dat v prohlížeči. Dva lidé zakládající úkol téměř
+  současně (v Dashboardu i Správě úkolů, nebo dvě záložky téhož souboru)
+  mohli nezávisle vypočítat STEJNÉ "další volné" číslo.
+- **Oprava:** obě funkce nahrazeny jednou sdílenou
+  `FTLoader.generateNextTaskId(existingTasks)` v `ft_loader.js`. Nová
+  logika negeneruje ID podle POŘADÍ, ale podle ČASU vzniku —
+  `Date.now()` zakódovaný do base36, formát `*Txxxxxxxx*`. Funkce navíc
+  jako pojistku aktivně kontroluje kolizi proti známým ID a v
+  nepravděpodobném případě shody připojí náhodný znak navíc.
+- **Uživatel (JK) chytil důležitou mezeru v prvním návrhu:** s jen 6
+  znaky base36 suffixu se časová část opakuje každých ~25 dní (36⁶ ms) —
+  teoreticky umožňovalo kolizi napříč vzdálenějšími daty, i když by ji
+  aktivní kontrola nejspíš odchytila jako záchrannou síť. **Opraveno na
+  8 znaků** (36⁸ ms ≈ 89,4 roku) — perioda opakování teď přesahuje
+  reálnou životnost projektu, kontrola kolize zůstává jako DRUHÁ vrstva
+  obrany navíc, ne jako hlavní spoléhání.
+- Staré ID (`*0001*` až `*NNNN*`) se nemění, jen NOVĚ zakládané úkoly
+  dostávají nový formát. Nový prefix `*T` se nekříží s žádným
+  existujícím vzorem (`*0`, `RFT`, `*ZC`, `*EXC`).
+- Ověřeno: syntax na všech 3 souborech, formát nového ID, nekoliduje s
+  909 reálnými úkoly, **klíčový test** — simulace přesně původního bugu
+  (dvě nezávislé kopie dat generující ID téměř současně) → žádná
+  kolize (na rozdíl od staré logiky), pojistka proti nucené kolizi
+  funguje, skutečné vytvoření úkolu v obou souborech funguje, regresní
+  test na kompletní živé databázi na všech 4 stránkách bez chyb.
+- **Kontrolovat při budoucí práci:** žádný jiný kód v projektu neparsuje
+  číslice z `task.id` (ověřeno greppem přes všechny soubory) — tahle
+  změna je tedy izolovaná, nemá vedlejší dopady jinde.
+
+### 2026-08-11 — Review handoff od SPA projektu (dovolená → task s prioritou PX)
+
+- Nezávislý projekt **SPA (Správa Pracovních Absencí)** — vlastní
+  repozitář, vlastní Claude instance, vlastní SQL databáze — připravil
+  návrh jednosměrné synchronizace schválené dovolené do TOP: zápis do
+  `tasks[]` jako skutečný task s `priority: "PX"` (hodnota už v TOP plně
+  zapojená — barva, legenda, filtry), ID prefix `SPA-<entries.id>`.
+  JK předal jejich handoff dokument, požádal o review z pohledu TOP.
+- **Ověřil jsem jejich tvrzení přímo v živém kódu** (ne jen podle
+  tohohle souboru): potvrzeno, že `priorityClass()` ve Správě úkolů
+  nemá `.prio-PX` třídu (spadá do šedého `prio-P3` fallbacku) — jejich
+  nález byl přesný. Potvrzeno, že VŠECHNA jejich navrhovaná pole
+  (`id, owner, title, priority, plannedDate, durationDays, note, state,
+  project, sales, waiting, dueDate, internalNote, internalProject,
+  subtask, auto, cancelled, createdDate, lastUpdated`) jsou explicitně
+  vyjmenovaná v `tasksToJson()`/`loadFromRaw()` — bezpečně přežijí
+  round-trip i při editaci JINÉHO úkolu přes UI (Nástraha č. 1 by se na
+  ně nevztahovala, protože všechna už appka "zná").
+- **Jejich hlavní nález (sekce 5 jejich dokumentu) byl v okamžiku psaní
+  správný, ale MEZITÍM zastaralý** — popisovali přesně tu starou
+  `generateNextId()` logiku s parsováním číslic z ID, kterou nezávisle
+  vyřešila oprava z 2026-08-10 výše (viz tam). Nová
+  `FTLoader.generateNextTaskId()` neparsuje číslice ze STÁVAJÍCÍCH ID
+  vůbec — jejich navrhované obcházení (base-26 kódování bez číslic) už
+  není technicky nutné, `SPA-142` s číslicí je bezpečné.
+- **Zjištěno při review:** v okamžiku psaní odpovědi ještě NEBYLY na
+  GitHubu nahrané `sprava_ukolu_linked.html` a Dashboard s opravou ID
+  (viz 2026-08-10) — jen `ft_loader.js`. Upozorněno, JK soubory
+  donahrál týž den.
+- **Doporučení dané SPA straně:** `activity.json` (indikátor "někdo
+  edituje") NEnastavovat při automatizovaném zápisu — určený pro
+  zdvořilostní upozornění mezi lidmi, ne pro automatizované procesy;
+  SHA konflikt chrání data nezávisle na tomhle mechanismu.
+- **Upozornění dané SPA straně, na které nemohli sami přijít:** nový
+  Kanban (2026-08-06) umožňuje přetažení karty mezi sloupci stavu —
+  pokud by někdo v TOP omylem přetáhl SPA-syncnutou kartu, další sync
+  běh by změnu tiše přepsal zpět (stejný důsledek jako u ruční editace
+  obecně, jen přes novou cestu).
+- **Otevřeno, čeká na rozhodnutí JK:** má se `.prio-PX` CSS třída
+  doplnit (kosmetika, nízké riziko)? Mají se SPA-syncnuté úkoly nějak
+  skrývat/odlišovat ve Správě úkolů (tabulka/Kanban/filtry), nebo stačí,
+  že existující filtr Priorita už PX nabízí?
