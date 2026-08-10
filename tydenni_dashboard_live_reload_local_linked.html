@@ -2077,15 +2077,8 @@ function formatDateISOSimple(value) {
   return "";
 }
 
-function generateNextIdNew() {
-  const ids = (DATA.tasks || []).map(t => t.id).filter(Boolean);
-  let max = 0;
-  ids.forEach(id => {
-    const m = id.match(/(\d+)/);
-    if (m) max = Math.max(max, Number(m[1]));
-  });
-  return `*${String(max + 1).padStart(4, "0")}*`;
-}
+// generateNextIdNew() odstraněno - nahrazeno sdílenou FTLoader.generateNextTaskId()
+// (viz ft_loader.js), sjednocuje logiku se Správou úkolů a řeší kolize ID.
 
 function buildResitelSelectNew() {
   const sel = document.getElementById("m2_assignee");
@@ -2210,7 +2203,7 @@ async function saveNewTaskFromModal() {
 
     const durationDays = parseInt(document.getElementById("m2_duration").value, 10) || 1;
     const newTask = {
-      id: generateNextIdNew(),
+      id: FTLoader.generateNextTaskId(DATA.tasks),
       title,
       priority: document.getElementById("m2_priority").value,
       project: (document.getElementById("m2_project").value || "").trim(),

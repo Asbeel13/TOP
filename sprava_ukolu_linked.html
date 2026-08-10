@@ -1520,7 +1520,7 @@ function saveTaskFromModal(){
     const maxRowIndex = tasks.reduce((max, t) => Math.max(max, t.rowIndex || 0), 0);
     taskData.rowIndex = maxRowIndex + 1;
     taskData.selected = false;
-    if (!taskData.id) taskData.id = generateNextId();
+    if (!taskData.id) taskData.id = FTLoader.generateNextTaskId(tasks);
     tasks.push(taskData);
   }
 
@@ -1531,15 +1531,8 @@ function saveTaskFromModal(){
   autoSaveIfPossible();
 }
 
-function generateNextId(){
-  const ids = tasks.map(t => t.id).filter(Boolean);
-  let max = 0;
-  ids.forEach(id => {
-    const m = id.match(/(\d+)/);
-    if(m) max = Math.max(max, Number(m[1]));
-  });
-  return `*${String(max + 1).padStart(4, "0")}*`;
-}
+// generateNextId() odstraněno - nahrazeno sdílenou FTLoader.generateNextTaskId()
+// (viz ft_loader.js), sjednocuje logiku s Dashboardem a řeší kolize ID.
 
 function escapeHtml(str){
   return (str ?? "").toString()
