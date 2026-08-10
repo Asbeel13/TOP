@@ -1077,3 +1077,25 @@ kterou uživatel nezmínil: "Blokováno".
 - Soubor teď 377 řádků, obě sekce (6 a 7) slouží jako rychlá orientace
   pro Claude instanci NEBO člověka, kdo do některého z projektů teprve
   vstupuje, bez nutnosti číst celou historii každého zvlášť.
+
+### 2026-08-11 — TOP sync potvrzen funkční end-to-end; `.prio-PX` CSS doplněna
+
+- **SPA strana potvrdila** (aktualizace `INTEGRACE.md`): JK vygeneroval
+  a nastavil `TOP_SYNC_GITHUB_TOKEN`, restartoval SPA server, sync **je
+  živý a funguje end-to-end** — 15 úkolů `*SPA<id>*` s `priority:"PX"`
+  správně zapsáno do `top-data/database.json`, SPA-side Claude ověřil
+  přímo přes GitHub API, JK potvrdil vizuálně v TOP Dashboardu.
+- Sekce 4 `INTEGRACE.md` obsahovala **dva konkrétní požadavky pro TOP
+  stranu**. Bod 1 měl explicitní souhlas JK ("ať se do toho pustí"),
+  bod 2 byl výslovně označen jako "zatím žádná akce, JK se rozhodne
+  podle zkušenosti" — proto se řešil jen bod 1.
+- **Provedeno (bod 1):** přidána `.prio-PX{background:#fef9c3;
+  color:#854d0e}` do `sprava_ukolu_linked.html`, `priorityClass()`
+  rozšířena o `"PX"` v seznamu rozpoznávaných hodnot (dřív spadalo do
+  `P3` šedého fallbacku). Stejná žlutá barva teď platí konzistentně v
+  tabulce i v Kanban kartách (obě čerpají ze stejné funkce).
+- Ověřeno: syntax, barva badge v tabulce i Kanbanu (`rgb(254, 249, 195)`
+  — odpovídá zadané `#fef9c3`), regresní test na kompletní živé databázi
+  (964 úkolů) — P0–P3 beze změny, žádné chyby. Nahráno přímo na GitHub.
+- **Aktualizováno v obou dokumentech** (`INTEGRACE.md` i tady) podle
+  Konvence č. 7 — bod 1 označen hotový, bod 2 zůstává explicitně otevřený.
