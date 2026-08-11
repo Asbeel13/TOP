@@ -1106,3 +1106,18 @@ kterou uživatel nezmínil: "Blokováno".
   (964 úkolů) — P0–P3 beze změny, žádné chyby. Nahráno přímo na GitHub.
 - **Aktualizováno v obou dokumentech** (`INTEGRACE.md` i tady) podle
   Konvence č. 7 — bod 1 označen hotový, bod 2 zůstává explicitně otevřený.
+
+### 2026-08-12 — Plovoucí tlačítko "Dovolené (SPA)" v Dashboardu i Správě úkolů
+
+- Přidán třetí (Dashboard) / druhý (Správa úkolů) `.fab-nav` odkaz —
+  `🏖️ Dovolené (SPA)`, vede na `http://192.168.0.4:3000/` (SPA server,
+  **lokální síťová adresa** — bude potřeba upravit, až/pokud SPA zpřístupní
+  server i zvenku internetu, viz `INTEGRACE.md` sekce 6.8/7.8 backlog).
+- Pozice: Dashboard `bottom: 156px` (nad stávajícími dvěma, zachovává
+  66px odstup), Správa úkolů `bottom: 100px` (upraveno na žádost
+  uživatele z původních 90px, ať lépe sedí vizuálně nad "Zpět na rozvrh").
+- Ověřeno: syntax obou souborů, vizuální kontrola screenshotem (žádné
+  překrytí, čitelné), pozice potvrzeny přes `getComputedStyle`.
+- **Připomínka dodržení Konvence č. 4:** tenhle soubor (kódové změny)
+  nahrál na GitHub uživatel sám, já jsem jen připravil a otestoval —
+  správně dodrženo tentokrát, na rozdíl od incidentu 2026-08-11.
