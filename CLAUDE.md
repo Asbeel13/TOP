@@ -1121,3 +1121,44 @@ kterou uživatel nezmínil: "Blokováno".
 - **Připomínka dodržení Konvence č. 4:** tenhle soubor (kódové změny)
   nahrál na GitHub uživatel sám, já jsem jen připravil a otestoval —
   správně dodrženo tentokrát, na rozdíl od incidentu 2026-08-11.
+
+### 2026-08-12 — Tlačítko "Dovolené (SPA)" i na `tydenni_prehled.html`
+
+- Uživatel zvažoval teoreticky vložení SPA do pop-up/iframe okna přímo
+  v rámci stránky — probráno, ale zamítnuto ve prospěch jednoduchého
+  odkazu (stejný vzorec jako Dashboard/Správa úkolů). Poznámka pro
+  budoucnost, kdyby se k tomu vrátil: **iframe varianta by narazila na
+  reálné technické riziko** — SPA server pravděpodobně posílá
+  `X-Frame-Options`/CSP hlavičku bránící vložení (běžná ochrana proti
+  clickjackingu), a i kdyby ne, cookies pro přihlášení by se mezi
+  hlavní stránkou a iframe nemusely sdílet (moderní prohlížeče čím dál
+  přísněji blokují cross-origin cookie sdílení v iframe). Nebylo ověřeno
+  u SPA strany, jen teoretická úvaha — pokud by se k tomu JK vrátil,
+  nejdřív se zeptat SPA přes `INTEGRACE.md`, ne rovnou zkoušet.
+- `tydenni_prehled.html` byl **první ze čtyř hlavních stránek BEZ
+  jakéhokoliv `.fab-nav` tlačítka** — musel se přidat celý CSS blok
+  (zkopírován z Dashboardu/Správy úkolů, tmavé `#0f172a` schéma
+  odpovídající topbaru té stránky), ne jen nová instance existujícího
+  stylu.
+- Ověřeno: syntax, žádná duplicitní ID, vizuální screenshot (bez
+  překrytí, konzistentní vzhled s ostatními stránkami).
+- **Zapsáno i do `INTEGRACE.md`** (viz tam) — teď tři místa v TOP
+  odkazují na lokální SPA adresu, ne dvě.
+
+### 2026-08-12 — Favicon (ikona v záložce prohlížeče) na všech hlavních stránkách
+
+- Uživatel si všiml, že v záložce prohlížeče chybí logo appky (viditelné
+  jen jako obecná ikona dokumentu). Zjištěno: logo bylo dosud propojené
+  jen přes PWA `manifest.json` (instalovatelnost mobilního přehledu),
+  ne jako klasický `<link rel="icon">` favicon pro běžné prohlížení.
+- Přidáno `<link rel="icon" type="image/png" sizes="192x192"
+  href="icons/icon-192.png" />` do `<head>` Dashboardu, Správy úkolů a
+  `tydenni_prehled.html` — stejná ikona, co appka už měla nahranou pro
+  PWA účely, žádný nový soubor. Mobilní přehled ho měl už od dřívějška
+  (PWA nastavení), netýkalo se ho.
+- Ověřeno: syntax na všech třech souborech, a protože `fetch()` na
+  `file://` protokolu má vlastní CORS omezení (nesouvisí se skutečnou
+  dostupností souboru), ověřeno spolehlivěji přes `<img>` element —
+  ikona se na všech třech stránkách správně načetla (192×192 px).
+- Uživatel upozorněn, že prohlížeč může mít starou verzi v cache —
+  doporučen tvrdý refresh po nahrání.
