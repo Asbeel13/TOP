@@ -368,6 +368,59 @@
     html.dark { color-scheme: dark; }
     html.dark body { background: #0f172a; color: #e2e8f0; }
     html.dark .topbar { background: #1e293b; border-color: #334155; }
+
+    .fab-nav {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 9999;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 220px;
+      width: auto;
+      padding: 14px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: #0f172a;
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .fab-nav:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.34);
+      background: #111f38;
+    }
+    .fab-nav .fab-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      opacity: .8;
+      margin-top: 2px;
+    }
+    .fab-nav .fab-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.16);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 16px;
+    }
+    @media (max-width: 720px) {
+      .fab-nav {
+        right: 14px;
+        bottom: 14px;
+        min-width: 0;
+        width: calc(100% - 28px);
+        justify-content: center;
+      }
+    }
     html.dark button, html.dark select, html.dark input { background: #1e293b; color: #e2e8f0; border-color: #334155; }
     html.dark .schedule { background: #0f172a; }
     html.dark .head { background: #1e293b; color: #94a3b8; border-color: #334155; }
@@ -1043,6 +1096,14 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
   </div>
 </div>
+
+<a class="fab-nav" href="http://192.168.0.4:3000/" aria-label="Přejít do evidence dovolených (SPA)">
+  <span class="fab-icon">🏖️</span>
+  <span>
+    Dovolené (SPA)
+    <span class="fab-sub">evidence docházky a absencí</span>
+  </span>
+</a>
 
 </body>
 </html>
