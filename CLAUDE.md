@@ -1162,3 +1162,54 @@ kterou uživatel nezmínil: "Blokováno".
   ikona se na všech třech stránkách správně načetla (192×192 px).
 - Uživatel upozorněn, že prohlížeč může mít starou verzi v cache —
   doporučen tvrdý refresh po nahrání.
+
+### 2026-08-13 — KRITICKÁ OPRAVA: automatické opakování ukládání nového úkolu po konfliktu
+
+- Uživatel nahlásil: "zobrazení v dashboardu trvá dlouho a zadané úkoly
+  se někdy ani nezaloží". Analýza rozdělila tohle na dvě NEZÁVISLÉ věci:
+  1) polling (5s, `POLL_MS` v `ft_loader.js`) — ovlivňuje jen rychlost,
+     jakou appka VIDÍ cizí změny, nesouvisí s vlastním ukládáním.
+     **Uživatel se rozhodl polling neměnit** (jen opravit retry).
+  2) skutečná příčina "úkol se nezaloží": konflikt (409) při zakládání
+     NOVÉHO úkolu končil dialogem "klikni OK pro přenačtení dat" — po
+     kliknutí OK appka data přenačetla, ale **needitovaně zahodila právě
+     rozepsaný nový úkol a NEZKUSILA uložení znovu automaticky**.
+     Uživatel snadno nabyl dojmu "OK = uloženo", zavřel formulář, a
+     úkol nikdy nevznikl. **Zesíleno zavedením SPA synchronizace**
+     (píše do stejného souboru každých 8s), takže kolize začaly být
+     mnohem častější než dřív.
+- **Oprava (Dashboard, `saveNewTaskFromModal`):** přepsáno na smyčku až
+  3 pokusů — při konfliktu potichu přenačte data, přepočítá ID (přes
+  bezpečný `FTLoader.generateNextTaskId()`, viz oprava z 2026-08-10) a
+  zkusí uložit znovu, BEZ nutnosti manuálního zásahu uživatele.
+  Tlačítko "Uložit" mezitím ukazuje "Souběžný zápis, zkouším znovu
+  (X/3)…", ať uživatel vidí, že se něco děje.
+- **Oprava (Správa úkolů):** nová funkce `saveNewTaskWithRetry()` se
+  stejnou logikou, volaná jen pro NOVÉ úkoly (`currentEditIndex ==
+  null`) — editace EXISTUJÍCÍCH úkolů zůstává beze změny přes stávající
+  `autoSaveIfPossible()`/`saveWorkbook()`, protože se to netýkalo
+  reportovaného problému a mělo by to vlastní architektonické otazníky
+  (viz "Nevyřešeno/otevřeno" níže).
+- **Vytažena sdílená `taskToRawFormat(t)`** ze Správy úkolů (dřív
+  duplikovaná inline uvnitř `tasksToJson()`) — používá ji teď i
+  `saveNewTaskWithRetry()`, ať nevzniknou dvě nezávislé kopie mapování
+  polí (stejný vzorec nástrahy jako u dřívějšího dropdownu řešitele).
+- Po vyčerpání všech 3 pokusů (trvalý konflikt) — jasná chybová hláška
+  uživateli, ne tiché selhání.
+- Ověřeno: syntax obou souborů, žádná duplicitní ID, **klíčový test**
+  (409 na 1. pokusu → automatický 2. pokus → úspěch, ověřeno počtem PUT
+  volání i obsahem uloženého úkolu) v obou souborech, integrita všech
+  18 polí přes nový mechanismus, vyčerpání pokusů končí srozumitelnou
+  hláškou, regresní test na kompletní živé databázi (1082 úkolů) na
+  všech 4 stránkách bez chyb.
+- **Nevyřešeno/otevřeno pro budoucí práci:** stejný typ konfliktu může
+  nastat i u editace EXISTUJÍCÍCH úkolů (přes `autoSaveIfPossible()`/
+  `saveWorkbook()`) a u dalších akcí v Dashboardu (označit hotovo,
+  zástup, zrušit úkol...) — tahle oprava řešila cíleně jen zakládání
+  NOVÝCH úkolů, protože přesně to uživatel popsal jako problém. Obecné
+  řešení pro EDITACI existujících záznamů je architektonicky složitější
+  (`saveWorkbook()` ukládá celý aktuální stav `tasks[]` najednou, ne
+  jednu konkrétní změnu, takže "zkus to samé znovu" by mohlo přepsat
+  souběžné změny JINÝCH záznamů od jiných lidí/SPA) — vyžadovalo by to
+  sledovat KONKRÉTNÍ pending mutaci odděleně, ne jen plný snapshot.
+  Pokud se ukáže jako reálný problém i tam, řešit zvlášť.
