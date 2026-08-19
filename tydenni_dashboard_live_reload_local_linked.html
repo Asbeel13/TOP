@@ -2196,60 +2196,79 @@ async function saveNewTaskFromModal() {
   if (!planned) { alert("Pole Plánovaný datum realizace je povinné."); return; }
 
   const saveBtn = document.querySelector('#newTaskModal .actions-row .primary');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Ukládám…"; }
+  const setBtnState = (text, disabled) => { if (saveBtn) { saveBtn.disabled = disabled; saveBtn.textContent = text; } };
+  setBtnState("Ukládám…", true);
 
+  // Konflikt (409) při ukládání nového úkolu se teď řeší AUTOMATICKÝM
+  // opakováním (přenačíst čerstvá data, přepočítat ID, zkusit znovu) —
+  // NE jen dialogem "klikni OK pro přenačtení", který uživatele nechal
+  // domnívat se, že se úkol uložil, i když ve skutečnosti jen přenačetl
+  // data a formulář čekal na druhé ruční kliknutí na Uložit. Konflikty
+  // zesílily po zavedení automatické synchronizace SPA (píše do stejného
+  // souboru), takže tohle přestalo být okrajový případ.
+  const maxAttempts = 3;
   try {
-    const raw = FTLoader.getRawJson();
-    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const raw = FTLoader.getRawJson();
+        if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
 
-    const durationDays = parseInt(document.getElementById("m2_duration").value, 10) || 1;
-    const newTask = {
-      id: FTLoader.generateNextTaskId(DATA.tasks),
-      title,
-      priority: document.getElementById("m2_priority").value,
-      project: (document.getElementById("m2_project").value || "").trim(),
-      sales: (document.getElementById("m2_sales").value || "").trim(),
-      state: document.getElementById("m2_state").value,
-      createdDate: document.getElementById("m2_created").value,
-      plannedDate: planned,
-      doneDate: document.getElementById("m2_finished").value || "",
-      dueDate: document.getElementById("m2_due").value || "",
-      owner: assignee,
-      note: (document.getElementById("m2_note").value || "").trim(),
-      internalNote: (document.getElementById("m2_note_internal").value || "").trim(),
-      internalProject: (document.getElementById("m2_internal").value || "").trim(),
-      subtask: document.getElementById("m2_subtask").value === "true",
-      auto: (document.getElementById("m2_auto").value || "").trim(),
-      cancelled: false,
-      lastUpdated: formatDateISOSimple(new Date()),
-    };
-    if (durationDays > 1) newTask.durationDays = durationDays;
+        const durationDays = parseInt(document.getElementById("m2_duration").value, 10) || 1;
+        const newTask = {
+          id: FTLoader.generateNextTaskId(raw.tasks || []),
+          title,
+          priority: document.getElementById("m2_priority").value,
+          project: (document.getElementById("m2_project").value || "").trim(),
+          sales: (document.getElementById("m2_sales").value || "").trim(),
+          state: document.getElementById("m2_state").value,
+          createdDate: document.getElementById("m2_created").value,
+          plannedDate: planned,
+          doneDate: document.getElementById("m2_finished").value || "",
+          dueDate: document.getElementById("m2_due").value || "",
+          owner: assignee,
+          note: (document.getElementById("m2_note").value || "").trim(),
+          internalNote: (document.getElementById("m2_note_internal").value || "").trim(),
+          internalProject: (document.getElementById("m2_internal").value || "").trim(),
+          subtask: document.getElementById("m2_subtask").value === "true",
+          auto: (document.getElementById("m2_auto").value || "").trim(),
+          cancelled: false,
+          lastUpdated: formatDateISOSimple(new Date()),
+        };
+        if (durationDays > 1) newTask.durationDays = durationDays;
 
-    const checkedDays = [];
-    for (let i = 1; i <= 7; i++) {
-      const cb = document.getElementById(`m2_day_${i}`);
-      if (cb && cb.checked) checkedDays.push(i);
-    }
-    if (checkedDays.length > 0 && checkedDays.length < 7) newTask.activeDays = checkedDays;
+        const checkedDays = [];
+        for (let i = 1; i <= 7; i++) {
+          const cb = document.getElementById(`m2_day_${i}`);
+          if (cb && cb.checked) checkedDays.push(i);
+        }
+        if (checkedDays.length > 0 && checkedDays.length < 7) newTask.activeDays = checkedDays;
 
-    raw.tasks = raw.tasks || [];
-    raw.tasks.push(newTask);
+        raw.tasks = raw.tasks || [];
+        raw.tasks.push(newTask);
 
-    const user = FTLoader.getCurrentUser() || "dashboard";
-    await FTLoader.saveToGitHub(raw, `Nový úkol ${newTask.id} přidán uživatelem ${user}`);
-    closeNewTaskModal();
-    await FTLoader.reload();
-  } catch (e) {
-    if (e.message && e.message.includes("CONFLICT")) {
-      if (confirm(`⚠ ${e.message}\n\nKliknout OK pro přenačtení dat.`)) {
+        const user = FTLoader.getCurrentUser() || "dashboard";
+        await FTLoader.saveToGitHub(raw, `Nový úkol ${newTask.id} přidán uživatelem ${user}`);
+        closeNewTaskModal();
         await FTLoader.reload();
+        return;
+      } catch (e) {
+        const isConflict = e.message && e.message.includes("CONFLICT");
+        if (isConflict && attempt < maxAttempts) {
+          setBtnState(`Souběžný zápis, zkouším znovu (${attempt}/${maxAttempts})…`, true);
+          await FTLoader.reload();
+          continue;
+        }
+        if (isConflict) {
+          alert(`Nepodařilo se uložit ani po ${maxAttempts} pokusech kvůli opakovanému souběžnému zápisu. Zkus to prosím za chvíli znovu.`);
+        } else {
+          alert(`Uložení se nepodařilo: ${e.message}`);
+          console.error(e);
+        }
+        return;
       }
-    } else {
-      alert(`Uložení se nepodařilo: ${e.message}`);
-      console.error(e);
     }
   } finally {
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Uložit"; }
+    setBtnState("Uložit", false);
   }
 }
 

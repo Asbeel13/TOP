@@ -1512,25 +1512,64 @@ function saveTaskFromModal(){
   taskData.activeDays = (checkedDays.length > 0 && checkedDays.length < 7) ? checkedDays : undefined;
 
   if (currentEditIndex != null) {
-    // Editace existujícího úkolu — aktualizuj v paměti
+    // Editace existujícího úkolu — aktualizuj v paměti, beze změny mechanismu
     const existing = tasks.find(t => t.rowIndex === currentEditIndex);
     if (existing) {
       Object.assign(existing, taskData, { rowIndex: existing.rowIndex, selected: existing.selected });
     }
+    applyFilters();
+    renderTable();
+    renderStats();
+    closeTaskModal();
+    autoSaveIfPossible();
   } else {
-    // Nový úkol — přidej s novým rowIndex
-    const maxRowIndex = tasks.reduce((max, t) => Math.max(max, t.rowIndex || 0), 0);
-    taskData.rowIndex = maxRowIndex + 1;
-    taskData.selected = false;
-    if (!taskData.id) taskData.id = FTLoader.generateNextTaskId(tasks);
-    tasks.push(taskData);
+    // Nový úkol — bezpečné uložení s automatickým opakováním při konfliktu
+    // (viz saveNewTaskWithRetry níže) místo přes generický autoSaveIfPossible,
+    // který na konflikt jen nabídne "přenačíst data" a tím tiše zahodí
+    // právě zadaný nový úkol, aniž by ho zkusil uložit znovu.
+    closeTaskModal();
+    saveNewTaskWithRetry(taskData);
   }
+}
 
-  applyFilters();
-  renderTable();
-  renderStats();
-  closeTaskModal();
-  autoSaveIfPossible();
+async function saveNewTaskWithRetry(taskData) {
+  // Konflikt (409) při zakládání nového úkolu se řeší AUTOMATICKÝM
+  // opakováním (přenačíst čerstvá data, přepočítat ID, zkusit znovu) —
+  // ne dialogem, po kterém uživatel omylem nabyl dojmu, že se úkol
+  // uložil, zatímco ve skutečnosti se jen přenačetla data a úkol se
+  // vůbec neuložil, dokud by ho nezkusil uložit znovu ručně.
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const raw = FTLoader.getRawJson();
+      if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+      raw.tasks = raw.tasks || [];
+
+      const finalTask = taskToRawFormat(taskData);
+      if (!finalTask.id) finalTask.id = FTLoader.generateNextTaskId(raw.tasks);
+      raw.tasks.push(finalTask);
+
+      const user = FTLoader.getCurrentUser() || "admin";
+      await FTLoader.saveToGitHub(raw, `Nový úkol ${finalTask.id} přidán uživatelem ${user}`);
+      status(`✅ Uloženo · ${new Date().toLocaleString("cs-CZ")}`, false);
+      await FTLoader.reload();
+      return;
+    } catch (e) {
+      const isConflict = e.message && e.message.includes("CONFLICT");
+      if (isConflict && attempt < maxAttempts) {
+        status(`⏳ Souběžný zápis, zkouším uložit znovu (${attempt}/${maxAttempts})…`, false);
+        await FTLoader.reload();
+        continue;
+      }
+      if (isConflict) {
+        alert(`Nepodařilo se uložit ani po ${maxAttempts} pokusech kvůli opakovanému souběžnému zápisu. Zkus to prosím za chvíli znovu.`);
+      } else {
+        alert(`Uložení se nepodařilo: ${e.message}`);
+        console.error(e);
+      }
+      return;
+    }
+  }
 }
 
 // generateNextId() odstraněno - nahrazeno sdílenou FTLoader.generateNextTaskId()
@@ -2364,9 +2403,12 @@ function restoreTask(rowIndex) {
 }
 
 // ── Převod tasks na JSON pro GitHub ────────────────────────────────────
-function tasksToJson() {
-  const raw = FTLoader.getRawJson() || {};
-  const updatedTasks = tasks.map(t => ({
+// Mapování jednoho úkolu z paměti do syrového formátu - sdílené mezi
+// tasksToJson() (plné uložení) a saveNewTaskWithRetry() (bezpečné
+// přidání nového úkolu), ať se nerozjedou dvě nezávislé kopie stejné
+// logiky (stejná nástraha jako dřív u dropdownu řešitele).
+function taskToRawFormat(t) {
+  return {
     id: t.id,
     title: t.task || t.title || "",
     priority: t.priority || "P3",
@@ -2389,7 +2431,12 @@ function tasksToJson() {
     lastUpdated: t.lastUpdated || "",
     activeDays: Array.isArray(t.activeDays) && t.activeDays.length > 0 ? t.activeDays : undefined,
     completedDays: Array.isArray(t.completedDays) && t.completedDays.length > 0 ? t.completedDays : undefined,
-  }));
+  };
+}
+
+function tasksToJson() {
+  const raw = FTLoader.getRawJson() || {};
+  const updatedTasks = tasks.map(taskToRawFormat);
   return {
     ...raw,
     tasks: updatedTasks,
