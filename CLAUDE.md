@@ -1213,3 +1213,28 @@ kterou uživatel nezmínil: "Blokováno".
   souběžné změny JINÝCH záznamů od jiných lidí/SPA) — vyžadovalo by to
   sledovat KONKRÉTNÍ pending mutaci odděleně, ne jen plný snapshot.
   Pokud se ukáže jako reálný problém i tam, řešit zvlášť.
+
+### 2026-08-21 — Rozšíření denní zálohy o `users.json`
+
+- Uživatel se zeptal, jestli je zálohování vyřešené — ověřeno přímo přes
+  GitHub API (ne z paměti): `.github/workflows/backup.yml` v `top-data`
+  běží spolehlivě denně v 18:00 UTC, posledních 5 běhů úspěšných,
+  obsah nejnovější zálohy platný JSON odpovídající aktuálním datům.
+  Následně se domluvilo rozšíření na víc souborů.
+- **Do zálohy přidán `users.json`** (whitelist tokenů a rolí — ztráta by
+  znamenala nutnost znovu registrovat všechny uživatele). **Záměrně
+  VYNECHÁN `activity.json`** — ověřen jeho obsah (`lastEditBy`,
+  `lastEditAt`, `action`), je to čistě momentální "kdo právě edituje"
+  indikátor přepisovaný při každé akci, žádná dlouhodobá hodnota,
+  zálohovat by bylo zbytečné.
+- Rotace (max 3 zálohy) teď běží odděleně pro `database_*.json` i
+  `users_*.json` — každý typ souboru má svých vlastních posledních 3
+  verzí, ne sdílený limit.
+- **Workflow soubory v `top-data` (na rozdíl od `.html`/`.js` v repu
+  `TOP`) spadají mimo Konvenci č. 4** — spravuje a nahrává je AI-Asistent
+  přímo, stejně jako `users.json`/`database.json` editace. Nejde o
+  appkový kód, na který se vztahuje pravidlo "nahrává jen uživatel".
+- Ověřeno **skutečným ručním spuštěním** workflow (`workflow_dispatch`),
+  ne jen kontrolou syntaxe — proběhlo úspěšně, `database.json` správně
+  rotoval (smazal nejstarší ze 4, zbyly 3), `users.json` záloha nově
+  vznikla s platným obsahem (9 uživatelů, správné role).
