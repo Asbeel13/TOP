@@ -1238,3 +1238,52 @@ kterou uživatel nezmínil: "Blokováno".
   ne jen kontrolou syntaxe — proběhlo úspěšně, `database.json` správně
   rotoval (smazal nejstarší ze 4, zbyly 3), `users.json` záloha nově
   vznikla s platným obsahem (9 uživatelů, správné role).
+
+### 2026-08-21 — KRITICKÁ OPRAVA: tichá ztráta úkolu při rychlém zakládání dvou po sobě
+
+- Uživatel nahlásil: založil dva úkoly, jeden ("Demontáž potrubí 102")
+  se 100% zobrazil, upravoval u něj řešitele, pak oba **beze stopy
+  zmizely** — musel je zadat znovu. Žádná chybová hláška.
+- **Diagnostika přes git historii** (ne dohad): stáhnuty všechny
+  commity `top-data` z rozhodného dne, filtrováno na ty dotýkající se
+  `database.json`, a obsah souboru zkontrolován při KAŽDÉM z nich na
+  přítomnost titulku "Demontáž potrubí 102". Úkol se objevil v commitu
+  `66bf35f4` (06:56:24) jako `*TMT2LIFUG*` — a **o 34 sekund později**,
+  v commitu `3371d033` (06:56:58, založení DALŠÍHO nového úkolu), byl
+  pryč. Celkový počet úkolů zůstal stejný (1116→1116) — jeden úkol
+  nahradil druhý.
+- **Kořenová příčina, nalezená v `ft_loader.js`:** `saveToGitHub()` po
+  úspěšném zápisu okamžitě aktualizuje `_lastSha` (proměnná používaná
+  ke kontrole konfliktu), ale **lokální cache dat** (`localStorage`,
+  čtená přes `getRawJson()`) se aktualizovala AŽ přes samostatný,
+  asynchronní síťový požadavek (`reload()`/`fetchFromGitHub()`).
+  Vznikla tím **časová mezera** — pokud v ní proběhlo DALŠÍ volání
+  `saveToGitHub()` (např. rychlé založení druhého úkolu), `getRawJson()`
+  vrátil ZASTARALÁ data bez prvního úkolu. Protože `_lastSha` už byl
+  aktuální, GitHub zápis přijal jako platný (**žádný konflikt 409**) —
+  tiše přepsal a ztratil první úkol, bez jakékoliv chybové hlášky.
+- **Oprava:** `saveToGitHub()` teď aktualizuje `localStorage` cache
+  (`DATA_KEY`) OKAMŽITĚ, synchronně jako součást stejné funkce, ne až
+  přes pozdější `reload()`. Časová mezera tím mizí úplně — jakékoliv
+  další volání `saveToGitHub()`, byť o milisekundy později, vidí
+  správná, čerstvá data. Netýká se to Dashboardu ani Správy úkolů přímo
+  — je to čistě oprava uvnitř `ft_loader.js`, obě stránky ji automaticky
+  zdědí.
+- **Ověřeno srovnávacím testem** (nejpřesvědčivější důkaz, jaký jsme
+  zatím u jakékoliv opravy udělali): přesně stejný scénář (dva úkoly
+  založené rychle po sobě, s korektně stavovým mock serverem
+  reagujícím na SHA jako skutečný GitHub) spuštěný **dvakrát** — jednou
+  se STAROU verzí `ft_loader.js`, jednou s OPRAVENOU:
+  - Stará verze: úkol 1 zmizel, úkol 2 přežil (**přesně reprodukuje
+    nahlášenou chybu**)
+  - Opravená verze: oba úkoly přítomné
+- Regresní test na kompletní živé databázi (1082 úkolů) na všech 4
+  stránkách bez chyb, syntax OK.
+- **Cesta k diagnostice stojí za zapamatování:** u příštích "něco
+  záhadně zmizelo" hlášení je prohledání git historie commit-po-commitu
+  (hledání konkrétního titulku/ID v obsahu souboru při každém commitu)
+  mnohem spolehlivější než hádání z popisu příznaků — dovolilo to najít
+  přesný 34sekundový interval a přesně ten pár commitů, co za to mohl.
+- **Zapsáno i do `INTEGRACE.md`** — SPA má vlastní `topSync.js` popsaný
+  jako "stejný vzorec jako `ft_loader.js`", takže může mít STEJNOU
+  zranitelnost ve vlastním kódu. Doporučeno SPA straně zkontrolovat.
