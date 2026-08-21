@@ -366,6 +366,29 @@ const FTLoader = (() => {
     const data = await resp.json();
     _lastSha = data.content.sha;
     _lastEtag = ""; // Vynutí přenačtení při příštím pollingu
+
+    // KRITICKÁ OPRAVA (2026-08-21): ihned po úspěšném zápisu aktualizuj i
+    // lokální cache (DATA_KEY), ať přesně odpovídá tomu, co se právě
+    // uložilo. Dřív se cache aktualizovala JEN přes samostatný
+    // reload()/fetchFromGitHub() — asynchronní síťový požadavek navíc.
+    // To vytvářelo ČASOVOU MEZERU mezi okamžitou aktualizací _lastSha a
+    // opožděnou aktualizací cache. Pokud v tomhle okně proběhlo DALŠÍ
+    // volání saveToGitHub() (např. rychlé založení druhého úkolu hned po
+    // prvním), getRawJson() vrátil ZASTARALÁ data BEZ prvního úkolu — a
+    // protože _lastSha už byl aktuální, GitHub zápis přijal jako platný
+    // (žádný konflikt 409), čímž TICHĚ PŘEPSAL a ztratil první úkol.
+    // Přesně tohle způsobilo zmizení úkolu "Demontáž potrubí 102"
+    // 2026-08-21 — dva úkoly založené rychle po sobě, druhý přepsal první.
+    try {
+      const parsed = parseDatabase(json);
+      localStorage.setItem(DATA_KEY, JSON.stringify({
+        parsedData: parsed,
+        rawJson: json,
+        sha: _lastSha,
+        savedAt: new Date().toISOString()
+      }));
+    } catch(e) {}
+
     return data;
   }
 
