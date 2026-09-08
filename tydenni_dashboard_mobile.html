@@ -429,7 +429,7 @@
 
   <div id="content"></div>
 
-  <button class="fab-add" id="fabAddBtn" title="Nový úkol" aria-label="Založit nový úkol">+</button>
+  <button class="fab-add" id="fabAddBtn" title="Nový úkol" aria-label="Založit nový úkol" style="display:none;">+</button>
 
   <div class="modal" id="modal">
     <div class="modal-card">
@@ -859,6 +859,7 @@ function openModal(task) {
 }
 
 async function markTaskAsDoneFromModal() {
+  if (!_canWrite) { alert("Nemáš oprávnění označovat úkoly jako hotové."); return; }
   const btn = document.getElementById("modalDoneBtn");
   const id = btn.dataset.taskId;
   const plannedDate = btn.dataset.plannedDate;
@@ -937,6 +938,7 @@ function openEditModalFromDetail() {
 }
 
 async function saveEditedTask() {
+  if (!_canWrite) { alert("Nemáš oprávnění upravovat úkoly."); return; }
   const id = document.getElementById("editTaskModal").dataset.taskId;
   if (!id) return;
   const title = (document.getElementById("et_task").value || "").trim();
@@ -991,6 +993,7 @@ async function saveEditedTask() {
 
 // ── Zrušení úkolu ─────────────────────────────────────────────────────────
 async function cancelTaskFromModal() {
+  if (!_canWrite) { alert("Nemáš oprávnění rušit úkoly."); return; }
   const task = _currentModalTask;
   if (!task || !task.id) return;
   if (!confirm(`Opravdu zrušit úkol ${task.id}? (lze obnovit ve Správě úkolů)`)) return;
@@ -1039,6 +1042,7 @@ async function cancelTaskFromModal() {
 
 // ── Rychlé založení nového úkolu ──────────────────────────────────────────
 function openNewTaskModalMobile() {
+  if (!_canWrite) { alert("Nemáš oprávnění zakládat nové úkoly."); return; }
   document.getElementById("nt_task").value = "";
   document.getElementById("nt_assignee").value = "";
   document.getElementById("nt_priority").value = "P2";
@@ -1050,6 +1054,7 @@ function openNewTaskModalMobile() {
 }
 
 async function saveNewTaskMobile() {
+  if (!_canWrite) { alert("Nemáš oprávnění zakládat nové úkoly."); return; }
   const title = (document.getElementById("nt_task").value || "").trim();
   if (!title) { alert("Pole Úkol je povinné."); return; }
   const planned = document.getElementById("nt_planned").value || toISO(state.currentDate);
@@ -1188,6 +1193,7 @@ FTLoader.init({
           } else {
             _canWrite = true;
             buildAssigneeOptions();
+            document.getElementById("fabAddBtn").style.display = "flex";
           }
         });
       }
