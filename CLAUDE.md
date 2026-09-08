@@ -1357,3 +1357,33 @@ cyklu založení/úpravy/zrušení úkolu, podmíněné zobrazení tlačítek
 konfliktu** (stejná rigoróznost jako u opravy 2026-08-21 — potvrzeno 2
 PUT pokusy, úkol se nakonec uložil), regresní test na kompletní živé
 databázi (1423 úkolů) bez chyb.
+
+### 2026-09-08 — Oprava mezery v oprávnění na `tydenni_dashboard_mobile.html`
+
+- Uživatel si vyžádal explicitní kontrolu, jestli má do mobilního
+  Dashboardu přístup skutečně jen ten, kdo má oprávnění. **Kontrola
+  odhalila reálnou mezeru**, ne planý poplach:
+  1. Plovoucí tlačítko "+" bylo viditelné hned od načtení stránky,
+     ještě PŘED dokončením ověření role/oprávnění (to trvá ~1–2,5 s,
+     asynchronní volání `FTLoader.canActuallyWrite()`).
+  2. Žádná ze čtyř zápisových funkcí (`openNewTaskModalMobile`,
+     `saveNewTaskMobile`, `saveEditedTask`, `cancelTaskFromModal`,
+     a zděděná `markTaskAsDoneFromModal`) si `_canWrite` neověřovala
+     sama — spoléhaly čistě na to, že se k nim needitovaný uživatel
+     vůbec nedostane přes UI.
+- **Oprava, dvě vrstvy (defense-in-depth):**
+  1. Tlačítko "+" teď `display:none` ve výchozím stavu, zobrazí se
+     JEN po potvrzeném `_canWrite = true`.
+  2. Všech pět zápisových funkcí teď má na úplném začátku explicitní
+     `if (!_canWrite) { alert(...); return; }` — nezávisle na tom,
+     jestli uživatel funkci vyvolal přes UI nebo jinak (např. přímým
+     zavoláním z konzole).
+- **Poučení pro budoucí mobilní/nové zápisové funkce:** viditelnost
+  tlačítka v UI NIKDY nestačí sama o sobě jako ochrana — vždycky
+  přidat kontrolu i uvnitř samotné funkce, co skutečně zapisuje.
+  Tenhle vzorec (`if (!_canWrite) return`) by měl být první řádek
+  KAŽDÉ nové zápisové funkce na mobilních stránkách od teď.
+- Ověřeno: syntax, tlačítko "+" potvrzeně schované před ověřením role,
+  přímé zavolání zápisové funkce bez oprávnění správně odmítnuto,
+  oprávněný uživatel (Plánovač) funguje beze změny, regresní test na
+  kompletní živé databázi (1423 úkolů) bez chyb.
