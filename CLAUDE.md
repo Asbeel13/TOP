@@ -1287,3 +1287,73 @@ kterou uživatel nezmínil: "Blokováno".
 - **Zapsáno i do `INTEGRACE.md`** — SPA má vlastní `topSync.js` popsaný
   jako "stejný vzorec jako `ft_loader.js`", takže může mít STEJNOU
   zranitelnost ve vlastním kódu. Doporučeno SPA straně zkontrolovat.
+
+### 2026-09-06/07 — Nová stránka: `tydenni_dashboard_mobile.html`
+
+- Uživatel chtěl mobilní verzi i pro Dashboard a Správu úkolů (zatím jen
+  Přehled měl mobilní stránku). **Nejdřív proběhla čistě teoretická
+  diskuze** (výslovně požádáno "nic zatím neprogramuj") — dobrý postup,
+  který stojí za zopakování u podobně velkých funkcí příště.
+- **Rozhodnutí č. 1:** 1:1 přenos obou složitých stránek na mobil by byl
+  zbytečně rizikový a pracný — uživatel sám navrhl "osekané verze".
+  Odsouhlasený rozsah pro Dashboard mobil: zobrazení plánu, rychlé
+  založení úkolu, označení hotovo, **zjednodušená úprava přímo na
+  místě** (ne přesměrování jinam) — bez správy řešitelů/aut (admin
+  akce, vzácné, lepší na počítači).
+- **Rozhodnutí č. 2:** stejný vzor jako mobilní Přehled — samostatná
+  stránka (`tydenni_dashboard_mobile.html`), NE responzivní řešení v
+  rámci existujícího Dashboardu. Konzistentní s dřívějším rozhodnutím
+  u Přehledu (zdůvodnění: čistší kód, i za cenu zdvojené údržby).
+- **Rozhodnutí č. 3 (kalendář na mobilu):** "jeden den po druhém" se
+  šipkami/swipe (varianta A z nabízených 3), stejně jako Přehled mobil
+  — konzistence navigačního vzoru, kterou uživatel už zná.
+- **Rozhodnutí č. 4 (úprava na místě):** zjednodušeno na 6 polí (Název,
+  Řešitel, Priorita, Stav, Plánovaný datum, Poznámka) — vynechána
+  administrativní pole (Projekt, Prodejce, Auto, Interní poznámka,
+  Interní označení projektu, Termín, Datum dokončení, Podúkol, Čeká se
+  na), která nedávají smysl řešit narychlo z telefonu.
+- **Bezpečnostní rozhodnutí, které JÁ navrhl a uživatel odsouhlasil:**
+  Upravit/Zrušit se zobrazují JEN u běžných úkolů — ne u opakujících se
+  nebo vícedenních. Tyhle mají složitější logiku (konkrétní výskyt, ne
+  přímý záznam v `tasks[]`) a zjednodušená mobilní úprava by je mohla
+  poškodit. Pro ně zůstává jen Hotovo (stejně jako už fungovalo v
+  mobilním Přehledu), plná editace zůstává na počítači.
+
+### Technická realizace
+
+- Postaveno na `tydenni_prehled_mobile.html` jako základu — **znovu
+  použito beze změny**: `applyDarkMode`/`initDarkMode`, `loadSavedDay`/
+  `saveDayState`/`goToDay` (navigace, swipe), `addDays`/`toISO`/
+  `fmtDayName`/`fmtDate`, `cardClass`/`escapeHtml`, PWA nastavení.
+- **Upraveno:** `renderMobileDay()` (přidání "+" tlačítka, karty teď
+  vedou do rozšířeného modalu), `openModal()` (nové tlačítko Upravit/
+  Zrušit, podmíněná viditelnost podle typu úkolu a role).
+- **Nové:** `openNewTaskModalMobile()`/`saveNewTaskMobile()` (rychlé
+  založení), `openEditModalFromDetail()`/`saveEditedTask()`
+  (zjednodušená úprava), `cancelTaskFromModal()` (zrušení),
+  `buildAssigneeOptions()` (sdílený dropdown řešitelů pro oba formuláře,
+  vyřazení automaticky nenabízeny).
+- **Oprávnění:** stejná logika jako desktopový Dashboard (ne mobilní
+  Přehled) — Operátor i Nahlížeč přesměrováni na mobilní Přehled,
+  `_canWrite` řídí viditelnost všech zápisových akcí. Vlastní
+  `showReadOnlyRedirectMobile()`, analogická desktopové verzi.
+- **VŠECHNY tři nové zápisové funkce použily od začátku bezpečný
+  automatický retry-při-konfliktu vzorec** (viz kritická oprava výše,
+  2026-08-21) — ne starý vzorec s dialogem, který v `markTaskAsDoneFromModal()`
+  (převzato beze změny z Přehledu) záměrně zůstal beze změny, protože
+  nebyl součástí dnešního zadání. Stojí za zvážení sjednotit i tuhle
+  funkci při příští práci na mobilních stránkách.
+- Přidán reciproční odkaz — Dashboard mobil má 📅 na Přehled mobil,
+  Přehled mobil má nově 📋 zpátky na Dashboard mobil.
+- `sw.js` (PWA cache statické kostry) rozšířen o novou stránku.
+
+### Ověřeno
+
+Syntax obou upravených/nových souborů i `sw.js`, žádná duplicitní ID,
+vizuální kontrola (screenshoty potvrzují správné rozložení karet,
+barvy priorit, čitelnost topbaru se 4 ikonami), funkční test celého
+cyklu založení/úpravy/zrušení úkolu, podmíněné zobrazení tlačítek
+(běžný vs. opakující se úkol), **kritický test automatického retry po
+konfliktu** (stejná rigoróznost jako u opravy 2026-08-21 — potvrzeno 2
+PUT pokusy, úkol se nakonec uložil), regresní test na kompletní živé
+databázi (1423 úkolů) bez chyb.
