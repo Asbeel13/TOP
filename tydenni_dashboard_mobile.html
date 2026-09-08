@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>TOP — Mobilní přehled</title>
+  <title>TOP — Mobilní dashboard</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0f172a" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
@@ -123,6 +123,30 @@
       cursor: pointer;
     }
 
+    /* ── Plovoucí tlačítko + (nový úkol) ── */
+    .fab-add {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 60;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #1d4ed8;
+      color: white;
+      border: none;
+      font-size: 28px;
+      font-weight: 400;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(29, 78, 216, 0.45);
+      cursor: pointer;
+    }
+    .fab-add:active { background: #1e40af; }
+    html.dark .fab-add { background: #2563eb; }
+
     /* ── OBSAH ── */
     #content {
       flex: 1;
@@ -237,6 +261,82 @@
       min-height: 40px;
     }
     html.dark #modalDoneBtn { background: #14532d; border-color: #166534; color: #bbf7d0; }
+    #modalEditBtn {
+      flex-shrink: 0;
+      border: 1px solid #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    html.dark #modalEditBtn { background: #1e3a5f; border-color: #1d4ed8; color: #bfdbfe; }
+    #modalCancelBtn {
+      flex-shrink: 0;
+      border: 1px solid #fecdd3;
+      background: #fff1f2;
+      color: #be123c;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    html.dark #modalCancelBtn { background: #4c0519; border-color: #be123c; color: #fecdd3; }
+    .modal-actions-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    /* ── Formulářová pole (nový/upravovaný úkol) ── */
+    .mform-field { margin-bottom: 12px; }
+    .mform-field label {
+      display: block;
+      font-size: 11px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 5px;
+      font-weight: 700;
+    }
+    .mform-field input,
+    .mform-field select,
+    .mform-field textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 15px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: white;
+      color: #111827;
+      font-family: inherit;
+    }
+    .mform-field textarea { min-height: 70px; resize: vertical; }
+    html.dark .mform-field input,
+    html.dark .mform-field select,
+    html.dark .mform-field textarea {
+      background: #0f172a; border-color: #334155; color: #e2e8f0;
+    }
+    .mform-save-btn {
+      width: 100%;
+      background: #1d4ed8;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 6px;
+      min-height: 46px;
+    }
+    .mform-save-btn:disabled { opacity: .6; }
 
     /* ── NASTAVENÍ ZOBRAZENÍ ── */
     #displaySettingsModal .modal-card { max-height: 85vh; }
@@ -309,12 +409,11 @@
 
   <div class="topbar">
     <div class="topbar-row1">
-      <h1>TOP · Mobilní přehled</h1>
+      <h1>TOP · Mobilní dashboard</h1>
       <div class="topbar-actions">
         <button class="icon-btn" onclick="openDisplaySettingsModal()" title="Nastavení zobrazení">⚙️</button>
         <button class="icon-btn dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" title="Tmavý režim">🌙</button>
-        <a class="icon-btn" href="tydenni_dashboard_mobile.html" title="Přejít na mobilní dashboard" style="text-decoration:none;font-size:13px;">📋</a>
-        <a class="icon-btn" href="tydenni_prehled.html" title="Přepnout na desktopovou verzi" style="text-decoration:none;font-size:13px;">🖥️</a>
+        <a class="icon-btn" href="tydenni_prehled_mobile.html" title="Přejít na mobilní přehled" style="text-decoration:none;font-size:13px;">📅</a>
       </div>
     </div>
     <div class="day-nav">
@@ -330,6 +429,8 @@
 
   <div id="content"></div>
 
+  <button class="fab-add" id="fabAddBtn" title="Nový úkol" aria-label="Založit nový úkol">+</button>
+
   <div class="modal" id="modal">
     <div class="modal-card">
       <header>
@@ -337,13 +438,71 @@
           <div class="chips" id="modalChips"></div>
           <div class="modal-title" id="modalTitle"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-          <button id="modalDoneBtn">✓ Hotovo</button>
-          <button id="closeModal">Zavřít</button>
-        </div>
+        <button id="closeModal">Zavřít</button>
       </header>
       <div class="modal-label">Upřesnění</div>
       <div class="modal-text" id="modalNote"></div>
+      <div class="modal-actions-row">
+        <button id="modalDoneBtn">✓ Hotovo</button>
+        <button id="modalEditBtn">✏️ Upravit</button>
+        <button id="modalCancelBtn">🗑️ Zrušit</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="editTaskModal">
+    <div class="modal-card">
+      <header>
+        <div class="modal-title">Upravit úkol</div>
+        <button id="closeEditModal">Zavřít</button>
+      </header>
+      <div class="mform-field"><label>Název úkolu</label><input id="et_task" /></div>
+      <div class="mform-field"><label>Řešitel</label><select id="et_assignee"></select></div>
+      <div class="mform-field"><label>Priorita</label>
+        <select id="et_priority">
+          <option value="P0">P0 – nejvyšší</option>
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+          <option value="P3">P3 – nejnižší</option>
+          <option value="PX">PX – volno/lékař</option>
+        </select>
+      </div>
+      <div class="mform-field"><label>Stav</label>
+        <select id="et_state">
+          <option value="Nový">Nový</option>
+          <option value="Probíhá">Probíhá</option>
+          <option value="Čeká se">Čeká se</option>
+          <option value="Dokončeno">Dokončeno</option>
+        </select>
+      </div>
+      <div class="mform-field"><label>Plánovaný datum realizace</label><input id="et_planned" type="date" /></div>
+      <div class="mform-field"><label>Poznámka</label><textarea id="et_note"></textarea></div>
+      <button class="mform-save-btn" id="etSaveBtn">Uložit změny</button>
+    </div>
+  </div>
+
+  <div class="modal" id="newTaskModalMobile">
+    <div class="modal-card">
+      <header>
+        <div class="modal-title">Nový úkol</div>
+        <button id="closeNewTaskModalMobile">Zavřít</button>
+      </header>
+      <div class="mform-field field-required"><label>Úkol</label><input id="nt_task" /></div>
+      <div class="mform-field"><label>Řešitel</label><select id="nt_assignee"></select></div>
+      <div class="mform-field"><label>Priorita</label>
+        <select id="nt_priority">
+          <option value="P0">P0 – nejvyšší</option>
+          <option value="P1">P1</option>
+          <option value="P2" selected>P2</option>
+          <option value="P3">P3 – nejnižší</option>
+          <option value="PX">PX – volno/lékař</option>
+        </select>
+      </div>
+      <div class="mform-field"><label>Plánovaný datum realizace</label><input id="nt_planned" type="date" /></div>
+      <div class="mform-field"><label>Projekt</label><input id="nt_project" /></div>
+      <div class="mform-field"><label>Obchodní zástupce</label><input id="nt_sales" /></div>
+      <div class="mform-field"><label>Poznámka</label><textarea id="nt_note"></textarea></div>
+      <button class="mform-save-btn" id="ntSaveBtn">Uložit úkol</button>
     </div>
   </div>
 
@@ -657,7 +816,10 @@ function renderMobileDay() {
   });
 }
 
+let _currentModalTask = null;
+
 function openModal(task) {
+  _currentModalTask = task;
   const chips = [
     task.priority || "Bez priority",
     task.owner || "Bez řešitele",
@@ -673,7 +835,7 @@ function openModal(task) {
 
   const doneBtn = document.getElementById("modalDoneBtn");
   const isAlreadyDone = (task.state || "").toLowerCase().includes("dokončeno");
-  if (_canMarkDone && task.id && !isAlreadyDone) {
+  if (_canWrite && task.id && !isAlreadyDone) {
     doneBtn.dataset.taskId = task.id;
     doneBtn.dataset.plannedDate = task.plannedDate || "";
     doneBtn.dataset.recurring = task.recurring ? "1" : "";
@@ -682,6 +844,16 @@ function openModal(task) {
   } else {
     doneBtn.style.display = "none";
   }
+
+  // Upravit/Zrušit jen u BĚŽNÝCH úkolů (ne opakujících se/vícedenních) —
+  // ty mají složitější logiku (konkrétní výskyt, ne přímý záznam) a
+  // needitovaná úprava přímo na místě by mohla data zpřeházet. Pro tyhle
+  // případy zůstává jen Hotovo, plnou editaci nechat na počítači.
+  const editBtn = document.getElementById("modalEditBtn");
+  const cancelBtn = document.getElementById("modalCancelBtn");
+  const isSimpleTask = task.id && !task.recurring && !task.isMultiDay && !task.cancelled;
+  editBtn.style.display = (_canWrite && isSimpleTask) ? "inline-block" : "none";
+  cancelBtn.style.display = (_canWrite && isSimpleTask) ? "inline-block" : "none";
 
   document.getElementById("modal").classList.add("open");
 }
@@ -747,6 +919,201 @@ async function markTaskAsDoneFromModal() {
   }
 }
 
+// ── Úprava úkolu přímo na místě (zjednodušený formulář, 6 polí) ─────────
+function openEditModalFromDetail() {
+  const task = _currentModalTask;
+  if (!task || !task.id) return;
+  document.getElementById("modal").classList.remove("open");
+
+  document.getElementById("et_task").value = task.title || "";
+  document.getElementById("et_assignee").value = task.owner || "";
+  document.getElementById("et_priority").value = task.priority || "P2";
+  document.getElementById("et_state").value = task.state || "Nový";
+  document.getElementById("et_planned").value = task.plannedDate || "";
+  document.getElementById("et_note").value = task.note || "";
+  document.getElementById("editTaskModal").dataset.taskId = task.id;
+
+  document.getElementById("editTaskModal").classList.add("open");
+}
+
+async function saveEditedTask() {
+  const id = document.getElementById("editTaskModal").dataset.taskId;
+  if (!id) return;
+  const title = (document.getElementById("et_task").value || "").trim();
+  if (!title) { alert("Pole Název úkolu je povinné."); return; }
+
+  const btn = document.getElementById("etSaveBtn");
+  const setBtnState = (text, disabled) => { btn.disabled = disabled; btn.textContent = text; };
+  setBtnState("Ukládám…", true);
+
+  const maxAttempts = 3;
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const raw = FTLoader.getRawJson();
+        if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+        const task = (raw.tasks || []).find(t => t.id === id);
+        if (!task) throw new Error(`Úkol ${id} nebyl v databázi nalezen (možná ho mezitím někdo smazal).`);
+
+        task.title = title;
+        task.owner = document.getElementById("et_assignee").value || "";
+        task.priority = document.getElementById("et_priority").value;
+        task.state = document.getElementById("et_state").value;
+        task.plannedDate = document.getElementById("et_planned").value || task.plannedDate;
+        task.note = (document.getElementById("et_note").value || "").trim();
+        task.lastUpdated = toISO(new Date());
+
+        const user = FTLoader.getCurrentUser() || "mobilní dashboard";
+        await FTLoader.saveToGitHub(raw, `Úkol ${id} upraven z mobilu uživatelem ${user}`);
+        document.getElementById("editTaskModal").classList.remove("open");
+        await FTLoader.reload();
+        return;
+      } catch (e) {
+        const isConflict = e.message && e.message.includes("CONFLICT");
+        if (isConflict && attempt < maxAttempts) {
+          setBtnState(`Souběžný zápis, zkouším znovu (${attempt}/${maxAttempts})…`, true);
+          await FTLoader.reload();
+          continue;
+        }
+        if (isConflict) {
+          alert(`Nepodařilo se uložit ani po ${maxAttempts} pokusech kvůli opakovanému souběžnému zápisu. Zkus to prosím za chvíli znovu.`);
+        } else {
+          alert(`Uložení se nepodařilo: ${e.message}`);
+          console.error(e);
+        }
+        return;
+      }
+    }
+  } finally {
+    setBtnState("Uložit změny", false);
+  }
+}
+
+// ── Zrušení úkolu ─────────────────────────────────────────────────────────
+async function cancelTaskFromModal() {
+  const task = _currentModalTask;
+  if (!task || !task.id) return;
+  if (!confirm(`Opravdu zrušit úkol ${task.id}? (lze obnovit ve Správě úkolů)`)) return;
+
+  const btn = document.getElementById("modalCancelBtn");
+  btn.disabled = true;
+  btn.textContent = "Ruším…";
+
+  const maxAttempts = 3;
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const raw = FTLoader.getRawJson();
+        if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+        const rawTask = (raw.tasks || []).find(t => t.id === task.id);
+        if (!rawTask) throw new Error(`Úkol ${task.id} nebyl v databázi nalezen.`);
+
+        rawTask.cancelled = true;
+        rawTask.lastUpdated = toISO(new Date());
+        const user = FTLoader.getCurrentUser() || "mobilní dashboard";
+        await FTLoader.saveToGitHub(raw, `Úkol ${task.id} zrušen z mobilu uživatelem ${user}`);
+        document.getElementById("modal").classList.remove("open");
+        await FTLoader.reload();
+        return;
+      } catch (e) {
+        const isConflict = e.message && e.message.includes("CONFLICT");
+        if (isConflict && attempt < maxAttempts) {
+          btn.textContent = `Zkouším znovu (${attempt}/${maxAttempts})…`;
+          await FTLoader.reload();
+          continue;
+        }
+        if (isConflict) {
+          alert(`Nepodařilo se zrušit ani po ${maxAttempts} pokusech kvůli opakovanému souběžnému zápisu. Zkus to prosím za chvíli znovu.`);
+        } else {
+          alert(`Zrušení se nepodařilo: ${e.message}`);
+          console.error(e);
+        }
+        return;
+      }
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🗑️ Zrušit";
+  }
+}
+
+// ── Rychlé založení nového úkolu ──────────────────────────────────────────
+function openNewTaskModalMobile() {
+  document.getElementById("nt_task").value = "";
+  document.getElementById("nt_assignee").value = "";
+  document.getElementById("nt_priority").value = "P2";
+  document.getElementById("nt_planned").value = toISO(state.currentDate);
+  document.getElementById("nt_project").value = "";
+  document.getElementById("nt_sales").value = "";
+  document.getElementById("nt_note").value = "";
+  document.getElementById("newTaskModalMobile").classList.add("open");
+}
+
+async function saveNewTaskMobile() {
+  const title = (document.getElementById("nt_task").value || "").trim();
+  if (!title) { alert("Pole Úkol je povinné."); return; }
+  const planned = document.getElementById("nt_planned").value || toISO(state.currentDate);
+
+  const btn = document.getElementById("ntSaveBtn");
+  const setBtnState = (text, disabled) => { btn.disabled = disabled; btn.textContent = text; };
+  setBtnState("Ukládám…", true);
+
+  const maxAttempts = 3;
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const raw = FTLoader.getRawJson();
+        if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+        raw.tasks = raw.tasks || [];
+
+        const newTask = {
+          id: FTLoader.generateNextTaskId(raw.tasks),
+          title,
+          priority: document.getElementById("nt_priority").value || "P2",
+          project: (document.getElementById("nt_project").value || "").trim(),
+          sales: (document.getElementById("nt_sales").value || "").trim(),
+          state: "Nový",
+          createdDate: toISO(new Date()),
+          plannedDate: planned,
+          doneDate: "",
+          dueDate: "",
+          owner: document.getElementById("nt_assignee").value || "",
+          note: (document.getElementById("nt_note").value || "").trim(),
+          internalNote: "",
+          internalProject: "",
+          subtask: false,
+          auto: "",
+          cancelled: false,
+          lastUpdated: toISO(new Date()),
+        };
+        raw.tasks.push(newTask);
+
+        const user = FTLoader.getCurrentUser() || "mobilní dashboard";
+        await FTLoader.saveToGitHub(raw, `Nový úkol ${newTask.id} přidán z mobilu uživatelem ${user}`);
+        document.getElementById("newTaskModalMobile").classList.remove("open");
+        await FTLoader.reload();
+        return;
+      } catch (e) {
+        const isConflict = e.message && e.message.includes("CONFLICT");
+        if (isConflict && attempt < maxAttempts) {
+          setBtnState(`Souběžný zápis, zkouším znovu (${attempt}/${maxAttempts})…`, true);
+          await FTLoader.reload();
+          continue;
+        }
+        if (isConflict) {
+          alert(`Nepodařilo se uložit ani po ${maxAttempts} pokusech kvůli opakovanému souběžnému zápisu. Zkus to prosím za chvíli znovu.`);
+        } else {
+          alert(`Uložení se nepodařilo: ${e.message}`);
+          console.error(e);
+        }
+        return;
+      }
+    }
+  } finally {
+    setBtnState("Uložit úkol", false);
+  }
+}
+
 // ── Navigace mezi dny ────────────────────────────────────────────────────
 function goToDay(newDate) {
   state.currentDate = newDate;
@@ -796,28 +1163,73 @@ function applyData(nextData) {
   DATA.tasks = DATA.tasks || [];
   buildPeopleLabels(DATA.resitele);
   DATA.owners.forEach(owner => { if (!PEOPLE_LABELS[owner]) PEOPLE_LABELS[owner] = owner; });
+  if (_canWrite) buildAssigneeOptions();
   renderMobileDay();
 }
 
-let _canMarkDone = false;
-let _permissionCheckedPrehledMobile = false;
+let _canWrite = false;
+let _permissionCheckedDashMobile = false;
 
 FTLoader.init({
   onData: (parsedData) => {
     applyData(parsedData);
-    if (!_permissionCheckedPrehledMobile) {
-      _permissionCheckedPrehledMobile = true;
-      // Tlačítko Hotovo je určené VÝHRADNĚ pro roli Operátor — Plánovač má na
-      // tohle Dashboard a Správu úkolů, takže tady vidí přehled beze změny.
-      if (FTLoader.getUserRole() === "operator") {
-        FTLoader.canMarkDone().then(can => { _canMarkDone = can; });
+    if (!_permissionCheckedDashMobile) {
+      _permissionCheckedDashMobile = true;
+      // Mobilní Dashboard je určený pro roli Plánovač (plný zápis) — stejně
+      // jako desktopový Dashboard. Operátor sem nepatří (má na to mobilní
+      // Přehled s tlačítkem Hotovo), Nahlížeč taky nemá zapisovat.
+      const role = FTLoader.getUserRole();
+      if (role === "operator") {
+        showReadOnlyRedirectMobile("Role Operátor nemá v mobilním Dashboardu přístup. Přesměrovávám na mobilní přehled…");
+      } else {
+        FTLoader.canActuallyWrite().then(canWrite => {
+          if (!canWrite) {
+            showReadOnlyRedirectMobile();
+          } else {
+            _canWrite = true;
+            buildAssigneeOptions();
+          }
+        });
       }
     }
   },
   onStatus: (msg, isError) => { console.log(msg); },
 });
 
+function showReadOnlyRedirectMobile(customMessage) {
+  const div = document.createElement("div");
+  div.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.94);z-index:10001;display:flex;align-items:center;justify-content:center;color:white;font-family:sans-serif;text-align:center;padding:20px;";
+  div.innerHTML = `
+    <div>
+      <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px;">Nemáš oprávnění k úpravám</div>
+      <div style="font-size:14px;color:#94a3b8;">${customMessage || "Tvůj přístup je jen pro čtení. Přesměrovávám na mobilní přehled…"}</div>
+    </div>
+  `;
+  document.body.appendChild(div);
+  setTimeout(() => { window.location.href = "tydenni_prehled_mobile.html"; }, 2500);
+}
+
+// ── Nabídka řešitelů pro formuláře (nový úkol / úprava) ──────────────────
+function buildAssigneeOptions() {
+  const opts = (DATA.resitele || [])
+    .filter(r => !r.vyrazen)
+    .map(r => `<option value="${escapeHtml(r.zkratka)}">${escapeHtml(r.zkratka)} – ${escapeHtml(r.jmeno)} ${escapeHtml(r.prijmeni)}</option>`)
+    .join("");
+  const ntSel = document.getElementById("nt_assignee");
+  const etSel = document.getElementById("et_assignee");
+  if (ntSel) ntSel.innerHTML = '<option value="">— nevybráno —</option>' + opts;
+  if (etSel) etSel.innerHTML = '<option value="">— nevybráno —</option>' + opts;
+}
+
 document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
+document.getElementById("modalEditBtn").addEventListener("click", () => openEditModalFromDetail());
+document.getElementById("modalCancelBtn").addEventListener("click", () => cancelTaskFromModal());
+document.getElementById("closeEditModal").addEventListener("click", () => document.getElementById("editTaskModal").classList.remove("open"));
+document.getElementById("etSaveBtn").addEventListener("click", () => saveEditedTask());
+document.getElementById("fabAddBtn").addEventListener("click", () => openNewTaskModalMobile());
+document.getElementById("closeNewTaskModalMobile").addEventListener("click", () => document.getElementById("newTaskModalMobile").classList.remove("open"));
+document.getElementById("ntSaveBtn").addEventListener("click", () => saveNewTaskMobile());
 
 renderMobileDay();
 

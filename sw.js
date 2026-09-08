@@ -5,6 +5,7 @@
 const CACHE_NAME = "top-mobile-v1";
 const APP_SHELL = [
   "tydenni_prehled_mobile.html",
+  "tydenni_dashboard_mobile.html",
   "ft_loader.js",
   "manifest.json",
   "icons/icon-192.png",
