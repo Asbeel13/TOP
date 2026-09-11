@@ -35,11 +35,26 @@ což vedlo k mnohem většímu rozsahu práce, než se původně čekalo.
    selektor + vlastnost) má RŮZNOU barvu v různých souborech. Vyřešeno
    podle většinového použití.
 3. **Návrh `theme.css`** se všemi 126 barvami pojmenovanými a
-   organizovanými do kategorií — viz plný obsah níže. **Zatím NENÍ
-   nahraný do repozitáře ani zapojený do žádného souboru appky.**
+   organizovanými do kategorií.
 4. **Zadání předáno SPA straně** (Claude Code) přes `INTEGRACE.md`
    sekci 12 — aby prošli analogický proces ve vlastním kódu, se stejnou
    metodikou.
+5. **SPA strana zareagovala 2026-09-11** — vzala TOP návrh v1.0.0 beze
+   změny, doplnila vlastní sekci (barvy typů absence ŘD/PN/LÉKAŘ/VOLNO
+   jako vlastní proměnné + 4 SPA-specifické tokeny), uložila jako
+   kombinovanou v1.1.0.
+6. **JK potvrdil/rozhodl všech 8 otevřených bodů** (5 TOP + 3 SPA) —
+   viz Changelog 2026-09-11 níže pro kompletní seznam rozhodnutí. Dvě
+   skutečné změny hodnot: sloučeny tři odstíny zelené do `--success`,
+   sloučeno tlačítko `.danger` Správy úkolů do standardní
+   `--danger-soft-alt`/`--danger-soft-border`.
+7. **`theme.css` verze 1.2.0 nahráno do `Asbeel13/Esperanto` jako
+   KANONICKÁ verze** (2026-09-11) — soubor `theme.css` v tomhle
+   repozitáři (`TOP/theme.css`) je jeho lokální kopie, ověřená bajt po
+   bajtu identická. **Zatím NENÍ zapojený do žádného souboru appky** —
+   ani `<link>`, ani `sw.js`, ani nahrazené hex barvy. Plný obsah
+   souboru (včetně historie rozhodnutí v hlavičce/patičce) je přímo v
+   `theme.css`, nekopíruje se sem znovu.
 
 ### Důležité metodické poučení (2 chyby, které jsem udělal a opravil — NEOPAKUJ JE)
 
@@ -81,235 +96,34 @@ což vedlo k mnohem většímu rozsahu práce, než se původně čekalo.
 
 ### CO DĚLAT DÁL (přesně tady se přestalo)
 
-1. **Čeká se na finální schválení JK** k návrhu `theme.css` níže —
-   hlavně jestli názvy proměnných a rozdělení do kategorií dávají smysl.
-2. Až JK schválí, **nahrát `theme.css` do repozitáře `Asbeel13/Esperanto`**
-   (kanonický zdroj, viz `INTEGRACE.md`), a **zkopírovat ho i do TOP**
-   (`asbeel13/TOP`) jako vlastní lokální kopii — NE sdílet za běhu mezi
-   repozitáři, každý projekt má svou kopii (viz `INTEGRACE.md` sekce o
-   důvodu, proč ne sdílený soubor za běhu).
-3. **Zapojit `theme.css` do všech 5 HTML souborů TOP** — přidat
+Fáze "sjednotit strukturu" je hotová — `theme.css` v1.2.0 je nahraný
+jako kanonická verze v `Asbeel13/Esperanto` a obě appky (TOP, SPA) mají
+lokální kopii. Zbývá fáze "skutečně to zapojit":
+
+1. **Zapojit `theme.css` do všech 5 HTML souborů TOP** — přidat
    `<link rel="stylesheet" href="theme.css">`, a POSTUPNĚ (soubor po
    souboru, s testováním po každém) nahradit napevno zapsané hex barvy
    za `var(--jméno)`. Tohle je největší zbývající kus práce — 126 barev
-   napříč 5 soubory, nejde to udělat najednou bez rizika.
-4. Přidat `theme.css` do `sw.js` (PWA cache seznam), stejně jako u
+   napříč 5 soubory, nejde to udělat najednou bez rizika. Kódové soubory
+   nahrává JK sám (Konvence č. 4) — až budou lokálně otestované a
+   schválené.
+2. Přidat `theme.css` do `sw.js` (PWA cache seznam), stejně jako u
    předchozích nových sdílených souborů.
-5. Sledovat, co SPA strana vrátí na zadání ze sekce 12 `INTEGRACE.md` —
-   až budou mít vlastní návrh, porovnat a navrhnout sjednocení JMEN
-   proměnných mezi TOP a SPA (hodnoty se budou lišit, dokud nepřijdou
-   firemní barvy).
-6. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v `theme.css`
-   (ne strukturu), ověřit vizuálně, hotovo.
+3. Sledovat, jestli SPA strana (nebo JK) nezmění `theme.css` znovu —
+   `git pull` v `Esperanto` před další prací na tomhle tématu, přesně
+   podle Konvence č. 6.
+4. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v `theme.css`
+   (ne strukturu), ověřit vizuálně, hotovo. Zahrnuje i dvě položky
+   zaznamenané jako "sloučit později" (`--today-outline` u SPA).
 
-### Plný obsah navrhovaného `theme.css` (zatím nenahráno, jen zde jako záloha)
+### Plný obsah `theme.css` — NEKOPÍRUJE SE SEM, ať nevznikne nekonzistence
 
-```css
-/* ==========================================================================
-   TOP — Sdílený design systém (theme.css)
-   ==========================================================================
-   Jediný zdroj barevné palety pro celou appku TOP (Dashboard, Přehled desktop
-   i mobil, Správa úkolů, Dashboard mobil). Kanonická verze žije v repozitáři
-   Asbeel13/Esperanto — každá appka (TOP i SPA) si z ní stahuje vlastní kopii,
-   viz INTEGRACE.md.
-
-   Sestaveno z auditu 126 barev napříč 5 soubory TOP (2026-09). 23 konfliktů
-   vyřešeno podle většinového použití, zbytek pojmenován podle účelu.
-
-   Hodnoty jsou PROZATÍMNÍ — odvozené ze současného vzhledu appky, ne z
-   firemního brand manuálu. Až budou k dispozici oficiální firemní barvy,
-   upraví se ZDE, jedno místo, projeví se to všude.
-   ========================================================================== */
-
-:root {
-  /* ── Základní neutrální paleta ── */
-  --bg: #f0f2f5;              /* pozadí stránky (světlý režim) */
-  --panel: #ffffff;           /* pozadí karet/panelů */
-  --panel-alt: #fafafa;       /* jemně odlišené pozadí (např. lichý řádek) */
-  --line: #1f2937;            /* výchozí barva okrajů/oddělovačů */
-  --line-soft: #e5e7eb;       /* jemnější okraj (karty, tabulky) */
-  --line-softer: #eef2f7;     /* nejjemnější okraj (spodní linky hlaviček) */
-  --text: #111827;            /* hlavní text */
-  --text-muted: #6b7280;      /* druhotný/tlumený text */
-  --text-faint: #9ca3af;      /* nejslabší text (placeholder, vypnuté) */
-  --grid: #cfcfcf;            /* mřížka kalendáře */
-
-  /* ── Tmavě námořnická "chrome" barva (postranní panel, hlavičky) ── */
-  --navy-900: #020617;        /* nejtmavší (postranní panel v tmavém režimu) */
-  --navy-800: #0f172a;        /* hlavní tmavá (topbar, tělo v tmavém režimu) */
-  --navy-700: #1e293b;        /* o stupeň světlejší (karty v tmavém režimu) */
-  --navy-600: #162032;        /* hlavičky tabulek v tmavém režimu */
-
-  /* ── Značková/akční modrá ── */
-  --accent: #1d4ed8;          /* hlavní akční barva (tlačítka, odkazy) */
-  --accent-hover: #1e40af;    /* hover stav nad --accent */
-  --accent-soft: #eff6ff;     /* jemné modré pozadí (např. rámeček akce) */
-  --accent-soft-border: #bfdbfe;
-  --accent-strong: #2563eb;   /* mírně sytější varianta, ojedinělé použití */
-  --accent-pale: #c8d8ef;     /* velmi bledá modrá (dřívější --blue) */
-  --accent-pale-dark: #b8c9e5;/* tmavší odstín bledé modré (--blue-dark) */
-
-  /* ── Stavové barvy: úspěch/hotovo ── */
-  --success: #15803d;
-  --success-strong: #166534;
-  --success-soft: #ecfdf3;
-  --success-soft-border: #bbf7d0;
-  --success-block: #86efac;   /* syté pozadí (dřívější --done, kalendářní dlaždice) */
-
-  /* ── Stavové barvy: čekání/varování ── */
-  --warn: #d97706;
-  --warn-strong: #92400e;
-  --warn-soft: #fef3c7;
-  --warn-soft-alt: #fde68a;
-  --warn-block: #f7d24d;      /* syté pozadí (dřívější --wait) */
-
-  /* ── Stavové barvy: nebezpečí/zrušení ── */
-  --danger: #cc1f1a;
-  --danger-strong: #7f1d1d;
-  --danger-soft: #fef2f2;
-  --danger-soft-alt: #fff1f2;
-  --danger-soft-border: #fecdd3;
-  --danger-block: #f87171;    /* syté pozadí (dřívější --p0, kalendářní dlaždice) */
-
-  /* ── Priorita úkolů — pastelové badže (sjednoceno podle Správy úkolů) ── */
-  --prio-p0-bg: #fff1f2; --prio-p0-text: #be123c;
-  --prio-p1-bg: #fff7ed; --prio-p1-text: #c2410c;
-  --prio-p2-bg: #eff6ff; --prio-p2-text: #1d4ed8;
-  --prio-p3-bg: #f3f4f6; --prio-p3-text: #4b5563;
-  --prio-px-bg: #fef9c3; --prio-px-text: #854d0e;
-
-  /* ── Priorita úkolů — syté bloky (JEN pro vyplnění buněk kalendáře, ne badže) ── */
-  --tile-p0: #f87171;
-  --tile-p1: #fdba74;
-  --tile-p2: #93c5fd;
-  --tile-p3: #d1d5db;
-  --tile-px: #fde047;
-  --tile-px-border: #ca8a04;
-
-  /* ── Doplňkové/ojedinělé barvy ── */
-  --weekend-bg: #d0d0d0;      /* pozadí víkendových buněk kalendáře */
-  --person-bg: #ececec;       /* pozadí sloupce se jménem osoby */
-  --recurring-icon: #4338ca;  /* ikonka opakujícího se úkolu */
-  --multiday-icon: #0891b2;   /* ikonka vícedenního úkolu */
-  --spz-text: #cc1f1a;        /* barva textu SPZ na dlaždici úkolu */
-  --shadow: 0 8px 22px rgba(0,0,0,0.08);
-  --shadow-strong: 0 14px 28px rgba(16, 40, 73, .08);
-  --radius: 16px;
-  --radius-lg: 18px;
-
-  /* ── Dostupnost vozidel (Správa úkolů, záložka Přehled aut) ── */
-  --auto-volne: #15803d; --auto-volne-bg: #f0fdf4; --auto-volne-border: #bbf7d0;
-  --auto-rezervovane: #d97706; --auto-rezervovane-bg: #fffbeb; --auto-rezervovane-border: #fde68a;
-  --auto-pouzivane: #2563eb; --auto-pouzivane-bg: #eff6ff; --auto-pouzivane-border: #bfdbfe;
-  --auto-tfm-bg: #dbeafe; --auto-tfm-border: #93c5fd;
-
-  /* ── Hlavičky sloupců kalendáře podle dne v týdnu ── */
-  --day-mon: #b8c9e5;
-  --day-tue: #c8d8ef;
-  --day-wed: #f1c49b;
-  --day-thu: #ecd88e;
-  --day-fri: #bfd5a6;
-
-  /* ── Ojedinělé barvy specifické pro Správu úkolů (tabulky, hover, focus) ── */
-  --table-head-bg: #f1f5fb;
-  --table-row-hover: #e8f0fe;
-  --table-row-alt: #f7f8fa;
-  --panel-gradient-from: #f8fbff;
-  --panel-gradient-to: #f2f6fb;
-  --input-border-soft: #edf2f8;
-  --input-border-softer: #e7eef7;
-  --input-bg-soft: #f8fafc;
-  --input-bg-readonly: #f9fafb;
-  --panel-tint: #f6f9fd;
-  --focus-ring: #a7c6ff;
-  --link-hover-bg: #1f3f5f;
-  --border-medium: #24405f;
-  --text-on-navy-soft: #5c7188;
-  --text-on-navy-softer: #e5edf7;
-  --text-faint-dark: #cbd5e1;
-  --success-alt: #1f9d57;
-  --success-id-text: #16a34a;
-  --teal: #0f766e;             /* samostatná akcentová barva (odlišná od modré/zelené) */
-  --purple-active: #9333ea;    /* aktivní stav přepínače "P" u osoby */
-  --danger-text-on-dark: #fee2e2;
-  --danger-border-soft: #ffd7d7;
-  --danger-bg-softest: #fff4f4;
-  --dark-hover-row: #1d3461;
-  --dark-cancel-bg: #4c0519;
-  --dark-waiting-border: #b45309;
-}
-
-/* ==========================================================================
-   Vědomě SLOUČENO do existujících proměnných výše, ne ponecháno zvlášť:
-   - #2f78ff, #eaf2ff  → nahrazeno --accent / --accent-soft (byla to
-     nesrovnalost v rámci samotné Správy úkolů, viz konflikt č. bodu
-     "modrá akční barva" v analýze)
-   - #0b1220, #0b1222  → nahrazeno tmavým --bg (#0f172a), viz vyřešený
-     konflikt pozadí stránky
-
-   Vědomě VYNECHÁNO jako mrtvý kód (deklarováno v :root, nikde nepoužito):
-   --green (#9acd5a), --green-strong (#8bc34a), --yellow (#f4ef49) v
-   Dashboardu. Stálo by za zvážení smazat je i ze zdrojového kódu při
-   příští úpravě, ne jen z theme.css.
-   ========================================================================== */
-
-
-/* ==========================================================================
-   TMAVÝ REŽIM
-   ========================================================================== */
-html.dark {
-  color-scheme: dark;
-
-  --bg: #0f172a;
-  --panel: #1e293b;
-  --panel-alt: #162032;
-  --line: #334155;
-  --line-soft: #334155;
-  --line-softer: #263449;
-  --text: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
-
-  --accent-soft: #1e3a5f;
-  --accent-soft-border: #1d4ed8;
-
-  --success-soft: #14532d;
-  --success-strong: #bbf7d0;
-
-  --danger-soft: #7f1d1d;
-  --danger-strong: #fca5a5;
-  --danger-soft-border: #991b1b;
-
-  /* Priorita — v tmavém režimu jen ztlumená přes opacity, ne nové barvy
-     (stejný trik jako dosud ve Správě úkolů — .badge { opacity: .85 }) */
-
-  /* Syté bloky pro kalendářní dlaždice v tmavém režimu */
-  --tile-p0-dark: #450a0a; --tile-p0-dark-border: #dc2626;
-  --tile-p1-dark: #431407; --tile-p1-dark-border: #ea580c;
-  --tile-p2-dark: #1e3a5f; --tile-p2-dark-border: #3b82f6;
-  --tile-px-dark: #2a2010;
-
-  --weekend-bg: #0a1020;
-  --multiday-icon: #22d3ee;
-}
-
-/* ==========================================================================
-   Sjednocené badže priority (nahrazuje dosavadní syté .task.p0-p3 JEN
-   v kontextu chipů/badžů — vyplnění kalendářních dlaždic zůstává beze
-   změny přes --tile-* proměnné výše)
-   ========================================================================== */
-.badge-prio-P0 { background: var(--prio-p0-bg); color: var(--prio-p0-text); }
-.badge-prio-P1 { background: var(--prio-p1-bg); color: var(--prio-p1-text); }
-.badge-prio-P2 { background: var(--prio-p2-bg); color: var(--prio-p2-text); }
-.badge-prio-P3 { background: var(--prio-p3-bg); color: var(--prio-p3-text); }
-.badge-prio-PX { background: var(--prio-px-bg); color: var(--prio-px-text); }
-html.dark .badge-prio-P0,
-html.dark .badge-prio-P1,
-html.dark .badge-prio-P2,
-html.dark .badge-prio-P3,
-html.dark .badge-prio-PX { opacity: 0.85; }
-```
-
+Živý soubor je `TOP/theme.css` (a kanonicky `Esperanto/theme.css`) —
+kompletní historie rozhodnutí (co bylo v1.0/1.1/1.2, co JK potvrdil/
+sloučil a proč) je přímo v hlavičce a patičce souboru samotného. Řádek
+navíc, co by se tu jen znovu opisoval, riskuje že se časem rozejde se
+skutečným souborem — přesně to poučení, co je jinde v tomhle CLAUDE.md
+zaznamenané jako Konvence č. 6.
 
 ## Co je TOP a pro koho
 
@@ -1702,3 +1516,36 @@ nekopíruje se sem znovu, ať nevznikne nekonzistence mezi dvěma kopiemi
 v tom samém souboru. Stručně: audit 126 barev, 23 konfliktů vyřešeno,
 návrh `theme.css` hotový, čeká na schválení JK před nahráním a zapojením
 do skutečných souborů appky.
+
+### 2026-09-11 — `theme.css` sjednocení dokončeno (fáze struktury), verze 1.2.0 nahraná jako kanonická
+
+Navazuje na záznam výše. SPA strana doplnila 2026-09-11 vlastní sekci
+(barvy typů absence ŘD/PN/LÉKAŘ/VOLNO jako vlastní proměnné, 4
+SPA-specifické tokeny) do TOP návrhu v1.0.0 → kombinovaná v1.1.0. JK pak
+prošel a rozhodl všech 8 otevřených bodů (5 TOP + 3 SPA):
+
+- **Sloučit** tři skoro identické zelené (`--success`/`--success-alt`/
+  `--success-id-text`) do `--success` — mimochodem opravuje reálnou
+  nesrovnalost v živém kódu (tlačítko `.success` ve Správě úkolů mělo
+  jinou zelenou ve světlém než v tmavém režimu).
+- **Sloučit** tlačítko `.danger` Správy úkolů (`#fff4f4`/`#ffd7d7`, jediné
+  použití, vypadalo jako překlep) do standardní `--danger-soft-alt`/
+  `--danger-soft-border` používané všude jinde (Zrušit/Smazat, badge P0).
+- Zbylých 6 bodů potvrzeno beze změny hodnot (mapování tří osiřelých
+  `--dark-*` proměnných ověřeno přímo v živém kódu file:line citacemi,
+  tmavé kalendářní dlaždice s barevným okrajem potvrzeny jako existující
+  chování ne nová změna, `--text-faint-dark`→`--text-on-navy-faint`
+  potvrzeno, barvy stavů SPA potvrzeny jako jen výchozí hodnota,
+  `--today-outline` ponechána samostatná do příchodu firemních barev).
+
+**Výsledek: `theme.css` verze 1.2.0 nahraná do `Asbeel13/Esperanto` jako
+kanonická verze** — `TOP/theme.css` je lokální kopie, ověřená bajt po
+bajtu identická. Detail všech rozhodnutí je v hlavičce/patičce
+`theme.css` samotného a v `INTEGRACE.md` (sekce 5, záznam 2026-09-11) —
+nekopíruje se sem potřetí. Historický plný CSS výpis verze 1.0.0 v
+sekci "AKTUÁLNĚ ROZPRACOVÁNO" výše byl smazán jako zastaralý (živý
+soubor je teď jediný zdroj pravdy).
+
+**Stále NEPROPOJENO s appkou** — žádný `<link>`, žádné nahrazené hex
+barvy, `sw.js` beze změny. Fáze "postupné zapojení do 5 HTML souborů" je
+další, samostatný krok (viz "CO DĚLAT DÁL" výše), zatím nezačatý.
