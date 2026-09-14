@@ -8,23 +8,13 @@
   <meta name="theme-color" content="#0f172a" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="theme.css" />
   <style>
-    :root {
-      --bg: #f0f2f5;
-      --p0: #f87171;
-      --p1: #fdba74;
-      --p2: #93c5fd;
-      --p3: #d1d5db;
-      --px: #fde047;
-      --wait: #f7d24d;
-      --done: #86efac;
-      --danger: #cc1f1a;
-    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       font-family: Arial, Helvetica, sans-serif;
       background: var(--bg);
-      color: #111827;
+      color: var(--text);
       -webkit-tap-highlight-color: transparent;
     }
     body {
@@ -36,7 +26,7 @@
 
     /* ── TOP BAR ── */
     .topbar {
-      background: #0f172a;
+      background: var(--navy-800);
       color: white;
       padding: 10px 12px;
       flex-shrink: 0;
@@ -54,7 +44,7 @@
       font-size: 13px;
       font-weight: 700;
       letter-spacing: .04em;
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
       text-transform: uppercase;
     }
     .topbar-actions { display: flex; gap: 6px; }
@@ -107,11 +97,11 @@
     }
     .day-label .day-date {
       font-size: 12px;
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
       margin-top: 2px;
     }
     .today-btn {
-      background: #1d4ed8;
+      background: var(--accent);
       border: none;
       color: white;
       border-radius: 10px;
@@ -131,14 +121,14 @@
       -webkit-overflow-scrolling: touch;
     }
     .person-block {
-      background: white;
+      background: var(--panel);
       border-radius: 14px;
       margin-bottom: 12px;
       overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
     .person-head {
-      background: #1e293b;
+      background: var(--navy-700);
       color: white;
       padding: 10px 14px;
       display: flex;
@@ -146,11 +136,11 @@
       gap: 8px;
     }
     .person-head .code { font-weight: 700; font-size: 15px; }
-    .person-head .name { font-size: 12px; color: #94a3b8; }
+    .person-head .name { font-size: 12px; color: var(--text-on-navy-muted); }
     .person-tasks { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
     .empty-day {
       padding: 14px;
-      color: #9ca3af;
+      color: var(--text-faint);
       font-size: 13px;
       text-align: center;
     }
@@ -162,20 +152,20 @@
       border-left: 4px solid transparent;
       cursor: pointer;
     }
-    .task.p0 { background: var(--p0); }
-    .task.p1 { background: var(--p1); }
-    .task.p2 { background: var(--p2); }
-    .task.p3 { background: var(--p3); }
-    .task.px { background: var(--px); border-left-color: #ca8a04; }
-    .task.waiting { background: var(--wait); }
-    .task.done { background: var(--done); color: #166534; }
-    .task.recurring { border-left: 4px solid #6366f1; }
-    .task .recurring-icon { font-size: 10px; color: #4338ca; font-weight: 700; margin-bottom: 3px; }
-    .task .multiday-badge { font-size: 10px; color: #374151; font-weight: 700; margin-bottom: 3px; }
+    .task.p0 { background: var(--tile-p0); }
+    .task.p1 { background: var(--tile-p1); }
+    .task.p2 { background: var(--tile-p2); }
+    .task.p3 { background: var(--tile-p3); }
+    .task.px { background: var(--tile-px); border-left-color: var(--tile-px-border); }
+    .task.waiting { background: var(--warn-block); }
+    .task.done { background: var(--success-block); color: var(--success-strong); }
+    .task.recurring { border-left: 4px solid var(--recurring-border); }
+    .task .recurring-icon { font-size: 10px; color: var(--recurring-icon); font-weight: 700; margin-bottom: 3px; }
+    .task .multiday-badge { font-size: 10px; color: var(--multiday-icon); font-weight: 700; margin-bottom: 3px; }
     .task .title { font-size: 14px; font-weight: 700; line-height: 1.3; }
-    .task .meta { font-size: 12px; color: #374151; margin-top: 4px; }
+    .task .meta { font-size: 12px; color: var(--tile-text); margin-top: 4px; }
     .task .meta .danger { color: var(--danger); font-weight: 700; }
-    .task .spz { font-size: 11px; color: #374151; margin-top: 3px; }
+    .task .spz { font-size: 11px; color: var(--tile-text); margin-top: 3px; }
 
     /* ── MODAL DETAILU (celá šířka na mobilu) ── */
     .modal {
@@ -187,7 +177,7 @@
     }
     .modal.open { display: flex; align-items: flex-end; }
     .modal-card {
-      background: white;
+      background: var(--panel);
       width: 100%;
       max-height: 88vh;
       overflow-y: auto;
@@ -203,20 +193,20 @@
     }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .chip {
-      background: #f1f5f9;
+      background: var(--chip-bg);
       border-radius: 8px;
       padding: 4px 9px;
       font-size: 11px;
       font-weight: 700;
-      color: #334155;
+      color: var(--chip-text);
     }
     .modal-title { font-size: 17px; font-weight: 700; line-height: 1.35; }
-    .modal-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; margin-top: 12px; }
+    .modal-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; margin-top: 12px; }
     .modal-text { font-size: 14px; white-space: pre-wrap; }
     #closeModal {
       flex-shrink: 0;
-      border: 1px solid #d1d5db;
-      background: white;
+      border: 1px solid var(--line-medium);
+      background: var(--panel);
       border-radius: 10px;
       padding: 10px 14px;
       font-size: 13px;
@@ -226,9 +216,9 @@
     #modalDoneBtn {
       display: none;
       flex-shrink: 0;
-      border: 1px solid #86efac;
-      background: #ecfdf3;
-      color: #166534;
+      border: 1px solid var(--success-block);
+      background: var(--success-soft);
+      color: var(--success-strong);
       border-radius: 10px;
       padding: 10px 14px;
       font-size: 13px;
@@ -236,7 +226,11 @@
       cursor: pointer;
       min-height: 40px;
     }
-    html.dark #modalDoneBtn { background: #14532d; border-color: #166534; color: #bbf7d0; }
+    /* Jen okraj potřebuje vlastní tmavý přepis — v tmavém režimu bere
+       hodnotu z jiného tokenu (--success-soft-border), ne z --success-block
+       jako ve světlém režimu (pozadí a text se už správně přepnou samy
+       přes theme.css). */
+    html.dark #modalDoneBtn { border-color: var(--success-soft-border); }
 
     /* ── NASTAVENÍ ZOBRAZENÍ ── */
     #displaySettingsModal .modal-card { max-height: 85vh; }
@@ -247,13 +241,13 @@
       align-items: center;
       gap: 6px;
       padding: 8px 0;
-      border-bottom: 1px solid #eef2f7;
+      border-bottom: 1px solid var(--line-softer);
     }
     .person-row:last-child { border-bottom: none; }
     .person-row .person-name {
       flex: 1;
       font-size: 13px;
-      color: #17324d;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -263,46 +257,48 @@
       font-size: 12px;
       font-weight: 700;
       border-radius: 6px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--line-medium);
       background: transparent;
-      color: #6b7280;
+      color: var(--text-muted);
       cursor: pointer;
       min-width: 38px;
       min-height: 38px;
     }
-    .person-row .side-btn.active-L { background: #1d4ed8; border-color: #1d4ed8; color: white; }
-    .person-row .side-btn.active-R { background: #0f766e; border-color: #0f766e; color: white; }
+    .person-row .side-btn.active-L { background: var(--accent); border-color: var(--accent); color: white; }
+    .person-row .side-btn.active-R { background: var(--teal); border-color: var(--teal); color: white; }
     .person-row .move-btn {
       padding: 8px 9px; font-size: 14px; border-radius: 6px;
-      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      border: 1px solid var(--line-medium); background: transparent; color: var(--text-muted);
       cursor: pointer; min-width: 38px; min-height: 38px;
     }
     .person-row .move-btn:disabled { opacity: 0.25; }
     .person-row .hide-btn {
       padding: 8px 9px; font-size: 14px; border-radius: 6px;
-      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      border: 1px solid var(--line-medium); background: transparent; color: var(--text-muted);
       cursor: pointer; min-width: 38px; min-height: 38px;
     }
-    .person-row .hide-btn.is-hidden { background: #9ca3af; color: white; border-color: #9ca3af; }
+    .person-row .hide-btn.is-hidden { background: var(--text-faint); color: white; border-color: var(--text-faint); }
     .person-row.is-hidden .person-name { opacity: 0.4; text-decoration: line-through; }
 
-    /* ── TMAVÝ REŽIM ── */
-    html.dark { --bg: #0b1220; }
-    html.dark body { color: #e2e8f0; }
-    html.dark .person-block { background: #1e293b; box-shadow: none; }
-    html.dark .person-head { background: #0f172a; }
-    html.dark .modal-card { background: #1e293b; color: #e2e8f0; }
-    html.dark .chip { background: #334155; color: #e2e8f0; }
-    html.dark #closeModal { background: #334155; border-color: #475569; color: #e2e8f0; }
-    html.dark .task.p0 { background: #450a0a; }
-    html.dark .task.p1 { background: #431407; }
-    html.dark .task.p2 { background: #1e3a5f; }
-    html.dark .task.p3 { background: #374151; }
-    html.dark .task.px { background: #2a2010; }
-    html.dark .task.done { background: #14532d; color: #bbf7d0; }
-    html.dark .person-row { border-color: #334155; }
-    html.dark .person-row .person-name { color: #e2e8f0; }
-    html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: #475569; color: #94a3b8; }
+    /* ── TMAVÝ REŽIM ──
+       Většina barev se teď přepne automaticky přes theme.css (proměnné
+       mají svou tmavou hodnotu zapsanou tam) — tady zůstávají JEN
+       případy, kdy tahle stránka potřebuje JINOU proměnnou/hodnotu, než
+       jakou by dostala automaticky (typicky "chrome" prvky, které mají
+       vlastní pevné odstíny nezávislé na --bg/--panel apod.). Smazané
+       přepisy (--bg, body, .person-block pozadí, .modal-card, .chip,
+       .task.p0-p3/px/done, .person-row .person-name) jsou teď plně
+       pokryté přímo přes theme.css beze změny vzhledu — ověřeno, že
+       hodnoty sedí přesně (viz theme.css v1.3.0 changelog).
+
+       --bg dřív bylo #0b1220, sjednoceno na sdílené #0f172a — jediná
+       vědomá, JK předem schválená drobná změna z celého tohohle
+       zapojení (viz theme.css "Vědomě SLOUČENO", původní 126-audit). */
+    html.dark .person-block { box-shadow: none; }
+    html.dark .person-head { background: var(--navy-800); }
+    html.dark #closeModal { background: var(--line-soft); border-color: var(--border-on-navy); }
+    html.dark .person-row { border-color: var(--line-soft); }
+    html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: var(--border-on-navy); color: var(--text-on-navy-muted); }
   </style>
 </head>
 <body>
@@ -351,12 +347,12 @@
     <div class="modal-card">
       <div class="modal-head">
         <h2 style="margin:0;font-size:17px;">Nastavení zobrazení</h2>
-        <button id="closeDisplaySettingsBtn" style="border:1px solid #d1d5db;background:white;border-radius:8px;padding:8px 12px;font-size:13px;">Zavřít</button>
+        <button id="closeDisplaySettingsBtn" style="border:1px solid var(--line-medium);background:var(--panel);border-radius:8px;padding:8px 12px;font-size:13px;">Zavřít</button>
       </div>
       <div class="modal-body">
-        <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">L = levý, P = pravý (na mobilu se rozdělení stran nepoužívá, jen pořadí a viditelnost) · šipky = pořadí · 👁 = skrýt/zobrazit</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">L = levý, P = pravý (na mobilu se rozdělení stran nepoužívá, jen pořadí a viditelnost) · šipky = pořadí · 👁 = skrýt/zobrazit</div>
         <div id="peopleFiltersPrehled"></div>
-        <button onclick="resetPeopleLayoutToDefault()" style="margin-top:12px;font-size:13px;padding:10px 12px;background:transparent;border:1px solid #d1d5db;color:#6b7280;border-radius:8px;cursor:pointer;width:100%;min-height:42px;">↺ Obnovit tovární nastavení</button>
+        <button onclick="resetPeopleLayoutToDefault()" style="margin-top:12px;font-size:13px;padding:10px 12px;background:transparent;border:1px solid var(--line-medium);color:var(--text-muted);border-radius:8px;cursor:pointer;width:100%;min-height:42px;">↺ Obnovit tovární nastavení</button>
       </div>
     </div>
   </div>
