@@ -1,0 +1,493 @@
+/* ==========================================================================
+   Sdílený design systém (theme.css) — TOP + SPA
+   verze 1.3.0 — 2026-09-14
+   ==========================================================================
+   Jediný zdroj barevné palety pro TOP (Dashboard, Přehled desktop i mobil,
+   Správa úkolů, Dashboard mobil) I SPA (Správa Pracovních Absencí).
+   Kanonická verze žije v repozitáři Asbeel13/Esperanto — každá appka si z
+   ní stahuje vlastní kopii, viz INTEGRACE.md. Při každé změně VERZE zvýšit
+   i zápis v INTEGRACE.md.
+
+   Sestaveno z auditu 126 barev napříč 5 soubory TOP (2026-09), revidováno
+   TOP stranou podle review SPA strany (2026-09-10, viz INTEGRACE.md sekce 5):
+     1. Soubor obsahuje JEN proměnné — žádné komponentní CSS (.badge-prio-*
+        apod. patří do vlastního CSS každé stránky, ne sem).
+     2. Kompletní sada tmavých tokenů — každá proměnná, která by se na tmavém
+        pozadí chovala špatně, má vlastní hodnotu v html.dark, ne jen
+        "opacity trik".
+     3. Verze nahoře.
+     4. Drobnosti: color-scheme na :root, kontrast --warn okomentován,
+        --dark-* proměnné z :root přesunuty do html.dark / přejmenovány.
+
+   **v1.1.0 (2026-09-11, SPA strana):** doplněna sekce "SPA — vlastní tokeny"
+   na konci souboru — 4 pojmy, které TOP nemá (holiday-bg, today-outline,
+   past-opacity, pending-highlight), a barvy typů absence (ŘD/PN/LÉKAŘ/
+   VOLNO) jako VLASTNÍ dedikované proměnné (rozhodnutí JK 2026-09-10 —
+   sladěné odstínem se sdílenou paletou, ale NE aliasované na
+   --success/--danger/--warn/--accent, aby šly do budoucna měnit nezávisle).
+   Hodnoty SPA sekce odpovídají SOUČASNÉMU vzhledu SPA appky (stejná
+   filozofie jako zbytek souboru — "zachovej vzhled, sjednoť strukturu",
+   ne tichá změna barev při zavedení sdíleného souboru). TOP sekce beze
+   změny oproti TOP verzi 1.0.0.
+
+   **v1.2.0 (2026-09-11, JK rozhodnutí):** všech 8 otevřených bodů z v1.1.0
+   potvrzeno/vyřešeno — viz "VYŘEŠENO" sekce na konci souboru místo dřívějších
+   "K ROZHODNUTÍ" bloků. Dvě skutečné změny hodnot oproti v1.1.0: sloučeny 3
+   odstíny zelené do `--success` (odstraněny `--success-alt`,
+   `--success-id-text`) a sloučeno tlačítko `.danger` Správy úkolů do
+   standardní `--danger-soft-alt`/`--danger-soft-border` (odstraněny
+   `--danger-bg-softest`, `--danger-border-soft`). Zbytek jen potvrzen beze
+   změny hodnot.
+
+   **v1.2.1 (2026-09-11, zapojení do SPA):** `theme.css` skutečně napojen
+   do SPA appky (`<link>` v `index.html`, PŘED `styles.css` — SPA si
+   podržela vlastní hodnoty přepsáním po napojení, žádná tichá změna
+   vzhledu). Ve `styles.css` přejmenováno `--panel-bg`→`--panel`,
+   `--border`→`--line-soft`, `--error`→`--danger`. Přidán nový sdílený
+   token `--search-highlight` (SPA — dřív napevno `#e65100` u
+   `.day-search-highlight`). `--weekend-bg` je od teď genuinně sdílený
+   token (stejný koncept v obou appkách, jen jiná hodnota). TOP zatím
+   beze změny — zapojení do TOP samotného je samostatný, ještě nezačatý
+   krok.
+
+   **v1.2.2 (2026-09-12, oprava chybějícího tmavého tokenu):** `--tile-p0`
+   (syté pozadí kalendářní dlaždice priority P0) NEMĚLO tmavý přepis,
+   na rozdíl od `--tile-p1/p2/p3/px`, které ho mají. Objeveno při
+   zapojování do `tydenni_prehled_mobile.html` — bez opravy by dlaždice
+   P0 v tmavém režimu zůstala jasně červená (#f87171) místo správné
+   tmavé (#450a0a, ověřeno ve 4 souborech TOP). Doplněno `--tile-p0:
+   #450a0a` do `html.dark`. Žádná jiná hodnota se neměnila.
+
+   **v1.3.0 (2026-09-14, zapojování do TOP zahájeno, další skutečné
+   mezery objevené):** při přípravě zapojení `tydenni_prehled_mobile.html`
+   (nejmenší z 5 souborů TOP, začíná se jím) vyšlo najevo, že původní
+   126-barevný audit má další mezery a nevyřešené shody, přesto že byl
+   důkladný — očekávané riziko, na které jsme upozorňovali předem.
+   Kontrola všech 125 unikátních hex barev napříč 5 soubory TOP proti
+   `theme.css` (ne jen textová revize, ale skutečné strojové porovnání)
+   odhalila:
+   - 3 nové sdílené tokeny, používané konzistentně napříč více soubory,
+     ale chybějící: `--text-on-navy-muted` (#94a3b8, text na trvale
+     tmavém topbaru/panelu), `--border-on-navy` (#475569, okraj tlačítek
+     tamtéž), `--recurring-border` (#6366f1, okraj dlaždice opakujícího
+     se úkolu).
+   - 2 SKUTEČNÉ neshody 2 soubory/2 soubory (Dashboard+Přehled desktop
+     vs. Dashboard mobil+Přehled mobil), které původní audit nezachytil
+     — JK rozhodl: barva ikonky "🔁 opakující se" sjednocena na #6366f1
+     (dřív mobil #4338ca), barva "📅 vícedenní" badge na tyrkysovou
+     #0891b2/dark #22d3ee (dřív mobil šedá #374151). Obojí se při
+     zapojení mobilních souborů vizuálně nepatrně změní — vědomě,
+     schváleno.
+   - Nová neshoda `.chip` (pilulky priorita/řešitel/datum v detailu
+     úkolu): Dashboard+Přehled desktop indigová, mobilní verze neutrálně
+     šedá — JK rozhodl 2026-09-12: indigová vyhrává všude (nové tokeny
+     `--chip-bg`/`--chip-text`). Zapojení mobilních souborů tohle
+     vizuálně změní.
+   - Nový token `--tile-text` (#374151, tlumený text NA barevné dlaždici
+     úkolu — meta info, SPZ) — POZOR, platí jen pro soubory, kde nemá
+     žádnou tmavou variantu (zatím mobilní). Dashboard/Přehled desktop
+     mají pro `.task .meta`/`.task .spz` VLASTNÍ, VZÁJEMNĚ ODLIŠNÉ tmavé
+     hodnoty (#64748b, resp. #f87171) — při jejich zapojení řešit zvlášť,
+     ne přes `--tile-text`.
+   - Dodatečně po strojové kontrole doplněny ještě 3 drobné tokeny beze
+     dalšího rozhodování JK (nízké riziko, jen zachycují už existující
+     vzhled): `--line-medium` (#d1d5db, okraj tlačítek/inputů, 76×
+     napříč soubory), `--navy-hover` (#111f38, hover plovoucích
+     tlačítek), `--weekend-header-bg` (#bfbfbf, hlavička So/Ne).
+   - Odstraněna vymyšlená (needocumentovaná v žádném souboru) tmavá
+     hodnota `--recurring-icon: #818cf8` z v1.2.x — nahrazeno odkazem na
+     `--recurring-border`, beze změny mezi režimy (žádný soubor pro to
+     tmavou variantu nemá).
+
+   Hodnoty jsou PROZATÍMNÍ — odvozené ze současného vzhledu obou appek, ne
+   z firemního brand manuálu. Až budou k dispozici oficiální firemní barvy,
+   upraví se ZDE, jedno místo, projeví se to všude (v obou appkách).
+
+   Další krok: dokončit zapojení `tydenni_prehled_mobile.html`, pak
+   pokračovat POSTUPNĚ (soubor po souboru, s testem po každém) na
+   zbylých 4 souborech TOP.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ── Základní neutrální paleta ── */
+  --bg: #f0f2f5;              /* pozadí stránky (světlý režim) */
+  --panel: #ffffff;           /* pozadí karet/panelů */
+  --panel-alt: #fafafa;       /* jemně odlišené pozadí (např. lichý řádek) */
+  --line: #1f2937;            /* výchozí barva okrajů/oddělovačů */
+  --line-soft: #e5e7eb;       /* jemnější okraj (karty, tabulky) */
+  --line-medium: #d1d5db;     /* NOVÉ 2026-09-14 — okraj tlačítek/inputů, 76 výskytů napříč všemi 5 soubory, žádná tmavá varianta nikde */
+  --line-softer: #eef2f7;     /* nejjemnější okraj (spodní linky hlaviček) */
+  --text: #111827;            /* hlavní text */
+  --text-muted: #6b7280;      /* druhotný/tlumený text */
+  --text-faint: #9ca3af;      /* nejslabší text (placeholder, vypnuté) */
+  --grid: #cfcfcf;            /* mřížka kalendáře */
+
+  /* ── Tmavě námořnická "chrome" barva (postranní panel, hlavičky) ──
+     Vědomě BEZE ZMĚNY mezi světlým/tmavým režimem stránky — tenhle panel
+     je tmavý vždycky, nezávisle na tématu appky. (Používá jen TOP.) */
+  --navy-900: #020617;
+  --navy-800: #0f172a;
+  --navy-700: #1e293b;
+  --navy-600: #162032;
+  --link-hover-bg: #1f3f5f;       /* hover odkazu na navy pozadí */
+  --border-medium: #24405f;       /* okraj na navy pozadí */
+  --text-on-navy-soft: #5c7188;   /* tlumený text na navy pozadí */
+  --text-on-navy-softer: #e5edf7; /* hlavní text na navy pozadí */
+  --text-on-navy-faint: #cbd5e1;  /* [PŘEJMENOVÁNO z --text-faint-dark, viz K ROZHODNUTÍ (TOP) #5] */
+  --text-on-navy-muted: #94a3b8;  /* NOVÉ 2026-09-12 — text na topbaru/postranním panelu, dřív jen náhodou shodné s tmavým --text-muted, ne skutečný alias */
+  --border-on-navy: #475569;      /* NOVÉ 2026-09-12 — okraj tlačítek na navy pozadí (side-btn, move-btn, hide-btn, closeModal…) + tlumený text (.footer-note/.helper v tmavém režimu Správy úkolů) */
+  --navy-hover: #111f38;          /* NOVÉ 2026-09-14 — hover stav plovoucích tlačítek (.fab-nav:hover) */
+
+  /* ── Značková/akční modrá — beze změny mezi režimy (dost sytá na obojí) ── */
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --accent-strong: #2563eb;
+
+  /* ── Značková modrá — jemné odstíny (MĚNÍ SE v tmavém režimu) ── */
+  --accent-soft: #eff6ff;
+  --accent-soft-border: #bfdbfe;
+  --accent-pale: #c8d8ef;         /* dřívější --blue; = --day-tue */
+  --accent-pale-dark: #b8c9e5;    /* dřívější --blue-dark; = --day-mon */
+
+  /* ── Stavové barvy: úspěch/hotovo ── */
+  --success: #15803d;             /* beze změny mezi režimy */
+  --success-strong: #166534;      /* MĚNÍ SE (text) */
+  --success-soft: #ecfdf3;        /* MĚNÍ SE (pozadí) */
+  --success-soft-border: #bbf7d0; /* MĚNÍ SE */
+  --success-block: #86efac;       /* syté pozadí — dřívější --done, kalendářní dlaždice "hotovo" */
+
+  /* ── Stavové barvy: čekání/varování ──
+     --warn (#d97706) je určen pro VÝPLNĚ/ikony, ne pro drobný text na bílém
+     pozadí — kontrast cca 3:1, pod hranicí AA pro text. Pro text používej
+     --warn-strong. */
+  --warn: #d97706;
+  --warn-strong: #92400e;
+  --warn-soft: #fef3c7;
+  --warn-soft-alt: #fde68a;       /* = --auto-rezervovane-border */
+  --warn-block: #f7d24d;          /* syté pozadí — dřívější --wait */
+
+  /* ── Stavové barvy: nebezpečí/zrušení ── */
+  --danger: #cc1f1a;              /* beze změny mezi režimy; = --spz-text */
+  --danger-strong: #7f1d1d;       /* MĚNÍ SE (text) */
+  --danger-soft: #fef2f2;         /* MĚNÍ SE */
+  --danger-soft-alt: #fff1f2;     /* MĚNÍ SE; = --prio-p0-bg */
+  --danger-soft-border: #fecdd3;  /* MĚNÍ SE */
+  --danger-block: #f87171;        /* syté pozadí — dřívější --p0; = --tile-p0 */
+  --danger-text-on-dark: #fee2e2; /* text NA syté červené ploše — nezávislé na tématu stránky */
+
+  /* ── Nový token: pozadí zrušeného úkolu (světlá hodnota převzata
+     z --danger-soft-alt, tmavá hodnota dosud žila jako osiřelé
+     --dark-cancel-bg — viz K ROZHODNUTÍ (TOP) #1) ── */
+  --cancelled-bg: var(--danger-soft-alt);
+
+  /* ── Nový token: okraj "čeká se" (světlá hodnota převzata z
+     --warn-soft-alt, tmavá hodnota dosud žila jako osiřelé
+     --dark-waiting-border — viz K ROZHODNUTÍ (TOP) #1) ── */
+  --warn-border: var(--warn-soft-alt);
+
+  /* ── Priorita úkolů — pastelové badže (sjednoceno podle Správy úkolů,
+     jen TOP). Komponentní CSS (.badge-prio-*), který tyhle tokeny používá,
+     ŽIJE V KAŽDÉ STRÁNCE ZVLÁŠŤ, ne tady. ── */
+  --prio-p0-bg: var(--danger-soft-alt);
+  --prio-p0-text: #be123c;
+  --prio-p1-bg: #fff7ed;
+  --prio-p1-text: #c2410c;
+  --prio-p2-bg: var(--accent-soft);
+  --prio-p2-text: var(--accent);
+  --prio-p3-bg: #f3f4f6;
+  --prio-p3-text: #4b5563;
+  --prio-px-bg: #fef9c3;
+  --prio-px-text: #854d0e;
+
+  /* ── Priorita úkolů — syté bloky (jen TOP, jen pro vyplnění buněk
+     kalendáře, ne badže). V tmavém režimu mají navíc jemný barevný okraj
+     (viz html.dark) — na tmavém pozadí čistá barevná plocha bez okraje
+     špatně čte, na světlém pozadí okraj netřeba. ── */
+  --tile-p0: var(--danger-block);
+  --tile-p0-border: transparent;
+  --tile-p1: #fdba74;
+  --tile-p1-border: transparent;
+  --tile-p2: #93c5fd;
+  --tile-p2-border: transparent;
+  --tile-p3: #d1d5db;
+  --tile-p3-border: transparent;
+  --tile-px: #fde047;
+  --tile-px-border: #ca8a04;      /* beze změny mezi režimy — čte na obojí */
+
+  --success-block-border: transparent;
+  --warn-block-border: transparent;
+
+  /* ── Doplňkové/ojedinělé barvy (TOP) ──
+     --weekend-bg je od 2026-09-11 sdílený i se SPA (stejný koncept —
+     ztlumené víkendové buňky kalendáře), jen s vlastní hodnotou v SPA
+     kopii, jméno se nemění. ── */
+  --weekend-bg: #d0d0d0;
+  --weekend-header-bg: #bfbfbf; /* NOVÉ 2026-09-14 — hlavička So/Ne ve dnech týdne (.head.d5/.d6), o stupeň tmavší než --weekend-bg buňky */
+  --person-bg: #ececec;           /* MĚNÍ SE */
+  /* Okraj i ikonka opakujícího se úkolu — sjednoceno na jednu hodnotu
+     (JK rozhodl 2026-09-12, byla to reálná neshoda 2 soubory/2 soubory:
+     Dashboard+Přehled desktop měly #6366f1 na obojím, mobilní verze měly
+     #6366f1 na okraji ale #4338ca na ikonce). Beze změny mezi režimy —
+     žádný soubor pro tohle nemá tmavou variantu. */
+  --recurring-border: #6366f1;
+  --recurring-icon: var(--recurring-border);
+  /* Vícedenní badge (📅) — sjednoceno na tyrkysovou (JK rozhodl
+     2026-09-12, taky 2/2 neshoda: Dashboard+Přehled desktop tyrkysová
+     (s tmavou variantou), mobilní verze šedá jako --tile-text). */
+  --multiday-icon: #0891b2;       /* MĚNÍ SE */
+  --spz-text: var(--danger);
+  --shadow: 0 8px 22px rgba(0,0,0,0.08);
+  --shadow-strong: 0 14px 28px rgba(16, 40, 73, .08);
+  --radius: 16px;
+  --radius-lg: 18px;
+  --focus-ring: #a7c6ff;          /* beze změny — indikátor fokusu zůstává stejný na obou tématech */
+
+  /* Tlumený text NA barevné dlaždici úkolu (meta info, SPZ) — NOVÉ
+     2026-09-12, používáno shodně ve všech 5 souborech, žádná tmavá
+     varianta nikde neexistuje. */
+  --tile-text: #374151;
+
+  /* "Chips" (pilulky priorita/řešitel/datum v detailu úkolu) — NOVÉ
+     2026-09-12. Reálná neshoda 2/2 (Dashboard+Přehled desktop indigová,
+     mobilní verze neutrálně šedá) — JK rozhodl 2026-09-12: indigová
+     vyhrává všude. */
+  --chip-bg: #eef2ff;
+  --chip-text: #3730a3;
+
+  --teal: #0f766e;                /* samostatná akcentová barva (odlišná od modré/zelené) */
+  --purple-active: #9333ea;       /* aktivní stav přepínače "P" u osoby */
+
+  /* ── Dostupnost vozidel (jen TOP, Správa úkolů → Přehled aut) —
+     hodnoty SLOUČENY s existujícími tokeny výše, kde byly přesně shodné ── */
+  --auto-volne: var(--success);
+  --auto-volne-bg: #f0fdf4;
+  --auto-volne-border: var(--success-soft-border);
+  --auto-rezervovane: var(--warn);
+  --auto-rezervovane-bg: #fffbeb;
+  --auto-rezervovane-border: var(--warn-soft-alt);
+  --auto-pouzivane: var(--accent-strong);
+  --auto-pouzivane-bg: var(--accent-soft);
+  --auto-pouzivane-border: var(--accent-soft-border);
+  --auto-tfm-bg: #dbeafe;
+  --auto-tfm-border: #93c5fd;
+
+  /* ── Hlavičky sloupců kalendáře podle dne v týdnu (jen TOP) ── */
+  --day-mon: var(--accent-pale-dark);
+  --day-tue: var(--accent-pale);
+  --day-wed: #f1c49b;
+  --day-thu: #ecd88e;
+  --day-fri: #bfd5a6;
+
+  /* ── Ojedinělé barvy specifické pro Správu úkolů (jen TOP — tabulky,
+     hover, focus) ── */
+  --table-head-bg: #f1f5fb;       /* MĚNÍ SE */
+  --table-row-hover: #e8f0fe;     /* MĚNÍ SE */
+  --table-row-alt: #f7f8fa;       /* MĚNÍ SE */
+  --panel-gradient-from: #f8fbff; /* MĚNÍ SE */
+  --panel-gradient-to: #f2f6fb;   /* MĚNÍ SE */
+  --input-border-soft: #edf2f8;   /* MĚNÍ SE */
+  --input-border-softer: #e7eef7; /* MĚNÍ SE */
+  --input-bg-soft: #f8fafc;       /* MĚNÍ SE */
+  --input-bg-readonly: #f9fafb;   /* MĚNÍ SE */
+  --panel-tint: #f6f9fd;          /* MĚNÍ SE */
+
+  /* ── SPA — vlastní tokeny (viz sekce na konci souboru pro plné
+     vysvětlení). Hodnoty = současný vzhled SPA appky, žádná změna. ── */
+  --today-outline: #1976d2;
+  --holiday-bg: #fde8e8;
+  --past-opacity: 0.55;
+  --pending-highlight: #e53935;
+  --search-highlight: #e65100;   /* přidáno 2026-09-11 při zapojení do SPA (dřív napevno psáno u .day-search-highlight) */
+  --stav-rd: #4caf50;
+  --stav-pn: #f44336;
+  --stav-lekar: #ff9800;
+  --stav-volno: #2196f3;
+}
+
+/* ==========================================================================
+   Vědomě SLOUČENO do existujících proměnných výše, ne ponecháno zvlášť
+   (přesná shoda hex hodnot v rámci stejné role):
+   --auto-volne-border/--success-soft-border, --auto-rezervovane-border/
+   --warn-soft-alt, --auto-pouzivane-*/--accent-soft*, --spz-text/--danger,
+   --prio-p0-bg/--danger-soft-alt, --prio-p2-bg/--accent-soft,
+   --prio-p2-text/--accent (jen ve světlém režimu — tmavý má vlastní
+   hodnotu, viz níže), --tile-p0/--danger-block, --day-mon/--accent-pale-dark,
+   --day-tue/--accent-pale.
+
+   Vědomě SLOUČENO na žádost JK (2026-09-11, v1.2.0) — vizuálně skoro
+   nerozeznatelné duplicity/drift, ne záměr:
+   - `--success-alt` (#1f9d57) a `--success-id-text` (#16a34a) zrušeny,
+     nahrazeny `--success`. Řeší i reálnou nesrovnalost v kódu — tlačítko
+     `.success` ve Správě úkolů mělo dřív jinou zelenou ve světlém
+     (`--ok:#1f9d57`) a jinou v tmavém režimu (`#15803d`); po zapojení
+     tohohle souboru bude mít stejnou v obou.
+   - `--danger-bg-softest` (#fff4f4) a `--danger-border-soft` (#ffd7d7)
+     zrušeny, nahrazeny `--danger-soft-alt`/`--danger-soft-border`. Sloužily
+     jen tlačítku `.danger` ve Správě úkolů, hodnota se lišila od
+     standardní (#fff1f2/#fecdd3) jen o pár jednotek — po zapojení bude
+     tohle tlačítko vypadat stejně jako Zrušit/Smazat v Dashboardu.
+
+   Vědomě VYNECHÁNO jako mrtvý kód (deklarováno v :root, nikde nepoužito):
+   --green (#9acd5a), --green-strong (#8bc34a), --yellow (#f4ef49) v
+   Dashboardu (TOP). Stálo by za zvážení smazat je i ze zdrojového kódu při
+   příští úpravě, ne jen z theme.css.
+   ========================================================================== */
+
+
+/* ==========================================================================
+   TMAVÝ REŽIM — kompletní sada, ne jen dílčí přepis
+   ========================================================================== */
+html.dark {
+  color-scheme: dark;
+
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --panel-alt: #162032;
+  --line: #334155;
+  --line-soft: #334155;
+  --line-softer: #263449;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --grid: #3a4a63;
+
+  --accent-soft: #1e3a5f;
+  --accent-soft-border: #1d4ed8;
+  --accent-pale: #24406b;
+  --accent-pale-dark: #1c3357;
+
+  --success-strong: #bbf7d0;
+  --success-soft: #14532d;
+  --success-soft-border: #166534;
+
+  --warn-strong: #fcd34d;
+  --warn-soft: #78350f;
+  --warn-soft-alt: #92400e;
+
+  --danger-strong: #fca5a5;
+  --danger-soft: #7f1d1d;
+  --danger-soft-alt: #450a0a;
+  --danger-soft-border: #991b1b;
+
+  /* --dark-cancel-bg (osiřelé) našlo domov tady: */
+  --cancelled-bg: #4c0519;
+  /* --dark-waiting-border (osiřelé) našlo domov tady: */
+  --warn-border: #b45309;
+
+  --prio-p1-bg: #431407;
+  --prio-p1-text: #fdba74;
+  --prio-p2-text: #93c5fd;
+  --prio-p3-bg: #374151;
+  --prio-p3-text: #d1d5db;
+  --prio-px-bg: #2a2010;
+  --prio-px-text: #fde68a;
+  --prio-p0-text: #fda4af;
+
+  --tile-p0: #450a0a;              /* CHYBĚLO — objeveno 2026-09-12 při zapojování do tydenni_prehled_mobile.html, viz "VYŘEŠENO" na konci souboru */
+  --tile-p0-border: #dc2626;
+  --tile-p1: #431407;
+  --tile-p1-border: #ea580c;
+  --tile-p2: var(--accent-soft);
+  --tile-p2-border: #3b82f6;
+  --tile-p3: var(--prio-p3-bg);
+  --tile-p3-border: #9ca3af;      /* opraveno podle skutečné hodnoty v kódu (.task.p3), ne odhad */
+  --tile-px: var(--prio-px-bg);
+  --success-block: #14532d;        /* CHYBĚLO stejně jako dřív --tile-p0 — objeveno při zapojování prehled_mobile, ověřeno ve 4 souborech (.task.done) */
+  --success-block-border: #22c55e;
+  --warn-block-border: #d97706;
+
+  --weekend-bg: #0a1020;
+  --person-bg: #1a2333;
+  /* --recurring-icon/--recurring-border NEMAJÍ tmavý přepis — žádný
+     soubor v živém kódu ho pro tohle nemá, zůstávají stejné jako ve
+     světlém režimu (viz :root). Dřívější #818cf8 tady bylo vymyšlené
+     při "kompletování" tmavého režimu, ne podle skutečného kódu —
+     odstraněno 2026-09-12, ať se appka tímhle nezmění tiše. */
+  --multiday-icon: #22d3ee;
+  /* --tile-text BEZE ZMĚNY zůstává #374151 i v tmavém režimu — Dashboard
+     a Přehled desktop mají pro .task .meta/.spz VLASTNÍ, VZÁJEMNĚ ODLIŠNÉ
+     tmavé hodnoty (#64748b, resp. #f87171) ověřené v kódu — týkají se ale
+     jen desktopu a neplatí stejně pro obě vlastnosti najednou, takže je
+     nejde bezpečně vtěsnat do jednoho sdíleného tmavého --tile-text.
+     Až se bude zapojovat Dashboard/Přehled desktop, řešit zvlášť
+     (samostatné tokeny nebo přímé hodnoty), ne přes tenhle. Mobilní
+     soubory (kam --tile-text patří teď) nemají žádnou tmavou variantu —
+     proto tady žádný přepis, ať se nezmění tiše. */
+  --chip-bg: #312e81;              /* NOVÉ 2026-09-12 */
+  --chip-text: #c7d2fe;            /* NOVÉ 2026-09-12 */
+  --teal: #2dd4bf;
+  --purple-active: #c084fc;
+
+  --auto-volne-bg: var(--success-soft);
+  --auto-rezervovane-bg: var(--warn-soft);
+  --auto-tfm-bg: #17305c;
+  --auto-tfm-border: #3b82f6;
+
+  --day-wed: #6b4a2f;
+  --day-thu: #6b5b1f;
+  --day-fri: #3f5535;
+
+  --table-head-bg: #1a2740;
+  --table-row-hover: #1d3461;    /* dřívější osiřelé --dark-hover-row */
+  --table-row-alt: #1a2130;
+  --panel-gradient-from: #16202f;
+  --panel-gradient-to: #111927;
+  --input-border-soft: #2a3a52;
+  --input-border-softer: #24334a;
+  --input-bg-soft: #1a2333;
+  --input-bg-readonly: #1c2536;
+  --panel-tint: #17222f;
+
+  /* ── SPA — tmavé varianty. --today-outline/--stav-* beze změny mezi
+     režimy (syté/saturované barvy čtou na obojí, stejný princip jako
+     --danger/--accent/--tile-px-border výš). ── */
+  --today-outline: #64b5f6;
+  --holiday-bg: #4a2020;
+  --pending-highlight: #ff6b6b;
+}
+
+/* ==========================================================================
+   VYŘEŠENO — všech 8 bodů z v1.1.0 potvrzeno/rozhodnuto JK (2026-09-11)
+   ==========================================================================
+
+   TOP #1 — mapování tří osiřelých proměnných ověřeno přímo v kódu (ne jen
+   odhadem z názvu) a potvrzeno správné:
+     --dark-hover-row (#1d3461, sprava_ukolu_linked.html:487, hover řádku
+       tabulky) → html.dark --table-row-hover
+     --dark-cancel-bg (#4c0519, tydenni_dashboard_mobile.html:289, tlačítko
+       "Zrušit") → nový token --cancelled-bg (dark hodnota)
+     --dark-waiting-border (#b45309, tydenni_dashboard_live_reload_local_
+       linked.html:642, okraj dlaždice "čeká se") → nový token --warn-border
+       (dark hodnota)
+
+   TOP #2 a #3 — JK rozhodl SLOUČIT (viz "Vědomě SLOUČENO" výše pro
+   hodnoty a odůvodnění): tři zelené → --success; tlačítko .danger Správy
+   úkolů → standardní --danger-soft-alt/--danger-soft-border.
+
+   TOP #4 — potvrzeno jako existující chování, ne nová změna: `.task.p0`
+   (a p1/p2/p3) mají v živém kódu barevný `border-left-color` JEN v
+   `html.dark`, světlý režim ho nemá (kromě `.px`, který ho má v obou).
+   Žádná akce potřeba, --tile-*-border v tomhle souboru to věrně kopíruje.
+
+   TOP #5 — potvrzeno beze změny: `#cbd5e1` se v živém kódu používá jak v
+   trvale tmavém "chrome" panelu/topbaru (mimo html.dark), tak explicitně
+   uvnitř html.dark (Sprava .tab-btn) — přejmenování na
+   --text-on-navy-faint a jedna sdílená hodnota pro obojí je v pořádku.
+
+   SPA #1 — potvrzeno JK: --stav-* jsou jen výchozí hodnota při založení
+   (seed skript), admin nastavení v `state_types.barva` má vždy přednost.
+   Žádná změna souboru potřeba, chování je přesně takhle navržené.
+
+   SPA #2 — potvrzeno JK: --today-outline zůstává prozatím samostatná
+   (žádná změna teď), sloučí se do var(--accent) až přijdou firemní barvy.
+
+   SPA #3 — informační, ne rozhodnutí: skutečné zapojení do
+   `public/styles.css` je samostatný následný krok, zatím neproběhlo.
+
+   DALŠÍ KROK (obě strany): nahrát do Asbeel13/Esperanto jako kanonickou
+   verzi 1.2.0, zapsat verzi i do INTEGRACE.md, pak POSTUPNĚ (soubor po
+   souboru, s testem po každém) zapojit do skutečného kódu — u TOP i
+   přidat theme.css do sw.js (PWA cache seznam).
+   ========================================================================== */
