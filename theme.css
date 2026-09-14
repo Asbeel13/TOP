@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílený design systém (theme.css) — TOP + SPA
-   verze 1.3.1 — 2026-09-14
+   verze 1.3.2 — 2026-09-14
    ==========================================================================
    Jediný zdroj barevné palety pro TOP (Dashboard, Přehled desktop i mobil,
    Správa úkolů, Dashboard mobil) I SPA (Správa Pracovních Absencí).
@@ -135,6 +135,18 @@
    navenek neprojeví jako zjevná (appka dál "nějak" vypadá, protože
    `:root` světlé hodnoty projdou vždy) — jen se tiše ztratí VŠECHNO za
    tím místem v souboru.
+
+   **v1.3.2 (2026-09-14, zapojování do TOP pokračuje —
+   `tydenni_dashboard_mobile.html`, 2 nové mezery):** stejná strojová
+   kontrola jako u `tydenni_prehled_mobile.html` odhalila 2 tlačítka
+   v modalu detailu úkolu ("Upravit", "Zrušit"), jejichž barvy v tmavém
+   režimu neodpovídají žádnému existujícímu tokenu — světlé hodnoty
+   náhodou sedí s jinými tokeny (`--tile-p2`, `--danger-soft-border`,
+   `--prio-p0-text`), ale jejich TMAVÉ hodnoty se rozcházejí, takže
+   sdílení by v tmavém režimu tiše změnilo vzhled. Doplněny 4 nové
+   tokeny (`--accent-block-border`/`--accent-block-text`,
+   `--danger-block-border`/`--danger-block-text`), hodnoty přesně podle
+   skutečného kódu, žádná vizuální změna.
    ========================================================================== */
 
 :root {
@@ -180,6 +192,14 @@
   --accent-pale: #c8d8ef;         /* dřívější --blue; = --day-tue */
   --accent-pale-dark: #b8c9e5;    /* dřívější --blue-dark; = --day-mon */
 
+  /* NOVÉ 2026-09-14 — tlačítko "Upravit" v modalu (Dashboard mobil), stejný
+     vzor jako "Zástup" ve Správě úkolů/Dashboardu desktop (#93c5fd okraj).
+     Světlý okraj #93c5fd náhodou sedí s --tile-p2, ale v tmavém režimu se
+     --tile-p2 mění jinak (na --accent-soft) než tohle tlačítko potřebuje
+     (#1d4ed8) — genuinní mezera, ne duplicita, proto vlastní token. */
+  --accent-block-border: #93c5fd;    /* MĚNÍ SE */
+  --accent-block-text: var(--accent); /* MĚNÍ SE */
+
   /* ── Stavové barvy: úspěch/hotovo ── */
   --success: #15803d;             /* beze změny mezi režimy */
   --success-strong: #166534;      /* MĚNÍ SE (text) */
@@ -205,6 +225,13 @@
   --danger-soft-border: #fecdd3;  /* MĚNÍ SE */
   --danger-block: #f87171;        /* syté pozadí — dřívější --p0; = --tile-p0 */
   --danger-text-on-dark: #fee2e2; /* text NA syté červené ploše — nezávislé na tématu stránky */
+
+  /* NOVÉ 2026-09-14 — tlačítko "Zrušit" v modalu (Dashboard mobil). Ani
+     --danger-soft-border, ani --prio-p0-text nemají v tmavém režimu
+     hodnotu, kterou tohle tlačítko doopravdy používá (ověřeno v kódu) —
+     genuinní mezera, ne duplicita. */
+  --danger-block-border: var(--danger-soft-border); /* border tlačítka; MĚNÍ SE */
+  --danger-block-text: var(--prio-p0-text);          /* text tlačítka; MĚNÍ SE */
 
   /* ── Nový token: pozadí zrušeného úkolu (světlá hodnota převzata
      z --danger-soft-alt, tmavá hodnota dosud žila jako osiřelé
@@ -386,6 +413,8 @@ html.dark {
   --accent-soft-border: #1d4ed8;
   --accent-pale: #24406b;
   --accent-pale-dark: #1c3357;
+  --accent-block-border: #1d4ed8;    /* CHYBĚLO — objeveno 2026-09-14 při zapojování do tydenni_dashboard_mobile.html */
+  --accent-block-text: #bfdbfe;      /* CHYBĚLO — tamtéž */
 
   --success-strong: #bbf7d0;
   --success-soft: #14532d;
@@ -399,6 +428,8 @@ html.dark {
   --danger-soft: #7f1d1d;
   --danger-soft-alt: #450a0a;
   --danger-soft-border: #991b1b;
+  --danger-block-border: #be123c;    /* CHYBĚLO — objeveno 2026-09-14 při zapojování do tydenni_dashboard_mobile.html */
+  --danger-block-text: #fecdd3;      /* CHYBĚLO — tamtéž */
 
   /* --dark-cancel-bg (osiřelé) našlo domov tady: */
   --cancelled-bg: #4c0519;
