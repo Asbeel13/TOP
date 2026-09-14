@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílený design systém (theme.css) — TOP + SPA
-   verze 1.3.0 — 2026-09-14
+   verze 1.3.1 — 2026-09-14
    ==========================================================================
    Jediný zdroj barevné palety pro TOP (Dashboard, Přehled desktop i mobil,
    Správa úkolů, Dashboard mobil) I SPA (Správa Pracovních Absencí).
@@ -106,6 +106,35 @@
    Další krok: dokončit zapojení `tydenni_prehled_mobile.html`, pak
    pokračovat POSTUPNĚ (soubor po souboru, s testem po každém) na
    zbylých 4 souborech TOP.
+
+   **v1.3.1 (2026-09-14, KRITICKÁ OPRAVA — rozbitý komentář shazoval celý
+   tmavý režim):** JK nahlásil, že po zapojení `tydenni_prehled_mobile.html`
+   se tmavý/světlý režim přepíná jen částečně a pozadí stránky se vůbec
+   neměnilo. Ověřeno přímo na živém nasazení (GitHub Pages) přes
+   `document.styleSheets` — prohlížeč z celého `theme.css` (23 kB) rozparsoval
+   jen JEDNO CSS pravidlo (`:root`), všechno za ním (včetně celého bloku
+   `html.dark {...}`) bylo tiše zahozeno. Příčina: text uvnitř komentáře
+   zmiňující zkráceně proměnné auto-pouzivane a accent-soft obsahoval
+   náhodně za sebou hvězdičku a lomítko (konec jednoho slova pomlčka-
+   hvězdička, hned začátek dalšího lomítko-pomlčka), což se v CSS čte
+   jako konec komentáře uprostřed věty — zbytek souboru se pak prohlížeči
+   rozpadl jako neplatná syntaxe. Oprava: vložena mezera mezi hvězdičku a
+   lomítko, žádná změna významu textu ani žádné hodnoty proměnné. Ověřeno:
+   počet otevíracích a zavíracích značek komentáře v souboru teď sedí
+   (88/88, dřív 88/89), soubor je čistě textová oprava komentáře.
+   **Mimochodem doplněno i do téhle verze** (beze samostatné vlastní verze,
+   malý bezrizikový dodatek): `--success-block` (tmavý režim) chybělo
+   stejně jako dřív `--tile-p0` — bez opravy dlaždice "hotovo" v tmavém
+   režimu zůstávala světle zelená místo tmavé, viz inline komentář u
+   `--success-block` v `html.dark` níže.
+
+   **Poučení pro budoucí komentáře v CSS:** nikdy nepsat doslovně
+   hvězdičku bezprostředně před lomítkem (ani odděleně přes konec/začátek
+   řádku) uvnitř komentáře — CSS komentáře se neumí zanořit, jakákoliv
+   náhodná shoda těchto dvou znaků uprostřed textu ho ukončí, a chyba se
+   navenek neprojeví jako zjevná (appka dál "nějak" vypadá, protože
+   `:root` světlé hodnoty projdou vždy) — jen se tiše ztratí VŠECHNO za
+   tím místem v souboru.
    ========================================================================== */
 
 :root {
@@ -310,7 +339,7 @@
    Vědomě SLOUČENO do existujících proměnných výše, ne ponecháno zvlášť
    (přesná shoda hex hodnot v rámci stejné role):
    --auto-volne-border/--success-soft-border, --auto-rezervovane-border/
-   --warn-soft-alt, --auto-pouzivane-*/--accent-soft*, --spz-text/--danger,
+   --warn-soft-alt, --auto-pouzivane-* / --accent-soft*, --spz-text/--danger,
    --prio-p0-bg/--danger-soft-alt, --prio-p2-bg/--accent-soft,
    --prio-p2-text/--accent (jen ve světlém režimu — tmavý má vlastní
    hodnotu, viz níže), --tile-p0/--danger-block, --day-mon/--accent-pale-dark,
