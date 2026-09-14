@@ -1730,3 +1730,77 @@ komponentní CSS, žádná cizí app logika.
 
 Zbývají 2 soubory: `tydenni_dashboard_live_reload_local_linked.html`,
 `tydenni_prehled.html`.
+
+**Dodatek:** JK nahrál `sprava_ukolu_linked.html`, ověřeno bajt-po-bajtu
+i živě (theme.css 2 pravidla, pozadí stránky/panelů správně #0f172a/
+#1e293b v tmavém režimu).
+
+### 2026-09-14 — `theme.css` zapojen do `tydenni_dashboard_live_reload_local_linked.html` (4. ze 5 souborů TOP) — 3 třídy chyb nalezeny a opraveny při vlastní kontrole
+
+Tenhle soubor (hlavní Dashboard, ~800řádkový `<style>` blok) měl vlastní
+lokální `:root`, ale na rozdíl od Správy úkolů se **skoro všechny
+hodnoty přesně shodovaly** s `theme.css` (jen jiná jména u
+`--muted/--orange/--blue/--blue-dark/--weekend/--person`, beze změny
+hodnoty) — jen `--bg` mělo zanedbatelný rozdíl (#f4f6f8 vs. sdílené
+#f0f2f5, sjednoceno bez zvláštního schvalování, na rozdíl od Správy
+úkolů) a 3 proměnné (`--green`, `--green-strong`, `--yellow`) byly
+potvrzeně mrtvý kód (žádné použití v souboru) — smazány, jak už dřív
+navrhoval audit z 2026-08-05.
+
+**Provedeno:** ~140 barev nahrazeno `var(...)`, `html.dark` blok
+ponechán z většiny (tenhle soubor má na rozdíl od mobilních vlastní
+odlišné tmavé hodnoty pro `.task .meta`/`.task .spz` — přesně jak
+predikovala poznámka v `theme.css` v1.3.0, `.task .meta` zůstává
+`var(--text)`/`var(--text-faint)` a `.task .spz` `var(--danger)`/
+`var(--danger-block)`, NE `--tile-text` jako u mobilu).
+
+**Při vlastní kontrole (před nahlášením JK) nalezeny a opravené 3
+třídy chyb způsobené hromadnou `sed` náhradou** — zapisuji podrobně,
+je to důležité poučení pro zbývající soubor:
+
+1. **"Prohozená" barva mezi světlým/tmavým tokenem** (stejná chyba
+   jako dřív u modalEditBtn/modalCancelBtn, tady poprvé v `html.dark`
+   bloku): `html.dark .task.done { color: #bbf7d0; }` — `#bbf7d0` je
+   SVĚTLÁ hodnota `--success-soft-border`, ne tmavá. Automatický skript
+   namapoval podle prvního nalezeného zdroje bez ohledu na to, že šlo o
+   pravidlo UVNITŘ `html.dark` — potřeba `--success-strong` (jehož TMAVÁ
+   hodnota je `#bbf7d0`). Stejná chyba u `.task.p3` v tmavém režimu
+   (namapováno na `--tile-text`/`--text-faint` místo `--tile-p3`/
+   `--tile-p3-border`).
+2. **Trvale tmavé prvky bočního panelu (sidebar) omylem dostaly
+   proměnné, které se MĚNÍ s režimem** — `#sidebarExpandBtn:hover`,
+   vstupní pole sidebaru, `.person-row .move-btn`/`.hide-btn` používaly
+   barvy (`#334155`, `#64748b`), které v `theme.css` existují JEN jako
+   tmavé varianty jiných tokenů (`--line-soft`, `--text-faint`) — skript
+   je namapoval na tyhle proměnné, což by v SVĚTLÉM režimu stránky
+   (sidebar je ale vždycky tmavý, nezávisle na režimu appky) tiše
+   změnilo jejich vzhled. Opraveno zpět na doslovné hodnoty s
+   komentářem — přesně stejná kategorie jako již dříve zdokumentované
+   `--text-on-navy-*`/`--border-on-navy` (ty ale HODNOTU nemění nikdy,
+   takže s nimi tenhle problém nehrozí).
+3. **Barva sdílená mezi dvěma sémanticky nesouvisejícími místy** —
+   `.people-list input[type=checkbox] { accent-color: #3b82f6; }`
+   (barva zaškrtávátka, sidebar) dostalo omylem `var(--tile-p2-border)`,
+   protože stejný hex používá i okraj tmavé dlaždice P2 — ve SVĚTLÉM
+   režimu je ale `--tile-p2-border` průhledný, takže by zaškrtávátko
+   ztratilo barvu. Vráceno na doslovnou hodnotu.
+
+**Poučení pro poslední zbývající soubor (`tydenni_prehled.html`) i pro
+budoucí práci obecně:** hromadná `sed` náhrada hex→proměnná je rychlá,
+ale musí se PO KAŽDÉM takovém kroku zkontrolovat: (a) jestli hodnota
+uvnitř `html.dark {}` bloku náhodou nedostala SVĚTLOU variantu jiné
+proměnné se stejným hexem, (b) jestli natrvalo tmavé prvky (sidebar,
+topbar chrome) nedostaly proměnnou, co se MĚNÍ s režimem, jen proto že
+její SVĚTLÁ nebo TMAVÁ hodnota náhodou sedí. Bezpečné jsou jen
+skutečně invariantní tokeny (`--text-on-navy-*`, `--border-on-navy`,
+`--accent`, `--danger`, `--line-medium`...) — u těch tenhle problém
+principiálně nemůže nastat.
+
+**Ověřeno:** vyváženost závorek (604/604), žádná nedeklarovaná
+proměnná, a `getComputedStyle` test na izolované stránce (theme.css
+jako "stránka", ne živá appka) — po opravě všech 3 tříd chyb sedí
+všechny kontrolované hodnoty přesně v obou režimech, včetně ověření,
+že sidebar prvky jsou skutečně INVARIANTNÍ (stejná barva v obou
+režimech, jak má být). **Soubor zatím nenahraný** — čeká na JK.
+
+Zbývá poslední soubor: `tydenni_prehled.html`.
