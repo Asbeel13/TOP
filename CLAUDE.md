@@ -1664,3 +1664,69 @@ tmavého režimu sedí přesně, včetně obou nových tokenů a jejich složit�
 
 Zbývají 3 soubory: `sprava_ukolu_linked.html`,
 `tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`.
+
+**Dodatek:** JK nahrál oba soubory (`theme.css` v1.3.2 i
+`tydenni_dashboard_mobile.html`) na GitHub, ověřeno bajt-po-bajtu a
+živě na `https://asbeel13.github.io/TOP/` — `theme.css` se parsuje na
+2 pravidla, přepínání režimu funguje, topbar/fab-add mají správné
+barvy.
+
+### 2026-09-14 — `theme.css` zapojen do `sprava_ukolu_linked.html` (3. ze 5 souborů TOP)
+
+Tenhle soubor byl jiný než oba mobilní — měl **vlastní odlišnou
+základní paletu** (`--bg:#f4f7fb`, `--text:#17324d`, `--muted:#6e7f92`,
+`--line:#d9e3ef`, `--accent:#2f78ff`, `--accent-soft:#eaf2ff`,
+`--danger:#dc2626`), ne jen jiná jména pro stejné hodnoty jako u
+mobilních souborů. **JK rozhodl (2026-09-14): sjednotit na hodnoty
+ostatních souborů** — vědomá, schválená vizuální změna CELÉ stránky
+(jiné pozadí, tmavší text, jiná modrá/červená), ne tichá.
+
+**Provedeno:**
+- Lokální barevné proměnné smazány, zbyly jen 2 nebarevné
+  (`--shadow`, `--radius`, stránce vlastní).
+- Přejmenování beze změny hodnoty: `--muted`→`--text-muted`,
+  `--line`→`--line-soft`, `--ok`→`--success` (zbytek už měl shodné
+  jméno s theme.css).
+- ~140 napevno zapsaných barev nahrazeno `var(...)` napříč celým
+  souborem — jak v `<style>` bloku, tak v JS template literalech
+  (dynamicky generované tabulky, badge, Kanban karty, formuláře
+  Přehledu aut a Opakujících se pravidel).
+- `html.dark` blok zredukován z 41 na 20 pravidel — většina se teď
+  odvodí automaticky přes theme.css.
+- 2 barvy vědomě ponechány beze změny: `#7c3aed`/`#f5f5f5`
+  (vývojářský Debug panel, mimo návrhový systém, viz starší nález) a
+  `#e2e8f0` (okraj kategorie vozidla "Provoz Nivnice" — žádný přesný
+  ekvivalent v theme.css, nízké riziko, jedno použití).
+- 3 nová beze-změny-vzhledu doplnění: `.tab-btn` tmavé pozadí `#111827`
+  a `input:focus` tmavý okraj `#3b82f6` nemají přesný token, ponechány
+  jako výjimky s komentářem.
+
+**Vedlejší, žádoucí efekt sjednocení:** badge priority/stavu, Kanban
+karty a "Zástup" tlačítko dřív v tmavém režimu NEMĚNILY barvu vůbec
+(žádný `html.dark` přepis pro ně neexistoval) — teď se přepnou
+automaticky, protože sdílené tokeny (`--prio-p0-bg` apod.) mají svou
+tmavou variantu. Není to chyba, je to přirozený důsledek napojení na
+sdílený systém — zmiňuji to jen pro úplnost, kdyby si JK všiml, že
+Správa úkolů teď v tmavém režimu vypadá jinak i na místech, kde předtím
+nikdy neměnila barvu.
+
+**Ověřeno:** vyváženost závorek (630/630), počet `<script>` tagů beze
+změny (4), žádná nedeklarovaná proměnná, a živý `getComputedStyle`
+test (workaround na izolované stránce, ne na živé appce — appka
+mezitím vlastním renderováním odpojuje testovací prvky z DOM, poučení
+zapsáno níže) — ~30 hodnot světlého i tmavého režimu sedí přesně,
+včetně schválených změn (modrá/zelená/červená) i zachovaných hodnot.
+**Soubor zatím nenahraný** — čeká na JK.
+
+**Poučení pro budoucí testování:** při `getComputedStyle` testu na
+ŽIVÉ appce (ne na statickém souboru) nepřipojovat testovací elementy
+do `document.body` — appka (FTLoader polling/render) může mezitím
+`body` přerenderovat a testovací prvky nenávratně odpojit z DOM, což
+u ancestor-selektorů (`html.dark .x`) tiše vrátí špatné (light) hodnoty,
+protože odpojený uzel nemá cestu k `<html class="dark">`. Bezpečnější:
+testovat na izolované/prázdné stránce (např. `theme.css` samotné jako
+"stránka"), kam se natáhne jen `fetch()`-nutý theme.css text a vlastní
+komponentní CSS, žádná cizí app logika.
+
+Zbývají 2 soubory: `tydenni_dashboard_live_reload_local_linked.html`,
+`tydenni_prehled.html`.
