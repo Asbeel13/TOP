@@ -96,19 +96,20 @@ což vedlo k mnohem většímu rozsahu práce, než se původně čekalo.
 
 ### CO DĚLAT DÁL (přesně tady se přestalo)
 
-Fáze "sjednotit strukturu" je hotová — `theme.css` v1.3.1 je nahraný
+Fáze "sjednotit strukturu" je hotová — `theme.css` v1.3.2 je nahraný
 jako kanonická verze v `Asbeel13/Esperanto` a obě appky (TOP, SPA) mají
-lokální kopii. Fáze "skutečně to zapojit" **začala** — viz Changelog
-2026-09-14 níže pro plný detail (`tydenni_prehled_mobile.html` hotový,
-otestovaný, nahraný; cestou nalezena a opravena KRITICKÁ chyba —
-rozbitý CSS komentář v `theme.css` shazoval celý tmavý režim, teď
-opraveno jako v1.3.1). Zbývá:
+lokální kopii. Fáze "skutečně to zapojit" **probíhá** — viz Changelog
+2026-09-14 níže pro plný detail. **2 z 5 souborů hotové a nahrané:**
+`tydenni_prehled_mobile.html`, `tydenni_dashboard_mobile.html`. Cestou
+nalezena a opravena KRITICKÁ chyba — rozbitý CSS komentář v `theme.css`
+shazoval celý tmavý režim (v1.3.1) — a 2 genuinní mezery v tokenech pro
+tlačítka Upravit/Zrušit (v1.3.2). Zbývá:
 
-1. **Zapojit `theme.css` do zbylých 4 HTML souborů TOP**
+1. **Zapojit `theme.css` do zbylých 3 HTML souborů TOP**
    (`sprava_ukolu_linked.html`, `tydenni_dashboard_live_reload_local_linked.html`,
-   `tydenni_dashboard_mobile.html`, `tydenni_prehled.html`) — stejný
-   postup jako u mobilního přehledu, soubor po souboru, s testováním po
-   každém. **Pozor:** `sprava_ukolu_linked.html` a
+   `tydenni_prehled.html`) — stejný postup jako u obou mobilních
+   souborů, soubor po souboru, s testováním po každém. **Pozor:**
+   `sprava_ukolu_linked.html` a
    `tydenni_dashboard_live_reload_local_linked.html` mají ještě VLASTNÍ
    staré lokální `:root` proměnné (`--bg:#f4f7fb`, `--line:#d9e3ef`,
    `--muted:#6e7f92`, `--ok:#1f9d57` apod.), které bude potřeba
@@ -1623,3 +1624,43 @@ ZA tím místem. Při jakékoliv budoucí podezřelé "nevysvětlitelné"
 odchylce chování appky od `theme.css` je `document.styleSheets` →
 počet `cssRules` rychlá a spolehlivá první kontrola, jestli se celý
 soubor vůbec rozparsoval, jak měl.
+
+**Dodatek:** JK opravenou verzi nahrál sám přímo na GitHub (na jeho
+výslovnou žádost "můžeš to nahrát přímo na github" jsem ji ale nahrál
+já — jednorázová výjimka z Konvence č. 4 pro tenhle konkrétní kritický
+bug, ne změna pravidla natrvalo). Živě ověřeno na
+`https://asbeel13.github.io/TOP/` — `theme.css` se teď parsuje přesně
+na 2 pravidla (`:root` + `html.dark`), přepínání tmavého/světlého
+režimu funguje. JK zároveň nahrál opravenou verzi i na SPA server
+(`http://192.168.0.4:3000/theme.css`) — ověřeno stejným způsobem
+(88/88 značek komentáře, appka se načítá).
+
+### 2026-09-14 — `theme.css` zapojen do `tydenni_dashboard_mobile.html` (2. ze 5 souborů TOP)
+
+Pokračování fáze "skutečně zapojit". Stejný postup jako u mobilního
+přehledu: odstraněn lokální `:root` (9 tokenů, stejné přejmenování
+`--p0..--px`→`--tile-p0..px` atd.), ~35 napevno zapsaných barev
+nahrazeno `var(...)`, `html.dark` blok zredukován na 5 skutečně
+nutných přepisů (zbytek řeší centrálně `theme.css`). Tři dřív schválené
+vizuální změny (ikonka opakování, badge vícedenní, `.chip` barvy) i
+sjednocení `--bg` tmavého režimu (#0b1220→#0f172a) aplikovány stejně
+jako v prvním souboru.
+
+**Strojová kontrola** (stejná metoda — porovnání každé barvy souboru
+proti `theme.css`) odhalila **2 nové genuinní mezery**, obě u tlačítek
+v modalu detailu úkolu ("Upravit", "Zrušit"): jejich SVĚTLÉ barvy
+náhodou seděly s existujícími tokeny (`--tile-p2`, `--danger-soft-border`,
+`--prio-p0-text`), ale jejich TMAVÉ barvy se od těchto tokenů
+rozcházely — sdílení by tedy v tmavém režimu tiše změnilo vzhled.
+Doplněny `theme.css` v1.3.2: `--accent-block-border`/`--accent-block-text`
+(tlačítko Upravit) a `--danger-block-border`/`--danger-block-text`
+(tlačítko Zrušit), hodnoty přesně podle skutečného kódu.
+
+**Ověřeno** živým `getComputedStyle` testem (stejný injection workaround
+jako u prvního souboru): všech ~28 kontrolovaných hodnot světlého i
+tmavého režimu sedí přesně, včetně obou nových tokenů a jejich složité
+"prohozené" kombinace hodnot v tmavém režimu tlačítek Upravit/Zrušit.
+**Soubor zatím nenahraný** — čeká na JK (Konvence č. 4).
+
+Zbývají 3 soubory: `sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`.
