@@ -96,19 +96,30 @@ což vedlo k mnohem většímu rozsahu práce, než se původně čekalo.
 
 ### CO DĚLAT DÁL (přesně tady se přestalo)
 
-Fáze "sjednotit strukturu" je hotová — `theme.css` v1.2.0 je nahraný
+Fáze "sjednotit strukturu" je hotová — `theme.css` v1.3.1 je nahraný
 jako kanonická verze v `Asbeel13/Esperanto` a obě appky (TOP, SPA) mají
-lokální kopii. Zbývá fáze "skutečně to zapojit":
+lokální kopii. Fáze "skutečně to zapojit" **začala** — viz Changelog
+2026-09-14 níže pro plný detail (`tydenni_prehled_mobile.html` hotový,
+otestovaný, nahraný; cestou nalezena a opravena KRITICKÁ chyba —
+rozbitý CSS komentář v `theme.css` shazoval celý tmavý režim, teď
+opraveno jako v1.3.1). Zbývá:
 
-1. **Zapojit `theme.css` do všech 5 HTML souborů TOP** — přidat
-   `<link rel="stylesheet" href="theme.css">`, a POSTUPNĚ (soubor po
-   souboru, s testováním po každém) nahradit napevno zapsané hex barvy
-   za `var(--jméno)`. Tohle je největší zbývající kus práce — 126 barev
-   napříč 5 soubory, nejde to udělat najednou bez rizika. Kódové soubory
-   nahrává JK sám (Konvence č. 4) — až budou lokálně otestované a
-   schválené.
+1. **Zapojit `theme.css` do zbylých 4 HTML souborů TOP**
+   (`sprava_ukolu_linked.html`, `tydenni_dashboard_live_reload_local_linked.html`,
+   `tydenni_dashboard_mobile.html`, `tydenni_prehled.html`) — stejný
+   postup jako u mobilního přehledu, soubor po souboru, s testováním po
+   každém. **Pozor:** `sprava_ukolu_linked.html` a
+   `tydenni_dashboard_live_reload_local_linked.html` mají ještě VLASTNÍ
+   staré lokální `:root` proměnné (`--bg:#f4f7fb`, `--line:#d9e3ef`,
+   `--muted:#6e7f92`, `--ok:#1f9d57` apod.), které bude potřeba
+   zreconcilovat, ne jen přejmenovat. Desktopové soubory navíc mají
+   VLASTNÍ odlišné tmavé hodnoty pro `.task .meta`/`.task .spz`
+   (`#64748b`, resp. `#f87171`) — nepoužívat pro ně `--tile-text`
+   (viz theme.css v1.3.0 poznámka). Kódové soubory nahrává JK sám
+   (Konvence č. 4) — až budou lokálně otestované a schválené.
 2. Přidat `theme.css` do `sw.js` (PWA cache seznam), stejně jako u
-   předchozích nových sdílených souborů.
+   předchozích nových sdílených souborů. Zatím neuděláno ani pro
+   mobilní přehled.
 3. Sledovat, jestli SPA strana (nebo JK) nezmění `theme.css` znovu —
    `git pull` v `Esperanto` před další prací na tomhle tématu, přesně
    podle Konvence č. 6.
@@ -1549,3 +1560,66 @@ soubor je teď jediný zdroj pravdy).
 **Stále NEPROPOJENO s appkou** — žádný `<link>`, žádné nahrazené hex
 barvy, `sw.js` beze změny. Fáze "postupné zapojení do 5 HTML souborů" je
 další, samostatný krok (viz "CO DĚLAT DÁL" výše), zatím nezačatý.
+
+### 2026-09-14 — `theme.css` zapojen do `tydenni_prehled_mobile.html` (první ze 5 souborů TOP)
+
+Zahájena fáze "skutečně zapojit" (viz "CO DĚLAT DÁL" výše). Vybrán
+nejmenší z 5 souborů jako první. Odstraněn lokální `:root` blok (9
+tokenů, shodné s theme.css po přejmenování `--p0..--px`→`--tile-p0..px`,
+`--wait`→`--warn-block`, `--done`→`--success-block`), ~30 napevno
+zapsaných barev nahrazeno `var(...)`, `html.dark` blok zredukován jen na
+skutečně odlišné přepisy (zbytek řeší centrálně `theme.css`).
+
+**Strojová kontrola všech reálných hex barev souboru proti `theme.css`**
+(ne jen textová revize) odhalila další mezery v původním 126-barevném
+auditu — přesně to riziko, na které jsme upozorňovali předem. Doplněno
+`theme.css` v1.2.2 (`--tile-p0` chybělo v `html.dark`) a v1.3.0 (3 nové
+sdílené tokeny, 3 vizuální neshody vyřešené JK — ikonka opakování,
+badge vícedenní, `.chip` barvy — všechny tři se v tomhle souboru vizuálně
+nepatrně změnily, schváleno; nový token `--tile-text` jen pro soubory
+bez vlastní tmavé varianty). Dodatečně doplněno i chybějící
+`--success-block` v `html.dark`. Kompletní detail viz hlavička
+`theme.css` a `INTEGRACE.md` sekce 5.
+
+**Ověřeno** živým `getComputedStyle` testem (workaround kvůli sandboxu
+testovacího nástroje, který neumí načíst externí `<link>` pro lokální
+soubory — vloženy skutečné hodnoty z theme.css jako dočasný inline
+`<style>`, pak měřeno na reálném/syntetickém DOM): všech ~30 barev
+světlého i tmavého režimu přesně sedí, včetně obou oprav a všech tří
+schválených vizuálních změn. **Soubor nahraný JK, žádná další akce.**
+
+### 2026-09-14 — KRITICKÁ OPRAVA: rozbitý CSS komentář v `theme.css` shazoval CELÝ tmavý režim
+
+Po nahrání výše JK otestoval živě a nahlásil: tmavý/světlý režim v
+mobilním přehledu se přepíná jen částečně, pozadí stránky se vůbec
+neměnilo. Diagnostika přímo na `https://asbeel13.github.io/TOP/` přes
+`document.styleSheets` (ne hádání) odhalila, že prohlížeč z celého 23kB
+`theme.css` rozparsoval **jen JEDNO CSS pravidlo** (`:root`) — všechno
+za ním, včetně celého bloku `html.dark {...}`, bylo tiše zahozeno jako
+neplatná syntaxe. Proto fungovaly světlé barvy (jsou v `:root`, před
+chybou), ale tmavý režim vůbec ne (byl celý za ní).
+
+**Příčina:** text uvnitř komentáře popisující sloučené proměnné
+(`--auto-pouzivane-*` hned následované `/--accent-soft*`) obsahoval
+náhodně za sebou hvězdičku a lomítko — CSS komentáře se neumí zanořit,
+takže tahle náhodná shoda ukončila komentář uprostřed věty, ne na
+zamýšleném místě. **Oprava:** vložena mezera, žádná změna významu textu
+ani hodnoty žádné proměnné. Ověřeno počtem otevíracích/zavíracích
+značek komentáře v souboru (88/88, dřív 88/89 — jasný důkaz, že šlo
+přesně o tenhle jeden problém, ne o něco dalšího).
+
+Opraveno jako `theme.css` v1.3.1, nahráno do `Asbeel13/Esperanto` jako
+kanonická verze (commit `bb9c6aa`). **`TOP/theme.css` čeká na nahrání
+JK** — appkový soubor, Konvence č. 4. Zapsáno i do `INTEGRACE.md`
+(sekce 5) s upozorněním pro SPA stranu — jejich `public/theme.css` je
+bajt-po-bajtu stejná kopie, takže mohla mít STEJNOU chybu.
+
+**Poučení pro budoucí úpravy `theme.css`:** v komentářích nikdy nepsat
+hvězdičku bezprostředně před lomítkem (ani přes konec/začátek řádku) —
+CSS to čte jako konec komentáře, i když to autor nezamýšlel. Chyba se
+navenek neprojeví jako zjevná (appka dál "nějak" vypadá, protože vše
+PŘED chybou v souboru projde beze změny) — jen se tiše ztratí všechno
+ZA tím místem. Při jakékoliv budoucí podezřelé "nevysvětlitelné"
+odchylce chování appky od `theme.css` je `document.styleSheets` →
+počet `cssRules` rychlá a spolehlivá první kontrola, jestli se celý
+soubor vůbec rozparsoval, jak měl.
