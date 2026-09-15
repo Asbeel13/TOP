@@ -1,0 +1,204 @@
+/* ==========================================================================
+   Sdílené komponenty (components.css) — TOP
+   verze 1.0.0 — 2026-09-15
+   ==========================================================================
+   Sesterský soubor k theme.css. Zatímco theme.css obsahuje JEN proměnné
+   (pravidlo dohodnuté při review se SPA stranou, viz theme.css hlavička),
+   tenhle soubor obsahuje skutečná CSS PRAVIDLA pro opakující se prvky
+   (tlačítka, karty úkolů, štítky priority) — vznikl z požadavku JK
+   2026-09-15, aby budoucí změna vzhledu těchhle prvků šla udělat výměnou
+   JEDNOHO souboru, ne úpravou pěti kopií stejného pravidla.
+
+   Zatím výhradně pro TOP. SPA má vlastní, jinak vypadající UI (jiný účel
+   appky) — může se k tomuhle souboru připojit později, pokud a až to
+   bude dávat smysl, není to teď vyžadováno ani očekáváno.
+
+   DŮLEŽITÉ — musí být načtený PO theme.css (používá jeho proměnné):
+     <link rel="stylesheet" href="theme.css" />
+     <link rel="stylesheet" href="components.css" />
+
+   Barvy priorit/stavů (--prio-*, --tile-*, --warn-*, --success-*) jsou
+   PŘEVZATÉ beze změny z theme.css (JK rozhodnutí 2026-09-15) — tenhle
+   soubor mění jen TVAR (pruh + štítek místo plné plochy), ne sémantiku
+   barev. Husté kalendářní mřížky Dashboardu/Přehledu desktop (`.task.p0`
+   apod. jako plná barevná plocha buňky) tenhle soubor NENAHRAZUJE —
+   zůstávají svým vlastním, existujícím pravidlem v každé té stránce,
+   protože jde o jiný účel (hustý přehled, ne čitelná karta).
+
+   v1.0.0 (2026-09-15): první verze — `.btn`/`.btn-primary`/`.btn-secondary`,
+   `.icon-btn`, `.task-card` + `.priority-tag`, `.person-block`/
+   `.person-head`/`.avatar`. Vychází ze schváleného mockupu (mobilní
+   přehled + desktopový dashboard, Artifact 2026-09-15). Zapojení do
+   skutečných souborů TOP je samostatný následný krok, soubor po
+   souboru — stejná metodika jako u theme.css.
+   ========================================================================== */
+
+/* ── Tlačítka ── */
+.btn {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-primary {
+  background: var(--brand-accent);
+  color: var(--brand-accent-ink);
+}
+.btn-secondary {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--line-medium);
+}
+.icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-on-navy-softer);
+  border-radius: var(--radius-xs);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.icon-btn:hover,
+.icon-btn:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Štítek priority/stavu (pilulka nad kartou úkolu) ──
+   Barvy převzaté beze změny z theme.css --prio-*/--warn-*/--success-*. */
+.priority-tag {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  display: inline-block;
+}
+.priority-tag.p0 { background: var(--prio-p0-bg); color: var(--prio-p0-text); }
+.priority-tag.p1 { background: var(--prio-p1-bg); color: var(--prio-p1-text); }
+.priority-tag.p2 { background: var(--prio-p2-bg); color: var(--prio-p2-text); }
+.priority-tag.p3 { background: var(--prio-p3-bg); color: var(--prio-p3-text); }
+.priority-tag.px { background: var(--prio-px-bg); color: var(--prio-px-text); }
+.priority-tag.waiting { background: var(--warn-soft); color: var(--warn-strong); }
+.priority-tag.done { background: var(--success-soft); color: var(--success-strong); }
+
+/* ── Karta úkolu (kartové/seznamové zobrazení — mobilní přehled,
+   mobilní dashboard; NE husté kalendářní mřížky desktopu, viz hlavička
+   výše). Barevný pruh vlevo místo plné plochy. ── */
+.task-card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px 9px 14px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+.task-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--stripe, var(--text-faint));
+}
+.task-card.p0 { --stripe: var(--tile-p0); }
+.task-card.p1 { --stripe: var(--tile-p1); }
+.task-card.p2 { --stripe: var(--tile-p2); }
+.task-card.p3 { --stripe: var(--tile-p3); }
+.task-card.px { --stripe: var(--tile-px-border); }
+.task-card.waiting { --stripe: var(--warn-block); }
+.task-card.done { --stripe: var(--success-block); }
+
+.task-card .tag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+.task-card .title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+.task-card.done .title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-faint);
+}
+.task-card .meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.task-card .meta .danger {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ── Blok osoby (seznamová hlavička + úkoly pod ní) — mobilní přehled,
+   mobilní dashboard. ── */
+.person-block {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.person-block .person-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.person-block .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand-accent) 12%, transparent);
+  color: var(--brand-accent);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.person-block .person-name {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.person-block .person-code {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.person-block .person-tasks {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}

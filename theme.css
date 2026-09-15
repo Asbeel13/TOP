@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílený design systém (theme.css) — TOP + SPA
-   verze 1.3.2 — 2026-09-14
+   verze 1.4.0 — 2026-09-15
    ==========================================================================
    Jediný zdroj barevné palety pro TOP (Dashboard, Přehled desktop i mobil,
    Správa úkolů, Dashboard mobil) I SPA (Správa Pracovních Absencí).
@@ -147,6 +147,58 @@
    tokeny (`--accent-block-border`/`--accent-block-text`,
    `--danger-block-border`/`--danger-block-text`), hodnoty přesně podle
    skutečného kódu, žádná vizuální změna.
+
+   **v1.4.0 (2026-09-15, JK poskytl firemní podklady — zahájen redesign
+   "firemní feeling", viz mockup schválený v Artifact 2026-09-15):**
+   podle firemního manuálu Filtration Technology (oranžová Pantone 1655 U,
+   Cool Gray 10) a schváleného mockupu (mobilní přehled + desktopový
+   dashboard) přidána nová vrstva tokenů. Barvy priorit a stavů
+   (`--prio-*`, `--tile-*`, `--warn-block`, `--success-block`) zůstávají
+   ZÁMĚRNĚ beze změny hodnot (JK rozhodnutí 2026-09-15) — mění se jen
+   jejich TVAR v novém sesterském souboru `components.css` (pruh a
+   štítek místo plné barevné plochy u kartového zobrazení; husté
+   kalendářní mřížky Dashboardu/Přehledu desktop zůstávají beze změny
+   tvaru, jen zdědí případné budoucí ladění stávajících hodnot).
+
+   Nové/změněné v tomhle souboru:
+   - Nová značková barva `--brand-accent` (#FF5914) a
+     `--brand-accent-ink` (bílá) — určeno pro CTA/akcentové prvky
+     (tlačítko "Dnes", primární akce). Záměrně ODDĚLENO od stávajícího
+     `--accent` (modrá) — `--accent` zůstává beze změny, protože se dál
+     používá i sémanticky jinde (`--prio-p2-text`, `--auto-pouzivane`),
+     kde by záměna za oranžovou byla nechtěná kolize barev, ne jen
+     kosmetika.
+   - Barva "chrome" panelů (`--navy-900/800/700/600`, navazující
+     `--navy-hover`) přebarvena z tmavě námořnické na teplou
+     antracitovou podle manuálu — invariantní jako dřív (beze změny
+     mezi světlým/tmavým režimem appky), takže se projeví všude, kde
+     appka tenhle chrome panel má (sidebar Dashboardu, topbar
+     mobilních souborů), jakmile bude soubor napojený.
+   - Navazující `--text-on-navy-*` a `--border-on-navy` doladěny do
+     teplejšího tónu, ať sedí s novou antracitovou barvou místo staré
+     studeně modré.
+   - Nové invariantní tokeny `--chrome-border`, `--chrome-muted`,
+     `--chrome-input-bg`, `--chrome-hover` — určené pro místa, kde byl
+     dřív natvrdo zapsaný hex (např. okraj `#334155`, text `#64748b`,
+     pozadí inputu `#0b1222`) místo proměnné, protože v tehdejší sadě
+     tokenů žádný invariantní ekvivalent neexistoval (viz poznámka o
+     "trvale tmavém chrome" v `CLAUDE.md`). Přesné namapování na
+     konkrétní staré hodnoty proběhne až při zapojování jednotlivých
+     souborů — stejná metodika jako dosud, ne odhad předem.
+   - Nové fontové tokeny `--font-heading` (Jost) a `--font-body`
+     (Work Sans) — volná náhrada za Galano Classic/Tw Cen MT (bez
+     webové licence, JK odsouhlasil). Font se musí navíc natáhnout
+     přes Google Fonts odkaz v hlavičce KAŽDÉHO souboru zvlášť — sama
+     proměnná soubor fontu nenačte, bude součástí zapojení každého
+     souboru.
+   - Nové `--radius-sm` (8px) a `--radius-xs` (4px) pro plošší, méně
+     zaoblený tvar nových komponent. Původní `--radius`/`--radius-lg`
+     zůstávají beze změny pro zatím nepřevedené komponenty.
+   - Sdílené CSS TŘÍDY (tlačítka, karty, dlaždice se štítkem) záměrně
+     NEJSOU v tomhle souboru (viz pravidlo č. 1 v hlavičce výše) — žijí
+     v novém `components.css`, který tenhle soubor jen doplňuje o
+     hodnoty. TOP zatím jediný odběratel, SPA se může připojit později,
+     nezávazně.
    ========================================================================== */
 
 :root {
@@ -165,21 +217,51 @@
   --text-faint: #9ca3af;      /* nejslabší text (placeholder, vypnuté) */
   --grid: #cfcfcf;            /* mřížka kalendáře */
 
-  /* ── Tmavě námořnická "chrome" barva (postranní panel, hlavičky) ──
+  /* ── Teplá antracitová "chrome" barva (postranní panel, hlavičky) ──
      Vědomě BEZE ZMĚNY mezi světlým/tmavým režimem stránky — tenhle panel
-     je tmavý vždycky, nezávisle na tématu appky. (Používá jen TOP.) */
-  --navy-900: #020617;
-  --navy-800: #0f172a;
-  --navy-700: #1e293b;
-  --navy-600: #162032;
-  --link-hover-bg: #1f3f5f;       /* hover odkazu na navy pozadí */
-  --border-medium: #24405f;       /* okraj na navy pozadí */
-  --text-on-navy-soft: #5c7188;   /* tlumený text na navy pozadí */
-  --text-on-navy-softer: #e5edf7; /* hlavní text na navy pozadí */
-  --text-on-navy-faint: #cbd5e1;  /* [PŘEJMENOVÁNO z --text-faint-dark, viz K ROZHODNUTÍ (TOP) #5] */
-  --text-on-navy-muted: #94a3b8;  /* NOVÉ 2026-09-12 — text na topbaru/postranním panelu, dřív jen náhodou shodné s tmavým --text-muted, ne skutečný alias */
-  --border-on-navy: #475569;      /* NOVÉ 2026-09-12 — okraj tlačítek na navy pozadí (side-btn, move-btn, hide-btn, closeModal…) + tlumený text (.footer-note/.helper v tmavém režimu Správy úkolů) */
-  --navy-hover: #111f38;          /* NOVÉ 2026-09-14 — hover stav plovoucích tlačítek (.fab-nav:hover) */
+     je tmavý vždycky, nezávisle na tématu appky. (Používá jen TOP.)
+     Jméno proměnných zůstává historicky "navy" i po přebarvení na
+     antracitovou v1.4.0 (2026-09-15, firemní redesign) — přejmenování
+     by si vyžádalo úpravu všech 5 souborů bezúčelně, jméno se dál
+     chápe jako "barva trvale tmavého chrome panelu", ne doslova navy. */
+  --navy-900: #17140f;
+  --navy-800: #262421;
+  --navy-700: #322f2a;
+  --navy-600: #3d3a34;
+  --link-hover-bg: #3d3a34;       /* hover odkazu na navy pozadí */
+  --border-medium: #4a453d;       /* okraj na navy pozadí */
+  --text-on-navy-soft: #8c8779;   /* tlumený text na navy pozadí */
+  --text-on-navy-softer: #f3f1ec; /* hlavní text na navy pozadí */
+  --text-on-navy-faint: #d9d5cc;  /* [PŘEJMENOVÁNO z --text-faint-dark, viz K ROZHODNUTÍ (TOP) #5] */
+  --text-on-navy-muted: #b6b1a6;  /* NOVÉ 2026-09-12 — text na topbaru/postranním panelu, dřív jen náhodou shodné s tmavým --text-muted, ne skutečný alias */
+  --border-on-navy: #57524a;      /* NOVÉ 2026-09-12 — okraj tlačítek na navy pozadí (side-btn, move-btn, hide-btn, closeModal…) + tlumený text (.footer-note/.helper v tmavém režimu Správy úkolů) */
+  --navy-hover: #3d3a34;          /* NOVÉ 2026-09-14 — hover stav plovoucích tlačítek (.fab-nav:hover) */
+
+  /* ── NOVÉ 2026-09-15 — chrome tokeny pro místa, kde byl dřív natvrdo
+     zapsaný hex místo proměnné (žádný invariantní ekvivalent tehdy
+     neexistoval — viz poučení o "trvale tmavém chrome" v CLAUDE.md).
+     Přesné namapování na konkrétní staré hodnoty (typicky sidebar
+     input/tlačítko okraje, tlumený text topbaru) proběhne až při
+     zapojování jednotlivých souborů. ── */
+  --chrome-border: #4a453d;
+  --chrome-muted: #8c877a;
+  --chrome-input-bg: #1c1a17;
+  --chrome-hover: #3d3a34;
+
+  /* ── NOVÉ 2026-09-15 — značková barva (Filtration Technology,
+     Pantone 1655 U), invariantní jako --accent (dost sytá na obojí
+     téma). Určeno pro CTA/akcent (tlačítko "Dnes", primární akce) —
+     NE náhrada za --accent, který zůstává modrý a dál nese vlastní
+     sémantiku (--prio-p2-text, --auto-pouzivane). ── */
+  --brand-accent: #ff5914;
+  --brand-accent-ink: #ffffff;
+
+  /* ── NOVÉ 2026-09-15 — fonty pro firemní redesign (volná náhrada za
+     Galano Classic/Tw Cen MT, bez webové licence). Google Fonts odkaz
+     (Jost + Work Sans) se musí navíc přidat do hlavičky každého
+     souboru zvlášť — samotná proměnná soubor fontu nenačte. ── */
+  --font-heading: "Jost", Arial, sans-serif;
+  --font-body: "Work Sans", Arial, Helvetica, sans-serif;
 
   /* ── Značková/akční modrá — beze změny mezi režimy (dost sytá na obojí) ── */
   --accent: #1d4ed8;
@@ -298,6 +380,8 @@
   --shadow-strong: 0 14px 28px rgba(16, 40, 73, .08);
   --radius: 16px;
   --radius-lg: 18px;
+  --radius-sm: 8px;   /* NOVÉ 2026-09-15 — plošší tvar nových komponent (components.css) */
+  --radius-xs: 4px;   /* NOVÉ 2026-09-15 — tamtéž, drobné prvky (štítky priority) */
   --focus-ring: #a7c6ff;          /* beze změny — indikátor fokusu zůstává stejný na obou tématech */
 
   /* Tlumený text NA barevné dlaždici úkolu (meta info, SPZ) — NOVÉ
