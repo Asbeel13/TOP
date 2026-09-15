@@ -132,8 +132,45 @@ Zbývají 4 soubory: `tydenni_dashboard_mobile.html`,
 husté kalendářní mřížky zůstávají beze změny tvaru, viz mockup a
 poznámka v `components.css`).
 
+### `tydenni_dashboard_mobile.html` zapojen na `components.css` + fonty (2026-09-15, 2. ze 5 souborů)
+
+Stejná metodika jako u prvního souboru. Navíc oproti přehledu:
+- `.fab-add` (plovoucí tlačítko nového úkolu) a `.mform-save-btn`
+  (uložit v editačním/novém formuláři) přepnuty z `var(--accent)` na
+  `var(--brand-accent)` — stejná logika jako `.today-btn`, jsou to
+  skutečné primární CTA prvky téhle obrazovky. `.fab-add:active` teď
+  používá `color-mix(in srgb, var(--brand-accent) 85%, black)` místo
+  starého `var(--accent-hover)` — čistší než vymýšlet nový tmavší
+  token jen pro jeden stav. `html.dark .fab-add` přepis smazán
+  (`--brand-accent` je invariantní, nepotřebuje zvlášť tmavou verzi).
+- `.person-row .side-btn.active-L` (přepínač strany L/P v Nastavení
+  zobrazení) záměrně ZŮSTAL na `var(--accent)` (modrá) — je to stav
+  výběru, ne CTA, stejné rozlišení jako u předchozího souboru.
+- Tlačítka v detailu úkolu (`#modalDoneBtn`/`#modalEditBtn`/
+  `#modalCancelBtn`) záměrně NEPŘEVEDENA na `.btn`/`components.css` —
+  už správně používají `--accent-block-*`/`--danger-block-*` tokeny
+  (beze změny hodnot), jen by získala jiný tvar/font, což nebylo cílem
+  týhle konkrétní úpravy.
+- **Retroaktivní oprava nalezená při tomhle souboru:** tlačítka/inputy
+  nedědí font z `body` automaticky (UA výchozí chování) — bez
+  `button, input, select, textarea { font-family: inherit; }` by
+  zůstala na systémovém fontu i po zapojení Work Sans/Jost. Přidáno
+  sem I doplněno zpětně do `tydenni_prehled_mobile.html` (1. soubor),
+  který měl stejnou mezeru.
+
+**Ověřeno:** vyváženost `{ }` v `<style>` (60/60) a `<script>`
+(233/233) blocích zvlášť, počet `<script>` tagů beze změny (2), žádné
+zbylé odkazy na staré třídy (`recurring-icon`/`multiday-badge`/`.spz`/
+`querySelectorAll(".task")`). **Soubor zatím nenahraný** — čeká na JK,
+doověřit živě na GitHub Pages po nahrání (stejným postupem jako u
+1. souboru — pozor na HTTP cache prohlížeče, testovat s
+`cache:"no-store"` nebo cache-bustovaným URL).
+
+Zbývají 3 soubory: `sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`.
+
 **Zatím NEPROVEDENO (další krok):**
-1. Pokračovat zapojováním zbylých 4 souborů TOP — stejná metodika
+1. Pokračovat zapojováním zbylých 3 souborů TOP — stejná metodika
    (test → schválení → JK nahraje).
 2. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
    `#0b1222`...) na nové `--chrome-*` tokeny — přesné namapování se
