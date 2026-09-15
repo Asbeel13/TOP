@@ -66,21 +66,69 @@ důkladné řešení: nový sesterský soubor **`components.css`**.
   (4px/8px), a barva priority P0 (`#fff1f2`/`#be123c`) je beze změny
   — přesně jak bylo rozhodnuto.
 
+### `tydenni_prehled_mobile.html` zapojen na `components.css` + fonty (2026-09-15, 1. ze 5 souborů)
+
+Stejný pořadí jako u sjednocení palety — začal nejmenším souborem.
+Provedeno:
+- Přidán Google Fonts odkaz (Jost + Work Sans) a `<link
+  rel="stylesheet" href="components.css">` PO `theme.css`.
+- `body`/`.topbar h1`/`.day-label .day-name` přepnuty na
+  `var(--font-body)`/`var(--font-heading)`.
+- `.today-btn` přepnuto z `var(--accent)` (modrá) na `var(--brand-accent)`
+  (nová firemní oranžová) — jediný skutečný CTA prvek na týhle stránce.
+- Lokální CSS pro `.person-block`/`.person-head`/`.person-tasks`/`.task`
+  (a jeho `.p0`–`.px`/`.waiting`/`.done`/`.recurring-icon`/
+  `.multiday-badge`/`.spz`) smazáno — teď to všechno dodává
+  `components.css`. `#content` dostalo `display:flex;flex-direction:
+  column;gap:12px` náhradou za zrušené `.person-block{margin-bottom}`.
+- Zastaralé `html.dark .person-block`/`.person-head` přepisy smazány
+  (nová verze bere barvu z `--panel`/`--line-soft`, které mají tmavou
+  varintu už v `theme.css`, žádný extra přepis netřeba).
+- JS (`cardClass()`, `renderMobileDay()`): třída `task` → `task-card`,
+  nová funkce `statusTag()` (jeden štítek v tag-row — "Hotovo"/"Čeká"/
+  "P0"–"P3", stejná priorita jako CSS kaskáda pro barvu pruhu), emoji
+  (🔁📅🚗) nahrazena liniovými SVG ikonami (`ICON_RECUR`/`ICON_CALENDAR`/
+  `ICON_CAR`) uvnitř `.meta-tag`. Blok osoby dostal `.avatar` (iniciály
+  = zkratka řešitele) + `.person-name`/`.person-code` místo starého
+  `.code`/`.name` na tmavém pruhu.
+- **Genuinní mezera nalezená při zapojování** (stejný vzorec jako u
+  `theme.css` v minulé fázi): mockup nepočítal s malými ikona+text
+  štítky pro "opakující se"/"vícedenní"/SPZ — doplněna nová třída
+  `.meta-tag` do `components.css` (v1.0.1).
+- `.icon-btn` v hlavičce záměrně NEPŘEVEDENO na verzi z `components.css`
+  (32×32px) — ponechána lokální 42×42px verze kvůli dotykovému cíli na
+  mobilu (accessibility minimum), `components.css` verze je menší,
+  vhodná spíš pro desktop dashboard. Lokální `<style>` se načítá PO
+  `components.css`, takže má přednost automaticky, není potřeba nic
+  navíc řešit.
+
+**Ověřeno:** vyváženost `{ }` v `<style>` (47/47) i `<script>` (162/162)
+blocích zvlášť, počet `<script>` tagů beze změny (2), strojová kontrola
+že žádná použitá CSS třída (`task-card`, `priority-tag.*`, `meta-tag`,
+`person-block`/`person-head`/`avatar`/`person-name`/`person-code`/
+`person-tasks`) nechybí v `components.css`. **Živé vizuální ověření
+(izolovaná stránka) se nepodařilo provést** stejně jako u samotného
+`theme.css`/`components.css` výše — chybí funkční Python/Node pro
+lokální server na tomhle stroji. **Soubor zatím nenahraný** — čeká na
+JK, doověřit živě na GitHub Pages po nahrání.
+
+Zbývají 4 soubory: `tydenni_dashboard_mobile.html`,
+`sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`
+(desktopový dashboard/přehled dostanou při zapojování jinou léčbu —
+husté kalendářní mřížky zůstávají beze změny tvaru, viz mockup a
+poznámka v `components.css`).
+
 **Zatím NEPROVEDENO (další krok):**
-1. Zapojit `<link rel="stylesheet" href="components.css">` (PO
-   `theme.css`) a Google Fonts odkaz (Jost + Work Sans) do jednotlivých
-   souborů TOP — soubor po souboru, stejná metodika jako u sjednocení
-   palety (test → schválení → JK nahraje).
-2. V každém souboru nahradit stávající `.task`/`.person-block` markup
-   za nové `.task-card`/`.person-block` třídy z `components.css` (jen
-   tam, kde jde o KARTOVÉ zobrazení — mobilní přehled, mobilní
-   dashboard; NE husté mřížky Dashboardu/Přehledu desktop).
-3. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
+1. Pokračovat zapojováním zbylých 4 souborů TOP — stejná metodika
+   (test → schválení → JK nahraje).
+2. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
    `#0b1222`...) na nové `--chrome-*` tokeny — přesné namapování se
-   dořeší až při zapojování KAŽDÉHO souboru (stejně jako dřív).
-4. Rozhodnout, jestli/kdy se SPA k `components.css` připojí — zatím
+   dořeší až při zapojování KAŽDÉHO souboru, kde se vyskytují (zatím
+   se v `tydenni_prehled_mobile.html` žádné takové nenašly).
+3. Rozhodnout, jestli/kdy se SPA k `components.css` připojí — zatím
    TOP-only, žádné rozhodnutí zapsáno.
-5. Zapsat i do `INTEGRACE.md` (Konvence č. 7) — provedeno souběžně s
+4. Zapsat i do `INTEGRACE.md` (Konvence č. 7) — provedeno souběžně s
    tímhle zápisem.
 
 ## ✅ Sjednocení barevné palety a designu TOP (2026-09-08 → 2026-09-15, HOTOVO)
