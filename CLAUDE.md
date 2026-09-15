@@ -307,6 +307,44 @@ Zbývá jen: analogicky zvážit/nabídnout stejný redesign na SPA straně
 (zatím žádné rozhodnutí), a případné doladění detailů podle zpětné
 vazby JK po vyzkoušení v praxi.
 
+### Vizuální kontrola živé appky (2026-09-15) — nález mimo 5 souborů
+
+JK požádal o vizuální kontrolu přímo v appce, ne jen `getComputedStyle`
+testy. Screenshoty (mobilní i "desktop" — Browser nástroj měl tentokrát
+jen úzký viewport, takže sidebar+mřížka vedle sebe nešly ověřit,
+jen svisle poskládané) na všech otestovaných stránkách ukázaly chrome/
+topbar/tlačítka vizuálně v pořádku (teplá antracitová, oranžové CTA,
+Jost nadpisy).
+
+**Skutečný nález:** přihlašovací dialog na GitHub token
+(`showTokenDialog()` v **`ft_loader.js`** — sdílený mezi VŠEMI 5
+soubory, mimo rozsah dosavadní úpravy) měl pořád natvrdo zapsanou
+starou modrou (`#1d4ed8`) na tlačítku "Uložit a pokračovat" a obecný
+`font-family:sans-serif`, ne Work Sans/Jost. Je to úplně první
+obrazovka, kterou vidí kdokoliv bez uloženého tokenu — vizuálně
+nejnápadnější zbylá nekonzistence. **Opraveno:** `background:var(--brand-accent,
+#1d4ed8)` / `color:var(--brand-accent-ink, white)` / `font-family:
+var(--font-heading, sans-serif)` na tlačítku, `font-family:var(--font-body,
+sans-serif)` na kartě dialogu, `font-family:inherit` na obou inputech.
+Fallback hodnoty (druhý argument `var()`) zachovávají původní vzhled,
+kdyby se dialog někdy zobrazil bez načteného `theme.css` (nemělo by
+nastat, ale bezriziková pojistka).
+
+Zbytek dialogu (bílé pozadí, `#6b7280`/`#d1d5db`/`#9ca3af` texty/okraje)
+záměrně NEZMĚNĚN — dialog nikdy nepodporoval tmavý režim (vždy bílý),
+to nebylo součástí zadání a nemá smysl měnit jen barvu textu bez
+řešení pozadí zvlášť.
+
+**Ověřeno:** vyváženost `{ }`/`( )` v celém `ft_loader.js` beze změny
+(184/184, 509/509). **Soubor zatím nenahraný** — čeká na JK.
+
+**Limit vizuální kontroly, na který JK narazí sám:** appka vyžaduje
+GitHub token pro zobrazení skutečných dat (karty úkolů, mřížka
+Dashboardu) — token nezadávám (bezpečnostní pravidlo, credentials se
+nikdy nezadávají za uživatele). Skutečný vzhled kartiček úkolů a
+husté mřížky tedy zatím ověřil jen JK sám při běžném používání, ne
+já vizuálně na živých datech.
+
 **Zatím NEPROVEDENO (další krok):**
 1. Žádný povinný — čekat na JK, jestli chce ještě něco doladit, nebo
    jestli se má nabídnout stejný redesign SPA straně.
