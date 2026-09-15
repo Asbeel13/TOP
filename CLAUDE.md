@@ -111,14 +111,14 @@ genuinních mezer v tokenech (v1.3.0/v1.3.2), a opakovaná třída chyb
 z hromadné `sed` náhrady (světlá/tmavá hodnota prohozená uvnitř
 `html.dark`, trvale tmavé prvky chrome dostaly proměnné měnící se s
 režimem) — poučení zapsáno u Dashboardu a využito při posledním
-souboru. Zbývá jen:
+souboru. `theme.css` doplněno i do `sw.js` (PWA cache seznam,
+2026-09-15 — `CACHE_NAME` povýšen na `top-mobile-v2`, ať se stará
+cache bezpečně smaže a nahradí novou i s `theme.css`). Zbývá jen:
 
-1. Přidat `theme.css` do `sw.js` (PWA cache seznam), stejně jako u
-   předchozích nových sdílených souborů. Zatím neuděláno.
-2. Sledovat, jestli SPA strana (nebo JK) nezmění `theme.css` znovu —
+1. Sledovat, jestli SPA strana (nebo JK) nezmění `theme.css` znovu —
    `git pull` v `Esperanto` před další prací na tomhle tématu, přesně
    podle Konvence č. 6.
-3. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v `theme.css`
+2. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v `theme.css`
    (ne strukturu), ověřit vizuálně, projeví se to automaticky ve všech
    5 souborech TOP (a analogicky v SPA). Zahrnuje i položku zaznamenanou
    jako "sloučit později" (`--today-outline` u SPA).
@@ -1834,8 +1834,20 @@ chybná. **Soubor zatím nenahraný** — čeká na JK.
 — všech 5 souborů (`tydenni_prehled_mobile.html`,
 `tydenni_dashboard_mobile.html`, `sprava_ukolu_linked.html`,
 `tydenni_dashboard_live_reload_local_linked.html`,
-`tydenni_prehled.html`) je zapojených a otestovaných.** Zbývá jen:
-1. Přidat `theme.css` do `sw.js` (PWA cache seznam) — viz "CO DĚLAT
-   DÁL" na začátku souboru, ještě neuděláno.
-2. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v
-   `theme.css`, projeví se to automaticky ve všech 5 souborech.
+`tydenni_prehled.html`) je zapojených a otestovaných.**
+
+### 2026-09-15 — `theme.css` doplněn do `sw.js` (PWA cache seznam)
+
+Poslední zbývající krok fáze "zapojit theme.css" — přidán `"theme.css"`
+do `APP_SHELL` v `sw.js`, `CACHE_NAME` povýšen z `top-mobile-v1` na
+`top-mobile-v2` (stávající `activate` handler už umí smazat starou
+cache podle jména, takže je tohle jediné potřebné pro čistou výměnu).
+Ověřeno: `node --check` nedostupný na tomhle stroji, ruční kontrola
+vyváženosti závorek/hranatých závorek v pořádku (4/4, 1/1). **Soubor
+zatím nenahraný** — čeká na JK.
+
+**Tímhle je fáze "sjednocení barevné palety a designu TOP" úplně
+uzavřená.** Jediné, co zbývá do budoucna: sledovat případné změny
+`theme.css` od SPA strany (Konvence č. 6), a až JK poskytne skutečné
+firemní barvy, upravit HODNOTY v `theme.css` — projeví se to
+automaticky ve všech 5 souborech TOP i v SPA.
