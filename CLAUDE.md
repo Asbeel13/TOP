@@ -194,11 +194,24 @@ téhle úpravy byl proto užší, cíleně jen na:
   a "Obnovit" u vozidla (sekundární administrativní akce, ne hlavní CTA
   stránky), debug panel (`#7c3aed`, zdokumentovaná výjimka z dřívějška).
 
-**Ověřeno:** vyváženost `{ }` v celém souboru (631/631, dřív 630/630 —
-+1 pár odpovídá přesně jedné nové přidané CSS deklaraci), počet
-`<script>` tagů beze změny (4), žádný nový výskyt rizikového `-*/`
-vzoru (kontrola komentářového bugu z `theme.css` v1.3.1). **Soubor
-zatím nenahraný** — čeká na JK, doověřit živě po nahrání.
+**Ověřeno staticky před uploadem:** vyváženost `{ }` v celém souboru
+(631/631), počet `<script>` tagů beze změny (4), žádný nový výskyt
+rizikového `-*/` vzoru.
+
+**Genuinní mezera nalezená AŽ při živém testu po uploadu:** `html.dark
+.primary { background: var(--accent-strong); ... }` — samostatný
+tmavý přepis, mimo hlavní `.primary` pravidlo, který jsem při prvním
+průchodu přehlédl (grep hledal jen `.primary{`/`class="primary`, ne
+`html.dark .primary`). Výsledek: v tmavém režimu bylo tlačítko
+"Uložit"/"+ Přidat" pořád modré, ne oranžové. Odhaleno probe-elementem
+(`document.createElement('button'); .className='primary'`) přímo na
+živém webu s aktivním tmavým režimem — přesně proto se živé ověření
+`getComputedStyle` dělá i po každém uploadu, ne jen statická kontrola
+před ním. **Opraveno:** přepis smazán (`--brand-accent` je
+invariantní jako `--accent-block-*`, žádnou zvláštní tmavou hodnotu
+nepotřebuje). Vyváženost po opravě 630/630 (zpátky na původní počet).
+**Soubor s opravou zatím nenahraný** — čeká na JK, doověřit znovu
+živě po nahrání (tentokrát i s `html.classList.add('dark')`).
 
 Zbývají 2 soubory: `tydenni_dashboard_live_reload_local_linked.html`,
 `tydenni_prehled.html` (oba dostanou stejné zúžené zacházení jako
