@@ -5,12 +5,15 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
-## ⚠️ AKTUÁLNĚ ROZPRACOVÁNO (od 2026-09-08) — PŘEČTI SI TOHLE PRVNÍ
+## ✅ Sjednocení barevné palety a designu TOP (2026-09-08 → 2026-09-15, HOTOVO)
 
-**Probíhající úkol: sjednocení barevné palety a designu TOP (a analogicky SPA).**
-JK chce, aby vizuální design TOP a SPA odpovídal jednotné (později firemní)
-identitě. Tenhle úkol NENÍ dokončený — tady je přesně to, kde se přestalo
-a co dělat dál.
+**Dokončený úkol: sjednocení barevné palety a designu TOP (a analogicky SPA).**
+JK chtěl, aby vizuální design TOP a SPA odpovídal jednotné (později firemní)
+identitě — tenhle úkol je teď HOTOVÝ na straně TOP (všech 5 souborů
+zapojeno na sdílený `theme.css`). Sekce zůstává nahoře jako kontext a
+historie rozhodnutí pro budoucí práci na designu (např. až přijdou
+skutečné firemní barvy) — podrobnosti viz "CO DĚLAT DÁL" níže a
+changelog 2026-09-08 až 2026-09-15.
 
 ### Kontext a cíl
 
@@ -94,39 +97,31 @@ což vedlo k mnohem většímu rozsahu práce, než se původně čekalo.
   ale ZŮSTÁVAJÍ beze změny pro vyplnění kalendářních dlaždic (jiný účel,
   nebylo předmětem sjednocení).
 
-### CO DĚLAT DÁL (přesně tady se přestalo)
+### CO DĚLAT DÁL
 
-Fáze "sjednotit strukturu" je hotová — `theme.css` v1.3.2 je nahraný
-jako kanonická verze v `Asbeel13/Esperanto` a obě appky (TOP, SPA) mají
-lokální kopii. Fáze "skutečně to zapojit" **probíhá** — viz Changelog
-2026-09-14 níže pro plný detail. **2 z 5 souborů hotové a nahrané:**
-`tydenni_prehled_mobile.html`, `tydenni_dashboard_mobile.html`. Cestou
-nalezena a opravena KRITICKÁ chyba — rozbitý CSS komentář v `theme.css`
-shazoval celý tmavý režim (v1.3.1) — a 2 genuinní mezery v tokenech pro
-tlačítka Upravit/Zrušit (v1.3.2). Zbývá:
+**Sjednocení barevné palety TOP je HOTOVÉ (2026-09-08 → 2026-09-15).**
+Obě fáze dokončeny: "sjednotit strukturu" (`theme.css` — jeden sdílený
+soubor proměnných, kanonicky v `Asbeel13/Esperanto`) i "skutečně to
+zapojit" (všech 5 HTML souborů TOP přepojeno na `theme.css`, žádná
+barva napevno v kódu kromě pár zdokumentovaných výjimek — viz
+Changelog 2026-09-08 až 2026-09-15 níže pro plný detail každého
+souboru). Cestou nalezeny a opraveny: 1 kritická chyba (rozbitý CSS
+komentář v `theme.css` shazoval celý tmavý režim, v1.3.1), několik
+genuinních mezer v tokenech (v1.3.0/v1.3.2), a opakovaná třída chyb
+z hromadné `sed` náhrady (světlá/tmavá hodnota prohozená uvnitř
+`html.dark`, trvale tmavé prvky chrome dostaly proměnné měnící se s
+režimem) — poučení zapsáno u Dashboardu a využito při posledním
+souboru. Zbývá jen:
 
-1. **Zapojit `theme.css` do zbylých 3 HTML souborů TOP**
-   (`sprava_ukolu_linked.html`, `tydenni_dashboard_live_reload_local_linked.html`,
-   `tydenni_prehled.html`) — stejný postup jako u obou mobilních
-   souborů, soubor po souboru, s testováním po každém. **Pozor:**
-   `sprava_ukolu_linked.html` a
-   `tydenni_dashboard_live_reload_local_linked.html` mají ještě VLASTNÍ
-   staré lokální `:root` proměnné (`--bg:#f4f7fb`, `--line:#d9e3ef`,
-   `--muted:#6e7f92`, `--ok:#1f9d57` apod.), které bude potřeba
-   zreconcilovat, ne jen přejmenovat. Desktopové soubory navíc mají
-   VLASTNÍ odlišné tmavé hodnoty pro `.task .meta`/`.task .spz`
-   (`#64748b`, resp. `#f87171`) — nepoužívat pro ně `--tile-text`
-   (viz theme.css v1.3.0 poznámka). Kódové soubory nahrává JK sám
-   (Konvence č. 4) — až budou lokálně otestované a schválené.
-2. Přidat `theme.css` do `sw.js` (PWA cache seznam), stejně jako u
-   předchozích nových sdílených souborů. Zatím neuděláno ani pro
-   mobilní přehled.
-3. Sledovat, jestli SPA strana (nebo JK) nezmění `theme.css` znovu —
+1. Přidat `theme.css` do `sw.js` (PWA cache seznam), stejně jako u
+   předchozích nových sdílených souborů. Zatím neuděláno.
+2. Sledovat, jestli SPA strana (nebo JK) nezmění `theme.css` znovu —
    `git pull` v `Esperanto` před další prací na tomhle tématu, přesně
    podle Konvence č. 6.
-4. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v `theme.css`
-   (ne strukturu), ověřit vizuálně, hotovo. Zahrnuje i dvě položky
-   zaznamenané jako "sloučit později" (`--today-outline` u SPA).
+3. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v `theme.css`
+   (ne strukturu), ověřit vizuálně, projeví se to automaticky ve všech
+   5 souborech TOP (a analogicky v SPA). Zahrnuje i položku zaznamenanou
+   jako "sloučit později" (`--today-outline` u SPA).
 
 ### Plný obsah `theme.css` — NEKOPÍRUJE SE SEM, ať nevznikne nekonzistence
 
@@ -1803,4 +1798,44 @@ všechny kontrolované hodnoty přesně v obou režimech, včetně ověření,
 že sidebar prvky jsou skutečně INVARIANTNÍ (stejná barva v obou
 režimech, jak má být). **Soubor zatím nenahraný** — čeká na JK.
 
-Zbývá poslední soubor: `tydenni_prehled.html`.
+**Dodatek:** JK nahrál soubor, ověřeno bajt-po-bajtu i živě (pozadí
+stránky/sidebaru správně #0f172a/#020617 v tmavém režimu).
+
+### 2026-09-15 — `theme.css` zapojen do `tydenni_prehled.html` (5. z 5, HOTOVO — celá appka TOP zapojená)
+
+Poslední soubor, stejná struktura jako Dashboard (sdílí historii —
+"Přehled" i Dashboard vznikly z podobného základu). Na rozdíl od
+Dashboardu se tentokrát VŠECHNY lokální proměnné přesně shodovaly s
+`theme.css` (žádný rozdíl u `--bg` jako u Dashboardu, žádný mrtvý kód)
+— jen jiná jména u `--person/--weekend/--blue/--blue-dark/--orange`.
+
+**Poučeno z chyb nalezených u Dashboardu — tentokrát opraveno PŘED
+nahromaděním, ne až při kontrole:** `.task.p3`/`.task.done` v
+`html.dark` bloku dostaly rovnou správné tokeny (`--tile-p3`/
+`--tile-p3-border`, `--success-strong`), ne ty, co by hromadná náhrada
+namapovala automaticky. Sidebar-ekvivalent tady je topbar — `#64748b`/
+`#334155` (bez invariantního protějšku v theme.css) zůstaly doslovně s
+vysvětlujícím komentářem, `#cbd5e1`/`#94a3b8`/`#475569` (invariantní)
+převedeny na proměnné bezpečně.
+
+**Navíc:** `.legend` má neobvyklý, ale ZÁMĚRNÝ vzor — světlá barva
+invariantní (`--text-on-navy-muted`), tmavá barva JINÁ
+(`--text-faint`, přes samostatný `html.dark .legend` přepis) — tenhle
+vzor zachován přesně, ne "opraven" na jednotný invariantní tón.
+
+**Ověřeno:** vyváženost závorek (547/547), 4 `<script>` tagy beze
+změny, žádná nedeklarovaná proměnná (`--task-scale` je runtime JS
+proměnná, ne z theme.css — v pořádku), a `getComputedStyle` test na
+izolované stránce — všechny kontrolované hodnoty světlého i tmavého
+režimu sedí přesně napoprvé, včetně tří míst, která byla u Dashboardu
+chybná. **Soubor zatím nenahraný** — čeká na JK.
+
+**Tímhle je fáze "skutečně zapojit theme.css do appky" u TOP KOMPLETNÍ
+— všech 5 souborů (`tydenni_prehled_mobile.html`,
+`tydenni_dashboard_mobile.html`, `sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`,
+`tydenni_prehled.html`) je zapojených a otestovaných.** Zbývá jen:
+1. Přidat `theme.css` do `sw.js` (PWA cache seznam) — viz "CO DĚLAT
+   DÁL" na začátku souboru, ještě neuděláno.
+2. Až JK poskytne skutečné firemní barvy — upravit HODNOTY v
+   `theme.css`, projeví se to automaticky ve všech 5 souborech.
