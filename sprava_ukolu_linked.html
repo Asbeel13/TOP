@@ -6,6 +6,10 @@
   <title>Správa úkolů – ALLDATBASE</title>
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="stylesheet" href="theme.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="components.css" />
   <script>
 // ── Dark mode ──────────────────────────────────────────────────────────
 const DARK_KEY = "ft_darkMode";
@@ -41,10 +45,14 @@ initDarkMode();
     *{box-sizing:border-box}
     body{
       margin:0;
-      font-family:Inter, Segoe UI, Arial, sans-serif;
+      font-family:var(--font-body);
       color:var(--text);
       background:linear-gradient(180deg,var(--panel-gradient-from) 0%,var(--panel-gradient-to) 100%);
     }
+    /* Formulářové prvky nedědí font z body automaticky (UA výchozí
+       chování) — doplněno 2026-09-15 při zapojování firemního
+       redesignu, stejná mezera jako v mobilních souborech. */
+    button, .file-label, input, select, textarea { font-family: inherit; }
     .app{
       width:100%;
       max-width:1800px;
@@ -61,6 +69,7 @@ initDarkMode();
       margin-bottom:18px;
     }
     .title-wrap h1{
+      font-family:var(--font-heading);
       margin:0;
       font-size:clamp(20px, 2vw, 30px);
       letter-spacing:.2px;
@@ -115,7 +124,7 @@ initDarkMode();
       box-shadow:0 2px 0 rgba(0,0,0,.01);
     }
     button:hover, .file-label:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
-    .primary{background:var(--accent); border-color:var(--accent); color:#fff}
+    .primary{font-family:var(--font-heading); background:var(--brand-accent); border-color:var(--brand-accent); color:var(--brand-accent-ink)}
     .success{background:var(--success); border-color:var(--success); color:#fff}
     .danger{background:var(--danger-soft-alt); border-color:var(--danger-soft-border); color:var(--danger)}
     .ghost{background:var(--panel-gradient-from)}
@@ -150,6 +159,7 @@ initDarkMode();
       gap:10px;
     }
     .panel-head h2{
+      font-family:var(--font-heading);
       margin:0;
       font-size:clamp(14px, 1.2vw, 18px);
     }
