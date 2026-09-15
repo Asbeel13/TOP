@@ -161,10 +161,13 @@ Stejná metodika jako u prvního souboru. Navíc oproti přehledu:
 **Ověřeno:** vyváženost `{ }` v `<style>` (60/60) a `<script>`
 (233/233) blocích zvlášť, počet `<script>` tagů beze změny (2), žádné
 zbylé odkazy na staré třídy (`recurring-icon`/`multiday-badge`/`.spz`/
-`querySelectorAll(".task")`). **Soubor zatím nenahraný** — čeká na JK,
-doověřit živě na GitHub Pages po nahrání (stejným postupem jako u
-1. souboru — pozor na HTTP cache prohlížeče, testovat s
-`cache:"no-store"` nebo cache-bustovaným URL).
+`querySelectorAll(".task")`). **Živě ověřeno na GitHub Pages**
+(2026-09-15, cache-bustovaný URL rovnou napoprvé — poučení z minula
+aplikováno): `--brand-accent` na `.today-btn` i `.fab-add`
+(`rgb(255, 89, 20)`), font `Jost`/`Work Sans` aplikovaný, `theme.css`
+2 pravidla / `components.css` 35 pravidel — obojí bez chyby parsování.
+Zpětně opravený `tydenni_prehled_mobile.html` (font reset na
+tlačítkách) ověřen zároveň, beze změny předchozích hodnot.
 
 Zbývají 3 soubory: `sprava_ukolu_linked.html`,
 `tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`.
