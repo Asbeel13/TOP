@@ -5,6 +5,83 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## ⚠️ AKTUÁLNĚ ROZPRACOVÁNO — Firemní redesign TOP + SPA (od 2026-09-15)
+
+**Cíl:** JK poskytl skutečné firemní podklady (logo, barevný manuál, odkaz
+na firemní web pro "feeling") — navazuje na dokončené sjednocení palety
+níže, ale jde o VĚTŠÍ zásah: nejen barvy, ale i typografie, tvar
+komponent (karty úkolů, tlačítka) a "chrome" panel (sidebar/topbar),
+aby TOP i SPA vypadaly jako firemní appka Filtration Technology, ne
+jen jako appka s jednotnou, ale obecnou paletou.
+
+**Postup (schválen JK):** nejdřív čistě teoretická diskuze (nástroj,
+podklady), pak **statický mockup** (Artifact, 2026-09-15 — mobilní
+přehled + desktopový dashboard, přepínatelný světlý/tmavý režim) — JK
+schválil ("ano, sedí to"). Až PAK přišla otázka na architekturu: JK
+očekával, že výměna `theme.css` změní vzhled VŠUDE, stejně jako u
+barev — upozorněno, že tvar komponent (ne jen barva) potřebuje sdílené
+CSS TŘÍDY, ne jen proměnné, což `theme.css` sám o sobě neřeší (viz
+jeho vlastní pravidlo "jen proměnné" v hlavičce). JK odsouhlasil
+důkladné řešení: nový sesterský soubor **`components.css`**.
+
+**Zjištěno/rozhodnuto (2026-09-15):**
+- Firemní barvy z `S:\...\LOGO\manual-2020.pdf` a `novelogo_filtration.pdf`:
+  oranžová Pantone 1655 U (CMYK 0/65/92/0, ≈ `#FF5914`), šedá Cool Gray 10
+  (CMYK 0/0/0/70, ≈ `#4D4D4D`). Font v manuálu (Galano Classic, Tw Cen MT)
+  je placený/bez webové licence — JK odsouhlasil volnou náhradu **Jost**
+  (nadpisy) + **Work Sans** (text).
+- `www.filtration.cz` feeling: hodně bílé plochy, ploché tlačítko/karty,
+  jemné zaoblení, liniové ikony, oranžová jen jako akcent — ne plošně.
+- **Barvy priorit/stavů (`--prio-*`, `--tile-*`, `--warn-block`,
+  `--success-block`) zůstávají BEZE ZMĚNY hodnot** (JK rozhodnutí) — mění
+  se jen jejich TVAR (pruh + štítek místo plné plochy u kartového
+  zobrazení). Nižší riziko nové kolize než přebírání přesných odstínů
+  z mockupu.
+- `--accent` (modrá) zůstává BEZE ZMĚNY — má vlastní sémantiku
+  (`--prio-p2-text`, `--auto-pouzivane`), nesmí se zaměnit za novou
+  `--brand-accent` (oranžová, jen CTA/akcent).
+- `theme.css` povýšen na **v1.4.0** — nová `--brand-accent`/
+  `--brand-accent-ink`, přebarvené `--navy-*` (teplá antracitová místo
+  námořnické modré, invariantní jako dřív), doladěné `--text-on-navy-*`,
+  nové invariantní `--chrome-border`/`--chrome-muted`/`--chrome-input-bg`/
+  `--chrome-hover` (zavírají mezeru natvrdo zapsaných chrome hodnot
+  popsanou u minulého zapojování — teď mají tokenový domov), nové
+  `--font-heading`/`--font-body`, nové `--radius-sm`/`--radius-xs`.
+  Plný detail viz hlavička `theme.css` v1.4.0.
+- Nový soubor **`components.css` v1.0.0** — sdílené CSS třídy
+  (`.btn`/`.btn-primary`/`.btn-secondary`, `.icon-btn`, `.task-card` +
+  `.priority-tag`, `.person-block`/`.person-head`/`.avatar`), použité
+  na schváleném mockupu. Musí se načíst PO `theme.css`. Husté kalendářní
+  mřížky Dashboardu/Přehledu desktop (plná barevná plocha buňky)
+  `components.css` NENAHRAZUJE — jiný účel, zůstávají svým vlastním
+  pravidlem v každé stránce.
+- **Ověřeno zatím jen staticky** — vyváženost `/* */` v `theme.css`
+  (103/103), vyváženost `{ }` v `components.css` (34/34), a strojová
+  kontrola, že každý `var(--x)` použitý v `components.css` je skutečně
+  deklarovaný v `theme.css`. **Živé vizuální ověření (izolovaná
+  stránka, `getComputedStyle`) se NEPODAŘILO provést** — na tomhle
+  stroji není funkční Python ani Node pro lokální server a Browser
+  nástroj odmítá skriptovat `file://` stránky přímo (jen statický
+  náhled). Až budou oba soubory nahrané, ověřit živě na GitHub Pages
+  stejnou metodou jako dřív (`document.styleSheets`, `getComputedStyle`).
+
+**Zatím NEPROVEDENO (další krok):**
+1. Zapojit `<link rel="stylesheet" href="components.css">` (PO
+   `theme.css`) a Google Fonts odkaz (Jost + Work Sans) do jednotlivých
+   souborů TOP — soubor po souboru, stejná metodika jako u sjednocení
+   palety (test → schválení → JK nahraje).
+2. V každém souboru nahradit stávající `.task`/`.person-block` markup
+   za nové `.task-card`/`.person-block` třídy z `components.css` (jen
+   tam, kde jde o KARTOVÉ zobrazení — mobilní přehled, mobilní
+   dashboard; NE husté mřížky Dashboardu/Přehledu desktop).
+3. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
+   `#0b1222`...) na nové `--chrome-*` tokeny — přesné namapování se
+   dořeší až při zapojování KAŽDÉHO souboru (stejně jako dřív).
+4. Rozhodnout, jestli/kdy se SPA k `components.css` připojí — zatím
+   TOP-only, žádné rozhodnutí zapsáno.
+5. Zapsat i do `INTEGRACE.md` (Konvence č. 7) — provedeno souběžně s
+   tímhle zápisem.
+
 ## ✅ Sjednocení barevné palety a designu TOP (2026-09-08 → 2026-09-15, HOTOVO)
 
 **Dokončený úkol: sjednocení barevné palety a designu TOP (a analogicky SPA).**
