@@ -210,8 +210,13 @@ průchodu přehlédl (grep hledal jen `.primary{`/`class="primary`, ne
 před ním. **Opraveno:** přepis smazán (`--brand-accent` je
 invariantní jako `--accent-block-*`, žádnou zvláštní tmavou hodnotu
 nepotřebuje). Vyváženost po opravě 630/630 (zpátky na původní počet).
-**Soubor s opravou zatím nenahraný** — čeká na JK, doověřit znovu
-živě po nahrání (tentokrát i s `html.classList.add('dark')`).
+**Opravená verze nahraná a živě ověřená** (2026-09-15) — probe test
+potvrdil `--brand-accent` (`rgb(255, 89, 20)`) v OBOU režimech
+(`html.classList.add('dark')` i bez). První pokus po nahrání ještě
+ukázal starou modrou v tmavém režimu, ale `fetch(...,{cache:"no-store"})`
+potvrdil, že server už měl opravený obsah — šlo o krátké zpoždění
+šíření přes GitHub Pages CDN, ne o chybu; okamžité opakování ukázalo
+správný výsledek v obou režimech.
 
 Zbývají 2 soubory: `tydenni_dashboard_live_reload_local_linked.html`,
 `tydenni_prehled.html` (oba dostanou stejné zúžené zacházení jako
