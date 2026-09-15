@@ -5,29 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Týdenní přehled</title>
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="theme.css" />
   <style>
-    :root {
-      --bg: #f0f2f5;
-      --line: #1f2937;
-      --p0: #f87171;
-      --p1: #fdba74;
-      --p2: #93c5fd;
-      --p3: #d1d5db;
-      --px: #fde047;
-      --wait: #f7d24d;
-      --done: #86efac;
-      --danger: #cc1f1a;
-      --person: #ececec;
-      --weekend: #d0d0d0;
-      --blue: #c8d8ef;
-      --blue-dark: #b8c9e5;
-      --orange: #f1c49b;
-    }
+    /* Lokální :root smazán 2026-09-15 — všechny hodnoty přesně odpovídaly
+       theme.css beze změny (jen jiné jméno u --person/--weekend/--blue/
+       --blue-dark/--orange), na rozdíl od ostatních souborů TOP tady
+       nebylo potřeba nic schvalovat ani sjednocovat. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: Arial, Helvetica, sans-serif;
       background: var(--bg);
-      color: #111827;
+      color: var(--text);
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -36,7 +24,7 @@
 
     /* ── TOP BAR ── */
     .topbar {
-      background: #0f172a;
+      background: var(--navy-800);
       color: white;
       display: flex;
       align-items: center;
@@ -49,7 +37,7 @@
       font-size: 15px;
       font-weight: 700;
       letter-spacing: .04em;
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
       text-transform: uppercase;
       margin-right: 4px;
     }
@@ -61,9 +49,13 @@
     .week-info small {
       font-size: 11px;
       font-weight: 400;
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
       margin-left: 6px;
     }
+    /* Topbar je trvale tmavý chrome nezávisle na režimu appky — #64748b a
+       #334155 nemají v theme.css invariantní ekvivalent (na rozdíl od
+       #cbd5e1/#94a3b8/#475569 použitých jinde v topbaru), proto zůstávají
+       doslovně, ne jako proměnná co by se s režimem měnila. */
     .sync-status {
       font-size: 11px;
       color: #64748b;
@@ -72,17 +64,17 @@
     .topbar button {
       border: 1px solid #334155;
       background: transparent;
-      color: #cbd5e1;
+      color: var(--text-on-navy-faint);
       border-radius: 6px;
       padding: 4px 10px;
       font-size: 12px;
       cursor: pointer;
       white-space: nowrap;
     }
-    .topbar button:hover { background: #1e293b; color: white; }
+    .topbar button:hover { background: var(--navy-700); color: white; }
     .topbar button.primary {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
+      background: var(--accent);
+      border-color: var(--accent);
       color: white;
     }
     .topbar a.back-link {
@@ -108,7 +100,7 @@
     .week-block {
       background: white;
       border-radius: 10px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--line-medium);
       overflow: auto;
       display: flex;
       flex-direction: column;
@@ -118,7 +110,7 @@
       padding: 5px 10px;
       font-size: 11px;
       font-weight: 700;
-      background: #0f172a;
+      background: var(--navy-800);
       color: #64748b;
       letter-spacing: .05em;
       text-transform: uppercase;
@@ -161,14 +153,14 @@
       opacity: .8;
     }
     .head.blank { background: white; }
-    .head.d0 { background: #b8c9e5; }
-    .head.d1 { background: #c8d8ef; }
-    .head.d2 { background: #f1c49b; }
-    .head.d3 { background: #ecd88e; }
-    .head.d4 { background: #bfd5a6; }
-    .head.d5, .head.d6 { background: #bfbfbf; }
+    .head.d0 { background: var(--accent-pale-dark); }
+    .head.d1 { background: var(--accent-pale); }
+    .head.d2 { background: var(--day-wed); }
+    .head.d3 { background: var(--day-thu); }
+    .head.d4 { background: var(--day-fri); }
+    .head.d5, .head.d6 { background: var(--weekend-header-bg); }
     .person {
-      background: var(--person);
+      background: var(--person-bg);
       border-right: 2px solid var(--line);
       border-bottom: 2px solid var(--line);
       padding: 5px 3px;
@@ -187,18 +179,18 @@
     .person .name {
       line-height: 1.3;
       font-size: clamp(7px, 0.75vw, 10px);
-      color: #374151;
+      color: var(--tile-text);
     }
     .cell {
       border-right: 1px solid var(--line);
-      border-bottom: 1px solid #d1d5db;
+      border-bottom: 1px solid var(--line-medium);
       padding: 2px;
       display: flex;
       flex-direction: column;
       gap: 2px;
       overflow: hidden;
     }
-    .cell.weekend { background: var(--weekend); }
+    .cell.weekend { background: var(--weekend-bg); }
 
     /* ── TASK CARDS ── */
     .task {
@@ -223,21 +215,21 @@
       gap: 3px;
       font-size: 0.9em;
       font-weight: 700;
-      color: #111827;
+      color: var(--text);
     }
     .task .meta span { min-width: 0; overflow-wrap: break-word; }
-    .task.p0 { background: var(--p0); }
-    .task.p1 { background: var(--p1); }
-    .task.p2 { background: var(--p2); }
-    .task.p3 { background: var(--p3); }
-    .task.px { background: var(--px); border-left-color: #ca8a04; }
-    .task.waiting { background: var(--wait); }
-    .task.done { background: var(--done); color: #166534; }
-    .task.recurring { border-left: 3px solid #6366f1; }
-    .task .recurring-icon { font-size: 9px; color: #6366f1; margin-bottom: 1px; }
+    .task.p0 { background: var(--tile-p0); }
+    .task.p1 { background: var(--tile-p1); }
+    .task.p2 { background: var(--tile-p2); }
+    .task.p3 { background: var(--tile-p3); }
+    .task.px { background: var(--tile-px); border-left-color: var(--tile-px-border); }
+    .task.waiting { background: var(--warn-block); }
+    .task.done { background: var(--success-block); color: var(--success-strong); }
+    .task.recurring { border-left: 3px solid var(--recurring-border); }
+    .task .recurring-icon { font-size: 9px; color: var(--recurring-border); margin-bottom: 1px; }
     .task .danger { color: var(--danger); font-weight: 700; }
-    .task .spz { color: #cc1f1a; font-weight: 700; font-size: 0.9em; margin-top: 1px; }
-    .task .multiday-badge { font-size: 9px; color: #0891b2; font-weight: 700; margin-bottom: 1px; }
+    .task .spz { color: var(--danger); font-weight: 700; font-size: 0.9em; margin-top: 1px; }
+    .task .multiday-badge { font-size: 9px; color: var(--multiday-icon); font-weight: 700; margin-bottom: 1px; }
 
     /* ── MODAL ── */
     .modal {
@@ -268,7 +260,7 @@
     #displaySettingsModal .modal-card { max-width: 480px; max-height: 85vh; overflow: auto; }
     #displaySettingsModal .modal-head {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 18px 20px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: #fff;
+      padding: 18px 20px; border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; background: #fff;
     }
     #displaySettingsModal .modal-body { padding: 16px 20px 20px; }
     .person-row {
@@ -276,13 +268,13 @@
       align-items: center;
       gap: 4px;
       padding: 5px 0;
-      border-bottom: 1px solid #eef2f7;
+      border-bottom: 1px solid var(--line-softer);
     }
     .person-row:last-child { border-bottom: none; }
     .person-row .person-name {
       flex: 1;
       font-size: 13px;
-      color: #17324d;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -293,39 +285,39 @@
       font-size: 11px;
       font-weight: 700;
       border-radius: 4px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--line-medium);
       background: transparent;
-      color: #6b7280;
+      color: var(--text-muted);
       cursor: pointer;
       transition: background .15s, color .15s;
       flex-shrink: 0;
     }
-    .person-row .side-btn.active-L { background: #1d4ed8; border-color: #1d4ed8; color: white; }
-    .person-row .side-btn.active-R { background: #0f766e; border-color: #0f766e; color: white; }
+    .person-row .side-btn.active-L { background: var(--accent); border-color: var(--accent); color: white; }
+    .person-row .side-btn.active-R { background: var(--teal); border-color: var(--teal); color: white; }
     .person-row .move-btn {
       width: auto; padding: 3px 6px; font-size: 12px; border-radius: 4px;
-      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      border: 1px solid var(--line-medium); background: transparent; color: var(--text-muted);
       cursor: pointer; flex-shrink: 0; line-height: 1;
     }
-    .person-row .move-btn:hover { color: white; background: #6b7280; }
+    .person-row .move-btn:hover { color: white; background: var(--text-muted); }
     .person-row .move-btn:disabled { opacity: 0.25; cursor: default; }
     .person-row .hide-btn {
       width: auto; padding: 3px 6px; font-size: 12px; border-radius: 4px;
-      border: 1px solid #d1d5db; background: transparent; color: #6b7280;
+      border: 1px solid var(--line-medium); background: transparent; color: var(--text-muted);
       cursor: pointer; flex-shrink: 0; line-height: 1; transition: background .15s, color .15s;
     }
-    .person-row .hide-btn:hover { background: #6b7280; color: white; }
+    .person-row .hide-btn:hover { background: var(--text-muted); color: white; }
     .person-row.is-hidden .person-name { opacity: 0.4; text-decoration: line-through; }
     .person-row.is-hidden .side-btn { opacity: 0.3; pointer-events: none; }
     .person-row.is-hidden .move-btn { opacity: 0.3; pointer-events: none; }
-    .person-row .hide-btn.is-hidden { background: #9ca3af; color: white; border-color: #9ca3af; }
-    html.dark #displaySettingsModal .modal-card, html.dark #displaySettingsModal .modal-head { background: #1e293b; color: #e2e8f0; border-color: #334155; }
-    html.dark .person-row { border-color: #334155; }
-    html.dark .person-row .person-name { color: #e2e8f0; }
-    html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: #475569; color: #94a3b8; }
+    .person-row .hide-btn.is-hidden { background: var(--text-faint); color: white; border-color: var(--text-faint); }
+    html.dark #displaySettingsModal .modal-card, html.dark #displaySettingsModal .modal-head { background: var(--navy-700); color: var(--text); border-color: var(--line-soft); }
+    html.dark .person-row { border-color: var(--line-soft); }
+    html.dark .person-row .person-name { color: var(--text); }
+    html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: var(--border-on-navy); color: var(--text-on-navy-muted); }
     .modal-card header {
       padding: 18px 20px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--line-soft);
       display: flex;
       justify-content: space-between;
       gap: 12px;
@@ -339,8 +331,8 @@
     }
     .chips { display: flex; gap: 8px; flex-wrap: wrap; }
     .chip {
-      background: #eef2ff;
-      color: #3730a3;
+      background: var(--chip-bg);
+      color: var(--chip-text);
       padding: 6px 10px;
       border-radius: 999px;
       font-size: 12px;
@@ -348,7 +340,7 @@
     }
     .modal-title { margin: 10px 0 0; font-size: 20px; font-weight: 700; }
     .modal-label { font-weight: 700; margin-bottom: 4px; font-size: 13px; }
-    .modal-text { color: #4b5563; margin-top: 4px; white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+    .modal-text { color: var(--prio-p3-text); margin-top: 4px; white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
 
     /* ── LEGEND ── */
     .legend {
@@ -357,7 +349,7 @@
       align-items: center;
       padding: 0 14px;
       font-size: 10px;
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
     }
     .legend-item { display: flex; align-items: center; gap: 4px; }
     .swatch {
@@ -367,8 +359,8 @@
   
     /* ── DARK MODE ── */
     html.dark { color-scheme: dark; }
-    html.dark body { background: #0f172a; color: #e2e8f0; }
-    html.dark .topbar { background: #1e293b; border-color: #334155; }
+    html.dark body { background: var(--navy-800); color: var(--text); }
+    html.dark .topbar { background: var(--navy-700); border-color: var(--line-soft); }
 
     .fab-nav {
       position: fixed;
@@ -383,8 +375,8 @@
       padding: 14px 18px;
       border-radius: 999px;
       border: 1px solid rgba(15, 23, 42, 0.1);
-      background: #0f172a;
-      color: #ffffff;
+      background: var(--navy-800);
+      color: var(--panel);
       text-decoration: none;
       font-weight: 700;
       box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
@@ -393,7 +385,7 @@
     .fab-nav:hover {
       transform: translateY(-2px);
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.34);
-      background: #111f38;
+      background: var(--navy-hover);
     }
     .fab-nav .fab-sub {
       display: block;
@@ -422,34 +414,34 @@
         justify-content: center;
       }
     }
-    html.dark button, html.dark select, html.dark input { background: #1e293b; color: #e2e8f0; border-color: #334155; }
-    html.dark .schedule { background: #0f172a; }
-    html.dark .head { background: #1e293b; color: #94a3b8; border-color: #334155; }
-    html.dark .head.weekend { background: #162032; }
-    html.dark .person { background: #1e293b; color: #94a3b8; border-color: #334155; }
-    html.dark .cell { background: #0f172a; border-color: #1e293b; }
-    html.dark .cell.weekend { background: #0a1020; }
-    html.dark .task { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-    html.dark .task.p0 { background: #450a0a; border-left-color: #dc2626; }
-    html.dark .task.p1 { background: #431407; border-left-color: #ea580c; }
-    html.dark .task.p2 { background: #1e3a5f; border-left-color: #3b82f6; }
-    html.dark .task.p3 { background: #374151; border-left-color: #9ca3af; }
-    html.dark .task.px { background: #2a2010; border-left-color: #ca8a04; }
-    html.dark .task.done { background: #14532d; color: #bbf7d0; opacity: 0.75; }
-    html.dark .task .title { color: #e2e8f0; }
-    html.dark .task .meta { color: #64748b; }
-    html.dark .task .spz { color: #f87171; }
-    html.dark .task .multiday-badge { color: #22d3ee; }
-    html.dark .task.recurring { border-left-color: #6366f1; }
+    html.dark button, html.dark select, html.dark input { background: var(--navy-700); color: var(--text); border-color: var(--line-soft); }
+    html.dark .schedule { background: var(--navy-800); }
+    html.dark .head { background: var(--navy-700); color: var(--text-on-navy-muted); border-color: var(--line-soft); }
+    html.dark .head.weekend { background: var(--navy-600); }
+    html.dark .person { background: var(--navy-700); color: var(--text-on-navy-muted); border-color: var(--line-soft); }
+    html.dark .cell { background: var(--navy-800); border-color: var(--navy-700); }
+    html.dark .cell.weekend { background: var(--weekend-bg); }
+    html.dark .task { background: var(--navy-700); border-color: var(--line-soft); color: var(--text); }
+    html.dark .task.p0 { background: var(--tile-p0); border-left-color: var(--tile-p0-border); }
+    html.dark .task.p1 { background: var(--tile-p1); border-left-color: var(--tile-p1-border); }
+    html.dark .task.p2 { background: var(--tile-p2); border-left-color: var(--tile-p2-border); }
+    html.dark .task.p3 { background: var(--tile-p3); border-left-color: var(--tile-p3-border); }
+    html.dark .task.px { background: var(--tile-px); border-left-color: var(--tile-px-border); }
+    html.dark .task.done { background: var(--success-block); color: var(--success-strong); opacity: 0.75; }
+    html.dark .task .title { color: var(--text); }
+    html.dark .task .meta { color: var(--text-faint); }
+    html.dark .task .spz { color: var(--danger-block); }
+    html.dark .task .multiday-badge { color: var(--multiday-icon); }
+    html.dark .task.recurring { border-left-color: var(--recurring-border); }
     html.dark .modal { background: rgba(0,0,0,0.75); }
-    html.dark .modal-card { background: #1e293b; color: #e2e8f0; }
-    html.dark .modal-card header { border-color: #334155; }
-    html.dark .chip { background: #312e81; color: #c7d2fe; }
-    html.dark .modal-title { color: #e2e8f0; }
-    html.dark .modal-label { color: #94a3b8; }
-    html.dark .modal-text { color: #94a3b8; }
-    html.dark #syncStatus { color: #64748b; }
-    html.dark .legend { color: #64748b; }
+    html.dark .modal-card { background: var(--navy-700); color: var(--text); }
+    html.dark .modal-card header { border-color: var(--line-soft); }
+    html.dark .chip { background: var(--chip-bg); color: var(--chip-text); }
+    html.dark .modal-title { color: var(--text); }
+    html.dark .modal-label { color: var(--text-on-navy-muted); }
+    html.dark .modal-text { color: var(--text-on-navy-muted); }
+    html.dark #syncStatus { color: var(--text-faint); }
+    html.dark .legend { color: var(--text-faint); }
 
     </style>
 </head>
@@ -465,23 +457,23 @@
   <button id="nextWeek">Další →</button>
   <button id="todayBtn">Dnes</button>
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted, #6b7280);white-space:nowrap;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);white-space:nowrap;">
       Text
       <input id="taskScaleSlider" type="range" min="50" max="150" value="100" step="5" style="width:100px;" />
       <span id="taskScaleValue" style="font-weight:700;min-width:38px;">100 %</span>
     </label>
     <button id="displaySettingsBtn" onclick="openDisplaySettingsModal()" style="font-size:13px;padding:6px 12px;white-space:nowrap;">⚙️ Nastavení zobrazení</button>
-    <a href="tydenni_prehled_mobile.html" style="font-size:12px;padding:4px 10px;white-space:nowrap;text-decoration:none;border:1px solid #334155;border-radius:6px;display:inline-flex;align-items:center;background:transparent;color:#cbd5e1;" title="Přepnout na mobilní verzi">📱 Mobilní verze</a>
+    <a href="tydenni_prehled_mobile.html" style="font-size:12px;padding:4px 10px;white-space:nowrap;text-decoration:none;border:1px solid #334155;border-radius:6px;display:inline-flex;align-items:center;background:transparent;color:var(--text-on-navy-faint);" title="Přepnout na mobilní verzi">📱 Mobilní verze</a>
     <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
   </div>
   <div class="legend">
-    <div class="legend-item"><div class="swatch" style="background:var(--p0)"></div>P0</div>
-    <div class="legend-item"><div class="swatch" style="background:var(--p1)"></div>P1</div>
-    <div class="legend-item"><div class="swatch" style="background:var(--p2)"></div>P2</div>
-    <div class="legend-item"><div class="swatch" style="background:var(--p3)"></div>P3</div>
-    <div class="legend-item"><div class="swatch" style="background:var(--px)"></div>PX</div>
-    <div class="legend-item"><div class="swatch" style="background:var(--wait)"></div>Čeká</div>
-    <div class="legend-item"><div class="swatch" style="background:var(--done)"></div>Hotovo</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--tile-p0)"></div>P0</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--tile-p1)"></div>P1</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--tile-p2)"></div>P2</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--tile-p3)"></div>P3</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--tile-px)"></div>PX</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--warn-block)"></div>Čeká</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--success-block)"></div>Hotovo</div>
   </div>
   <span class="sync-status" id="syncStatus"></span>
   <a class="back-link" href="tydenni_dashboard_live_reload_local_linked.html">⚙ Dashboard</a>
@@ -829,7 +821,7 @@ function renderSide(targetEl, side) {
   targetEl.innerHTML = "";
 
   if (!people.length) {
-    targetEl.innerHTML = `<div style="padding:12px;color:#6b7280;font-size:11px;">Žádní lidé v tomto sloupci.<br>Nastavte v hlavním dashboardu.</div>`;
+    targetEl.innerHTML = `<div style="padding:12px;color:var(--text-muted);font-size:11px;">Žádní lidé v tomto sloupci.<br>Nastavte v hlavním dashboardu.</div>`;
     return;
   }
 
@@ -921,7 +913,7 @@ function render() {
 function setSyncStatus(msg, isError = false) {
   const el = document.getElementById("syncStatus");
   el.textContent = msg;
-  el.style.color = isError ? "#cc1f1a" : "";
+  el.style.color = isError ? "var(--danger)" : "";
 }
 
 let _canMarkDone = false;
@@ -1074,8 +1066,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="modal-title" id="modalTitle"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
-        <button id="modalDoneBtn" style="display:none;width:auto;padding:10px 16px;border:1px solid #86efac;border-radius:10px;background:#ecfdf3;color:#166534;cursor:pointer;font-size:13px;font-weight:700;">✓ Hotovo</button>
-        <button id="closeModal" style="width:auto;padding:10px 16px;border:1px solid #d1d5db;border-radius:10px;background:white;cursor:pointer;font-size:13px;">Zavřít</button>
+        <button id="modalDoneBtn" style="display:none;width:auto;padding:10px 16px;border:1px solid var(--success-block);border-radius:10px;background:var(--success-soft);color:var(--success-strong);cursor:pointer;font-size:13px;font-weight:700;">✓ Hotovo</button>
+        <button id="closeModal" style="width:auto;padding:10px 16px;border:1px solid var(--line-medium);border-radius:10px;background:var(--panel);cursor:pointer;font-size:13px;">Zavřít</button>
       </div>
     </header>
     <main>
@@ -1091,9 +1083,9 @@ document.addEventListener("DOMContentLoaded", () => {
       <button onclick="closeDisplaySettingsModal()">Zavřít</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
       <div id="peopleFiltersPrehled"></div>
-      <button onclick="resetPeopleLayoutToDefault()" style="margin-top:12px;font-size:12px;padding:8px 12px;background:transparent;border:1px solid #d1d5db;color:#6b7280;border-radius:8px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
+      <button onclick="resetPeopleLayoutToDefault()" style="margin-top:12px;font-size:12px;padding:8px 12px;background:transparent;border:1px solid var(--line-medium);color:var(--text-muted);border-radius:8px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
     </div>
   </div>
 </div>
