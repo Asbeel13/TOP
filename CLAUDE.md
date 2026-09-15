@@ -336,7 +336,9 @@ to nebylo součástí zadání a nemá smysl měnit jen barvu textu bez
 řešení pozadí zvlášť.
 
 **Ověřeno:** vyváženost `{ }`/`( )` v celém `ft_loader.js` beze změny
-(184/184, 509/509). **Soubor zatím nenahraný** — čeká na JK.
+(184/184, 509/509). **Nahráno a živě ověřeno** (2026-09-15) — tlačítko
+"Uložit a pokračovat" má `rgb(255, 89, 20)`/`Jost`, napoprvé bez CDN
+zpoždění.
 
 **Limit vizuální kontroly, na který JK narazí sám:** appka vyžaduje
 GitHub token pro zobrazení skutečných dat (karty úkolů, mřížka
