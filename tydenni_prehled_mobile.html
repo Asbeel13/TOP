@@ -9,10 +9,14 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="theme.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="components.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: var(--font-body);
       background: var(--bg);
       color: var(--text);
       -webkit-tap-highlight-color: transparent;
@@ -41,6 +45,7 @@
       margin-bottom: 8px;
     }
     .topbar h1 {
+      font-family: var(--font-heading);
       font-size: 13px;
       font-weight: 700;
       letter-spacing: .04em;
@@ -91,6 +96,7 @@
       text-align: center;
     }
     .day-label .day-name {
+      font-family: var(--font-heading);
       font-size: 18px;
       font-weight: 700;
       color: white;
@@ -101,10 +107,11 @@
       margin-top: 2px;
     }
     .today-btn {
-      background: var(--accent);
+      font-family: var(--font-heading);
+      background: var(--brand-accent);
       border: none;
-      color: white;
-      border-radius: 10px;
+      color: var(--brand-accent-ink);
+      border-radius: var(--radius-sm);
       padding: 6px 12px;
       font-size: 12px;
       font-weight: 700;
@@ -113,59 +120,25 @@
       cursor: pointer;
     }
 
-    /* ── OBSAH ── */
+    /* ── OBSAH ──
+       .person-block/.person-head/.avatar/.task-card/.priority-tag/
+       .meta-tag teď dodává components.css (zapojeno 2026-09-15, firemní
+       redesign) — tady zůstává jen layout specifický pro tuhle stránku. */
     #content {
       flex: 1;
       overflow-y: auto;
       padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       -webkit-overflow-scrolling: touch;
     }
-    .person-block {
-      background: var(--panel);
-      border-radius: 14px;
-      margin-bottom: 12px;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    .person-head {
-      background: var(--navy-700);
-      color: white;
-      padding: 10px 14px;
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-    }
-    .person-head .code { font-weight: 700; font-size: 15px; }
-    .person-head .name { font-size: 12px; color: var(--text-on-navy-muted); }
-    .person-tasks { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
     .empty-day {
       padding: 14px;
       color: var(--text-faint);
       font-size: 13px;
       text-align: center;
     }
-
-    /* ── DLAŽDICE ÚKOLU (stejné barvy jako desktop) ── */
-    .task {
-      border-radius: 10px;
-      padding: 10px 12px;
-      border-left: 4px solid transparent;
-      cursor: pointer;
-    }
-    .task.p0 { background: var(--tile-p0); }
-    .task.p1 { background: var(--tile-p1); }
-    .task.p2 { background: var(--tile-p2); }
-    .task.p3 { background: var(--tile-p3); }
-    .task.px { background: var(--tile-px); border-left-color: var(--tile-px-border); }
-    .task.waiting { background: var(--warn-block); }
-    .task.done { background: var(--success-block); color: var(--success-strong); }
-    .task.recurring { border-left: 4px solid var(--recurring-border); }
-    .task .recurring-icon { font-size: 10px; color: var(--recurring-icon); font-weight: 700; margin-bottom: 3px; }
-    .task .multiday-badge { font-size: 10px; color: var(--multiday-icon); font-weight: 700; margin-bottom: 3px; }
-    .task .title { font-size: 14px; font-weight: 700; line-height: 1.3; }
-    .task .meta { font-size: 12px; color: var(--tile-text); margin-top: 4px; }
-    .task .meta .danger { color: var(--danger); font-weight: 700; }
-    .task .spz { font-size: 11px; color: var(--tile-text); margin-top: 3px; }
 
     /* ── MODAL DETAILU (celá šířka na mobilu) ── */
     .modal {
@@ -293,9 +266,12 @@
 
        --bg dřív bylo #0b1220, sjednoceno na sdílené #0f172a — jediná
        vědomá, JK předem schválená drobná změna z celého tohohle
-       zapojení (viz theme.css "Vědomě SLOUČENO", původní 126-audit). */
-    html.dark .person-block { box-shadow: none; }
-    html.dark .person-head { background: var(--navy-800); }
+       zapojení (viz theme.css "Vědomě SLOUČENO", původní 126-audit).
+
+       .person-block/.person-head přepisy SMAZÁNY 2026-09-15 (firemní
+       redesign) — nová verze z components.css používá --panel/
+       --line-soft, které mají svou tmavou hodnotu už v theme.css,
+       žádný page-specific přepis navíc netřeba. */
     html.dark #closeModal { background: var(--line-soft); border-color: var(--border-on-navy); }
     html.dark .person-row { border-color: var(--line-soft); }
     html.dark .person-row .side-btn, html.dark .person-row .move-btn, html.dark .person-row .hide-btn { border-color: var(--border-on-navy); color: var(--text-on-navy-muted); }
@@ -579,12 +555,24 @@ function fmtDate(date) {
 }
 
 function cardClass(task) {
-  const parts = ["task", (task.priority || "P3").toLowerCase()];
+  const parts = ["task-card", (task.priority || "P3").toLowerCase()];
   if (task.waiting) parts.push("waiting");
   if (String(task.state || "").toLowerCase().includes("dokončeno")) parts.push("done");
-  if (task.recurring) parts.push("recurring");
   return parts.join(" ");
 }
+// Štítek v tag-row karty — priorita, ale "Čeká"/"Hotovo" má přednost,
+// pokud nastane (stejné pořadí, jaké už řeší CSS kaskáda v components.css
+// pro barvu pruhu, viz .task-card.waiting/.done deklarované AŽ za .p0-px).
+function statusTag(task) {
+  const isDone = String(task.state || "").toLowerCase().includes("dokončeno");
+  if (isDone) return { cls: "done", label: "Hotovo" };
+  if (task.waiting) return { cls: "waiting", label: "Čeká" };
+  const p = (task.priority || "P3").toUpperCase();
+  return { cls: p.toLowerCase(), label: p };
+}
+const ICON_RECUR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>';
+const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>';
+const ICON_CAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l1.5-4.5A2 2 0 0 1 6.4 7h11.2a2 2 0 0 1 1.9 1.5L21 13"/><rect x="2" y="13" width="20" height="5" rx="1.5"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>';
 function escapeHtml(str) {
   return (str ?? "").toString()
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -632,22 +620,34 @@ function renderMobileDay() {
     const items = (byOwner.get(person) || []).sort((a,b) => (a.priority||"").localeCompare(b.priority||""));
 
     block.innerHTML = `
-      <div class="person-head"><span class="code">${escapeHtml(person)}</span><span class="name">${escapeHtml(label)}</span></div>
+      <div class="person-head">
+        <div class="avatar">${escapeHtml(person)}</div>
+        <div>
+          <div class="person-name">${escapeHtml(label)}</div>
+          <div class="person-code">${escapeHtml(person)}</div>
+        </div>
+      </div>
       <div class="person-tasks">
         ${items.length === 0
           ? '<div class="empty-day">Žádné úkoly na tento den.</div>'
-          : items.map(task => `
+          : items.map(task => {
+              const tag = statusTag(task);
+              return `
             <div class="${cardClass(task)}" data-task-id="${escapeHtml(task.id || "")}">
-              ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
-              ${task.isMultiDay ? `<div class="multiday-badge">📅 Den ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}
+              <div class="tag-row">
+                <span class="priority-tag ${tag.cls}">${escapeHtml(tag.label)}</span>
+                ${task.recurring ? `<span class="meta-tag">${ICON_RECUR} opakující se</span>` : ""}
+                ${task.isMultiDay ? `<span class="meta-tag">${ICON_CALENDAR} den ${task.multiDayIndex}/${task.multiDayTotal}</span>` : ""}
+              </div>
               <div class="title">${escapeHtml(task.title)}</div>
               <div class="meta">${escapeHtml(task.project || "")}</div>
-              ${task.auto ? `<div class="spz">🚗 ${escapeHtml(task.auto)}</div>` : ""}
-            </div>`).join("")}
+              ${task.auto ? `<div class="meta meta-tag" style="margin-top:3px;">${ICON_CAR} ${escapeHtml(task.auto)}</div>` : ""}
+            </div>`;
+            }).join("")}
       </div>`;
 
     content.appendChild(block);
-    block.querySelectorAll(".task").forEach((el, i) => {
+    block.querySelectorAll(".task-card").forEach((el, i) => {
       el.addEventListener("click", () => openModal(items[i]));
     });
   });
