@@ -5,7 +5,7 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
-## ⚠️ AKTUÁLNĚ ROZPRACOVÁNO — Firemní redesign TOP + SPA (od 2026-09-15)
+## ✅ Firemní redesign TOP (2026-09-15, HOTOVO — TOP strana; SPA nerozhodnuto)
 
 **Cíl:** JK poskytl skutečné firemní podklady (logo, barevný manuál, odkaz
 na firemní web pro "feeling") — navazuje na dokončené sjednocení palety
@@ -297,8 +297,9 @@ výsledkem "beze změny potřeba":
 **Ověřeno:** vyváženost `{ }` v celém souboru (548/548, dřív 547/547 —
 +1 pár odpovídá jedné nové `font-family:inherit` deklaraci), počet
 `<script>` tagů beze změny (4), žádný nový výskyt rizikového `-*/`
-vzoru. **Soubor zatím nenahraný** — čeká na JK, doověřit živě po
-nahrání.
+vzoru. **Nahráno a živě ověřeno** (2026-09-15) — font Work Sans/Jost aplikovaný,
+`theme.css`/`components.css` bez chyby parsování. Napoprvé bez CDN
+zpoždění, na rozdíl od předchozích 3 souborů.
 
 **Tímhle je fáze "zapojit firemní redesign (theme.css v1.4.0 +
 components.css) do TOP" u všech 5 hlavních souborů KOMPLETNÍ.**
