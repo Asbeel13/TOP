@@ -5,37 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Týdenní rozvrh úkolů</title>
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="theme.css" />
   <style>
-    :root {
-      --bg: #f4f6f8;
-      --panel: #ffffff;
-      --line: #1f2937;
-      --muted: #6b7280;
-      --green: #9acd5a;
-      --green-strong: #8bc34a;
-      --yellow: #f4ef49;
-      --orange: #f1c49b;
-      --blue: #c8d8ef;
-      --blue-dark: #b8c9e5;
-      --weekend: #bfbfbf;
-      --person: #ececec;
-      --grid: #cfcfcf;
-      --p0: #f87171;
-      --p1: #fdba74;
-      --p2: #93c5fd;
-      --p3: #d1d5db;
-      --px: #fde047;
-      --wait: #f7d24d;
-      --done: #86efac;
-      --danger: #cc1f1a;
-      --shadow: 0 8px 22px rgba(0,0,0,0.08);
-      --radius: 16px;
-    }
+    /* Lokální :root smazán 2026-09-14 — všechny proměnné buď přesně
+       odpovídaly theme.css (jen jiné jméno u --muted/--orange/--blue/
+       --blue-dark/--weekend/--person, přejmenováno beze změny hodnoty),
+       nebo byly mrtvý kód (--green, --green-strong, --yellow, nikde
+       nepoužité). --bg mělo #f4f6f8 vs. sdílené #f0f2f5 — zanedbatelný
+       rozdíl, sjednoceno beze zvláštního schvalování (na rozdíl od
+       Správy úkolů, kde šlo o zjevně odlišnou paletu). */
     * { box-sizing: border-box; }
     body {
       font-family: Arial, Helvetica, sans-serif;
       background: var(--bg);
-      color: #111827;
+      color: var(--text);
     }
     .app {
       display: grid;
@@ -57,9 +40,9 @@
       width: 28px;
       height: 28px;
       border-radius: 8px;
-      border: 1px solid #475569;
+      border: 1px solid var(--border-on-navy);
       background: rgba(255,255,255,0.06);
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
       cursor: pointer;
       font-size: 14px;
       display: flex;
@@ -76,8 +59,8 @@
       width: 32px;
       height: 32px;
       border-radius: 8px;
-      border: 1px solid #475569;
-      background: #1e293b;
+      border: 1px solid var(--border-on-navy);
+      background: var(--navy-700);
       color: white;
       cursor: pointer;
       font-size: 15px;
@@ -86,9 +69,9 @@
       justify-content: center;
       box-shadow: var(--shadow);
     }
-    #sidebarExpandBtn:hover { background: #334155; }
+    #sidebarExpandBtn:hover { background: #334155; } /* trvale tmavý sidebar chrome, ne var(--line-soft) — nemění se s režimem */
     .sidebar {
-      background: #0f172a;
+      background: var(--navy-800);
       color: white;
       padding: 20px;
       display: flex;
@@ -106,7 +89,7 @@
     }
     .brand p {
       margin: 6px 0 0;
-      color: #cbd5e1;
+      color: var(--text-on-navy-faint);
       font-size: 13px;
       line-height: 1.45;
     }
@@ -121,7 +104,7 @@
       font-size: 14px;
       text-transform: uppercase;
       letter-spacing: .05em;
-      color: #cbd5e1;
+      color: var(--text-on-navy-faint);
     }
     .field {
       display: grid;
@@ -130,12 +113,12 @@
     }
     label {
       font-size: 12px;
-      color: #cbd5e1;
+      color: var(--text-on-navy-faint);
     }
     input, select, button {
       width: 100%;
       border-radius: 10px;
-      border: 1px solid #334155;
+      border: 1px solid #334155; /* trvale tmavý sidebar chrome, ne var(--line-soft) — nemění se s režimem */
       padding: 10px 12px;
       font-size: 14px;
       background: #0b1222;
@@ -143,13 +126,13 @@
     }
     button {
       cursor: pointer;
-      background: #1d4ed8;
-      border-color: #1d4ed8;
+      background: var(--accent);
+      border-color: var(--accent);
       font-weight: 700;
     }
     button.secondary {
       background: transparent;
-      border-color: #475569;
+      border-color: var(--border-on-navy);
     }
     .legend {
       display: grid;
@@ -161,7 +144,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #e2e8f0;
+      color: #e2e8f0; /* trvale tmavý sidebar chrome, ne var(--text) — nemění se s režimem */
     }
     .swatch {
       width: 14px;
@@ -197,8 +180,8 @@
       width: auto;
       padding: 10px 14px;
       background: white;
-      color: #0f172a;
-      border-color: #d1d5db;
+      color: var(--navy-800);
+      border-color: var(--line-medium);
     }
     .stats {
       display: grid;
@@ -211,11 +194,11 @@
       border-radius: var(--radius);
       padding: 14px 16px;
       box-shadow: var(--shadow);
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--line-soft);
     }
     .stat .label {
       font-size: 12px;
-      color: var(--muted);
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: .05em;
     }
@@ -234,15 +217,15 @@
       border-radius: 16px;
       box-shadow: var(--shadow);
       overflow: hidden;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--line-medium);
       min-width: 0;
     }
     .week-block-title {
       padding: 7px 12px;
       font-weight: 700;
       font-size: 12px;
-      background: #0f172a;
-      color: #94a3b8;
+      background: var(--navy-800);
+      color: var(--text-on-navy-muted);
       letter-spacing: .05em;
       text-transform: uppercase;
     }
@@ -269,14 +252,14 @@
     .head.blank {
       background: white;
     }
-    .head.d0 { background: var(--blue-dark); }
-    .head.d1 { background: var(--blue); }
-    .head.d2 { background: var(--orange); }
-    .head.d3 { background: #ecd88e; }
-    .head.d4 { background: #bfd5a6; }
-    .head.d5, .head.d6 { background: var(--weekend); }
+    .head.d0 { background: var(--accent-pale-dark); }
+    .head.d1 { background: var(--accent-pale); }
+    .head.d2 { background: var(--day-wed); }
+    .head.d3 { background: var(--day-thu); }
+    .head.d4 { background: var(--day-fri); }
+    .head.d5, .head.d6 { background: var(--weekend-header-bg); }
     .person {
-      background: var(--person);
+      background: var(--person-bg);
       border-right: 2px solid var(--line);
       border-bottom: 2px solid var(--line);
       padding: 5px 3px;
@@ -308,7 +291,7 @@
       gap: 2px;
     }
     .cell.weekend {
-      background-color: #d0d0d0;
+      background-color: var(--weekend-bg);
     }
     .add-task-btn {
       display: none;
@@ -322,13 +305,13 @@
       border-radius: 4px;
       border: 1px solid rgba(0,0,0,0.2);
       background: rgba(255,255,255,0.85);
-      color: #374151;
+      color: var(--tile-text);
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       z-index: 5;
     }
-    .add-task-btn:hover { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+    .add-task-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
     body.can-write .cell:hover .add-task-btn { display: block; }
     /* Na dotykových zařízeních hover neexistuje — tlačítko musí být vidět trvale,
        jinak by bylo prakticky neobjevitelné. Desktopové chování (jen na hover)
@@ -345,7 +328,7 @@
     }
     .can-write-only { display: none !important; }
     body.can-write .can-write-only { display: inline-block !important; }
-    html.dark .add-task-btn { background: rgba(30,41,59,0.9); color: #cbd5e1; border-color: #475569; }
+    html.dark .add-task-btn { background: rgba(30,41,59,0.9); color: var(--text-on-navy-faint); border-color: var(--border-on-navy); }
     .task {
       border: 1px solid rgba(0,0,0,0.18);
       border-radius: 0;
@@ -370,23 +353,23 @@
       display: flex;
       justify-content: space-between;
       gap: 3px;
-      color: #111827;
+      color: var(--text);
       font-size: 0.9em;
       font-weight: 700;
     }
     .task .meta span { min-width: 0; overflow-wrap: break-word; }
-    .task.p0 { background: var(--p0); }
-    .task.p1 { background: var(--p1); }
-    .task.p2 { background: var(--p2); }
-    .task.p3 { background: var(--p3); }
-    .task.px { background: var(--px); border-left-color: #ca8a04; }
-    .task.waiting { background: var(--wait); }
-    .task.done { background: var(--done); color: #166534; }
+    .task.p0 { background: var(--tile-p0); }
+    .task.p1 { background: var(--tile-p1); }
+    .task.p2 { background: var(--tile-p2); }
+    .task.p3 { background: var(--tile-p3); }
+    .task.px { background: var(--tile-px); border-left-color: var(--tile-px-border); }
+    .task.waiting { background: var(--warn-block); }
+    .task.done { background: var(--success-block); color: var(--success-strong); }
     .task .danger { color: var(--danger); font-weight: 700; }
-    .task .spz { color: #cc1f1a; font-weight: 700; font-size: 0.9em; margin-top: 1px; }
-    .task.recurring { border-left: 3px solid #6366f1; }
-    .task .recurring-icon { font-size: 9px; color: #6366f1; margin-bottom: 1px; }
-    .task .multiday-badge { font-size: 9px; color: #0891b2; font-weight: 700; margin-bottom: 1px; }
+    .task .spz { color: var(--danger); font-weight: 700; font-size: 0.9em; margin-top: 1px; }
+    .task.recurring { border-left: 3px solid var(--recurring-border); }
+    .task .recurring-icon { font-size: 9px; color: var(--recurring-border); margin-bottom: 1px; }
+    .task .multiday-badge { font-size: 9px; color: var(--multiday-icon); font-weight: 700; margin-bottom: 1px; }
     .backlog {
       margin-top: 16px;
       display: grid;
@@ -397,13 +380,13 @@
       background: var(--panel);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--line-soft);
       overflow: hidden;
     }
     .panel h3 {
       margin: 0;
       padding: 14px 16px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--line-soft);
       font-size: 16px;
     }
     .panel .content {
@@ -415,9 +398,9 @@
     }
     .list-item {
       padding: 10px 12px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--line-soft);
       border-radius: 12px;
-      background: #fafafa;
+      background: var(--panel-alt);
       font-size: 13px;
       cursor: pointer;
     }
@@ -425,7 +408,7 @@
       display: block;
       margin-bottom: 4px;
     }
-    .muted { color: var(--muted); }
+    .muted { color: var(--text-muted); }
     .modal {
       position: fixed;
       inset: 0;
@@ -447,7 +430,7 @@
     }
     .modal-card header {
       padding: 18px 20px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--line-soft);
       display: flex;
       justify-content: space-between;
       gap: 12px;
@@ -464,8 +447,8 @@
       flex-wrap: wrap;
     }
     .chip {
-      background: #eef2ff;
-      color: #3730a3;
+      background: var(--chip-bg);
+      color: var(--chip-text);
       padding: 6px 10px;
       border-radius: 999px;
       font-size: 12px;
@@ -482,7 +465,7 @@
     .people-list input[type=checkbox] {
       width: auto;
       transform: scale(1.1);
-      accent-color: #3b82f6;
+      accent-color: #3b82f6; /* trvale tmavý sidebar chrome, žádný přesný token */
     }
     .person-row {
       display: flex;
@@ -495,7 +478,7 @@
     .person-row .person-name {
       flex: 1;
       font-size: 12px;
-      color: #e2e8f0;
+      color: #e2e8f0; /* trvale tmavý sidebar chrome, ne var(--text) — nemění se s režimem */
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -506,23 +489,27 @@
       font-size: 10px;
       font-weight: 700;
       border-radius: 4px;
-      border: 1px solid #475569;
+      border: 1px solid var(--border-on-navy);
       background: transparent;
-      color: #94a3b8;
+      color: var(--text-on-navy-muted);
       cursor: pointer;
       transition: background .15s, color .15s;
       flex-shrink: 0;
     }
     .person-row .side-btn.active-L {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
+      background: var(--accent);
+      border-color: var(--accent);
       color: white;
     }
     .person-row .side-btn.active-R {
-      background: #0f766e;
-      border-color: #0f766e;
+      background: var(--teal);
+      border-color: var(--teal);
       color: white;
     }
+    /* .move-btn/.hide-btn barvy (border/color #334155/#64748b) jsou trvale
+       tmavý sidebar chrome, ne var(--line-soft)/var(--text-faint) — sidebar
+       se s režimem nemění, takže tyhle 2 proměnné by v tmavém režimu daly
+       ŠPATNOU (přepnutou) hodnotu. */
     .person-row .move-btn {
       width: auto;
       padding: 2px 5px;
@@ -554,7 +541,7 @@
     .person-row.is-hidden .person-name { opacity: 0.4; text-decoration: line-through; }
     .person-row.is-hidden .side-btn { opacity: 0.3; pointer-events: none; }
     .person-row.is-hidden .move-btn { opacity: 0.3; pointer-events: none; }
-    .person-row .hide-btn.is-hidden { background: #475569; color: #e2e8f0; border-color: #64748b; }
+    .person-row .hide-btn.is-hidden { background: var(--border-on-navy); color: #e2e8f0; border-color: #64748b; }
 
     @media (max-width: 1200px) {
       .stats { grid-template-columns: 1fr 1fr; }
@@ -577,8 +564,8 @@
       padding: 14px 18px;
       border-radius: 999px;
       border: 1px solid rgba(15, 23, 42, 0.1);
-      background: #0f172a;
-      color: #ffffff;
+      background: var(--navy-800);
+      color: var(--panel);
       text-decoration: none;
       font-weight: 700;
       box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
@@ -587,7 +574,7 @@
     .fab-nav:hover {
       transform: translateY(-2px);
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.34);
-      background: #111f38;
+      background: var(--navy-hover);
     }
     .fab-nav .fab-sub {
       display: block;
@@ -620,67 +607,67 @@
   
     /* ── DARK MODE ── */
     html.dark { color-scheme: dark; }
-    html.dark body { background: #0f172a; color: #e2e8f0; }
-    html.dark .sidebar { background: #020617; }
-    html.dark .control-card { background: #1e293b; border-color: #334155; }
-    html.dark .control-card h3 { color: #94a3b8; }
-    html.dark button, html.dark select, html.dark input { background: #1e293b; color: #e2e8f0; border-color: #334155; }
-    html.dark button:hover { background: #334155; }
-    html.dark .schedule-wrap { background: #0f172a; }
-    html.dark .head { background: #1e293b; color: #94a3b8; border-color: #334155; }
-    html.dark .head.d5, html.dark .head.d6 { background: #162032; }
-    html.dark .person { background: #1e293b; color: #94a3b8; border-color: #334155; }
-    html.dark .cell { background: #0f172a; border-color: #1e293b; }
-    html.dark .cell.weekend { background: #0a1020; }
-    html.dark .task { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-    html.dark .task.p0 { background: #450a0a; border-left-color: #dc2626; }
-    html.dark .task.p1 { background: #431407; border-left-color: #ea580c; }
-    html.dark .task.p2 { background: #1e3a5f; border-left-color: #3b82f6; }
-    html.dark .task.p3 { background: #374151; border-left-color: #9ca3af; }
-    html.dark .task.px { background: #2a2010; border-left-color: #ca8a04; }
-    html.dark .task.done { background: #14532d; color: #bbf7d0; opacity: 0.75; }
-    html.dark .task.waiting { border-left-color: #b45309; }
-    html.dark .task.recurring { border-left-color: #6366f1; }
-    html.dark .task .title { color: #e2e8f0; }
-    html.dark .task .meta { color: #64748b; }
-    html.dark .task .spz { color: #f87171; }
-    html.dark .task .multiday-badge { color: #22d3ee; }
-    html.dark .stat { background: #1e293b; border-color: #334155; }
-    html.dark .stat .label { color: #64748b; }
-    html.dark .stat .value { color: #e2e8f0; }
-    html.dark .backlog-card { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+    html.dark body { background: var(--navy-800); color: var(--text); }
+    html.dark .sidebar { background: var(--navy-900); }
+    html.dark .control-card { background: var(--navy-700); border-color: var(--line-soft); }
+    html.dark .control-card h3 { color: var(--text-on-navy-muted); }
+    html.dark button, html.dark select, html.dark input { background: var(--navy-700); color: var(--text); border-color: var(--line-soft); }
+    html.dark button:hover { background: var(--line-soft); }
+    html.dark .schedule-wrap { background: var(--navy-800); }
+    html.dark .head { background: var(--navy-700); color: var(--text-on-navy-muted); border-color: var(--line-soft); }
+    html.dark .head.d5, html.dark .head.d6 { background: var(--navy-600); }
+    html.dark .person { background: var(--navy-700); color: var(--text-on-navy-muted); border-color: var(--line-soft); }
+    html.dark .cell { background: var(--navy-800); border-color: var(--navy-700); }
+    html.dark .cell.weekend { background: var(--weekend-bg); }
+    html.dark .task { background: var(--navy-700); border-color: var(--line-soft); color: var(--text); }
+    html.dark .task.p0 { background: var(--tile-p0); border-left-color: var(--danger); }
+    html.dark .task.p1 { background: var(--tile-p1); border-left-color: var(--tile-p1-border); }
+    html.dark .task.p2 { background: var(--tile-p2); border-left-color: var(--tile-p2-border); }
+    html.dark .task.p3 { background: var(--tile-p3); border-left-color: var(--tile-p3-border); }
+    html.dark .task.px { background: var(--tile-px); border-left-color: var(--tile-px-border); }
+    html.dark .task.done { background: var(--success-block); color: var(--success-strong); opacity: 0.75; }
+    html.dark .task.waiting { border-left-color: var(--warn-border); }
+    html.dark .task.recurring { border-left-color: var(--recurring-border); }
+    html.dark .task .title { color: var(--text); }
+    html.dark .task .meta { color: var(--text-faint); }
+    html.dark .task .spz { color: var(--danger-block); }
+    html.dark .task .multiday-badge { color: var(--multiday-icon); }
+    html.dark .stat { background: var(--navy-700); border-color: var(--line-soft); }
+    html.dark .stat .label { color: var(--text-faint); }
+    html.dark .stat .value { color: var(--text); }
+    html.dark .backlog-card { background: var(--navy-700); border-color: var(--line-soft); color: var(--text); }
     html.dark .backlog { background: transparent; }
-    html.dark .week-block { background: #1e293b; border-color: #334155; }
-    html.dark .week-block-title { background: #020617; color: #64748b; }
+    html.dark .week-block { background: var(--navy-700); border-color: var(--line-soft); }
+    html.dark .week-block-title { background: var(--navy-900); color: var(--text-faint); }
     html.dark .content { background: transparent; }
-    html.dark section.backlog > div { background: #1e293b; border-color: #334155; }
+    html.dark section.backlog > div { background: var(--navy-700); border-color: var(--line-soft); }
     html.dark .backlog > div > h3,
-    html.dark .backlog > div > .section-title { color: #94a3b8; }
-    html.dark .panel { background: #1e293b; border-color: #334155; }
-    html.dark .panel h3 { color: #e2e8f0; border-color: #334155; }
-    html.dark .list-item { background: #162032; border-color: #334155; color: #e2e8f0; }
-    html.dark .list-item .muted { color: #64748b; }
+    html.dark .backlog > div > .section-title { color: var(--text-on-navy-muted); }
+    html.dark .panel { background: var(--navy-700); border-color: var(--line-soft); }
+    html.dark .panel h3 { color: var(--text); border-color: var(--line-soft); }
+    html.dark .list-item { background: var(--navy-600); border-color: var(--line-soft); color: var(--text); }
+    html.dark .list-item .muted { color: var(--text-faint); }
     html.dark .modal { background: rgba(0,0,0,0.75); }
-    html.dark .modal-card { background: #1e293b; color: #e2e8f0; }
-    html.dark .modal-card header { border-color: #334155; }
-    html.dark .chip { background: #312e81; color: #c7d2fe; }
-    html.dark .muted { color: #64748b; }
-    html.dark .person-row { border-color: #334155; }
-    html.dark .person-name { color: #94a3b8; }
-    html.dark .side-btn { background: #334155; color: #94a3b8; border-color: #475569; }
-    html.dark .side-btn.active-L { background: #1d4ed8; color: white; }
-    html.dark .side-btn.active-R { background: #9333ea; color: white; }
-    html.dark .move-btn, html.dark .hide-btn { background: #334155; color: #94a3b8; border-color: #475569; }
-    html.dark .fab-nav { background: #1e293b; color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+    html.dark .modal-card { background: var(--navy-700); color: var(--text); }
+    html.dark .modal-card header { border-color: var(--line-soft); }
+    html.dark .chip { background: var(--chip-bg); color: var(--chip-text); }
+    html.dark .muted { color: var(--text-faint); }
+    html.dark .person-row { border-color: var(--line-soft); }
+    html.dark .person-name { color: var(--text-on-navy-muted); }
+    html.dark .side-btn { background: var(--line-soft); color: var(--text-on-navy-muted); border-color: var(--border-on-navy); }
+    html.dark .side-btn.active-L { background: var(--accent); color: white; }
+    html.dark .side-btn.active-R { background: var(--purple-active); color: white; }
+    html.dark .move-btn, html.dark .hide-btn { background: var(--line-soft); color: var(--text-on-navy-muted); border-color: var(--border-on-navy); }
+    html.dark .fab-nav { background: var(--navy-700); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
 
     /* ── Formulář rychlého přidání úkolu (#newTaskModal) ── */
     #newTaskModal .modal-card { width: min(720px, 100%); max-height: 90vh; overflow: auto; }
     #newTaskModal .modal-head {
       position: sticky; top: 0; z-index: 2;
-      background: #fff; padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
+      background: #fff; padding: 18px 20px; border-bottom: 1px solid var(--line-soft);
       display: flex; justify-content: space-between; align-items: center; gap: 12px;
     }
-    html.dark #newTaskModal .modal-head { background: #1e293b; border-color: #334155; }
+    html.dark #newTaskModal .modal-head { background: var(--navy-700); border-color: var(--line-soft); }
     #newTaskModal .modal-body { padding: 20px; }
     #newTaskModal .actions-row { display: flex; gap: 8px; }
     #newTaskModal .actions-row button { width: auto; }
@@ -688,43 +675,43 @@
     #newTaskModal .grid.two { grid-template-columns: 1fr 1fr; }
     #newTaskModal .field { margin-bottom: 0; }
     #newTaskModal .field label {
-      display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px;
+      display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;
       font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
     }
     #newTaskModal input, #newTaskModal select, #newTaskModal textarea {
-      width: 100%; border: 1px solid #d1d5db; border-radius: 12px;
-      padding: 11px 12px; font-size: 14px; background: #fff; color: #111827; outline: none;
+      width: 100%; border: 1px solid var(--line-medium); border-radius: 12px;
+      padding: 11px 12px; font-size: 14px; background: #fff; color: var(--text); outline: none;
     }
     #newTaskModal button { width: auto; }
     #newTaskModal textarea { resize: vertical; min-height: 80px; }
     html.dark #newTaskModal input, html.dark #newTaskModal select, html.dark #newTaskModal textarea {
-      background: #0f172a; color: #e2e8f0; border-color: #334155;
+      background: var(--navy-800); color: var(--text); border-color: var(--line-soft);
     }
-    #newTaskModal .field-required label { color: #dc2626; }
+    #newTaskModal .field-required label { color: var(--danger); }
     #newTaskModal .field-required input, #newTaskModal .field-required select {
-      background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d;
+      background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger-strong);
     }
     html.dark #newTaskModal .field-required input, html.dark #newTaskModal .field-required select {
-      background: #7f1d1d; border: 2px solid #dc2626; color: #fee2e2;
+      background: var(--danger-strong); border: 2px solid var(--danger); color: var(--danger-text-on-dark);
     }
-    #newTaskModal .field-readonly label { color: #9ca3af; }
+    #newTaskModal .field-readonly label { color: var(--text-faint); }
     #newTaskModal .field-readonly input {
-      background: #f3f4f6; border: 1px solid #d1d5db; color: #9ca3af; cursor: not-allowed;
+      background: var(--prio-p3-bg); border: 1px solid var(--line-medium); color: var(--text-faint); cursor: not-allowed;
     }
     html.dark #newTaskModal .field-readonly input {
-      background: #1e293b; border: 1px solid #334155; color: #64748b; cursor: not-allowed;
+      background: var(--navy-700); border: 1px solid var(--line-soft); color: var(--text-faint); cursor: not-allowed;
     }
-    #newTaskModal .field-optional label { color: #6b7280; }
-    html.dark #newTaskModal .field-optional label { color: #94a3b8; }
+    #newTaskModal .field-optional label { color: var(--text-muted); }
+    html.dark #newTaskModal .field-optional label { color: var(--text-on-navy-muted); }
 
 /* ── Formulář zástupu (#substituteModal, sdílí styl s #substituteModal) ── */
     #substituteModal .modal-card { width: min(720px, 100%); max-height: 90vh; overflow: auto; }
     #substituteModal .modal-head {
       position: sticky; top: 0; z-index: 2;
-      background: #fff; padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
+      background: #fff; padding: 18px 20px; border-bottom: 1px solid var(--line-soft);
       display: flex; justify-content: space-between; align-items: center; gap: 12px;
     }
-    html.dark #substituteModal .modal-head { background: #1e293b; border-color: #334155; }
+    html.dark #substituteModal .modal-head { background: var(--navy-700); border-color: var(--line-soft); }
     #substituteModal .modal-body { padding: 20px; }
     #substituteModal .actions-row { display: flex; gap: 8px; }
     #substituteModal .actions-row button { width: auto; }
@@ -732,43 +719,43 @@
     #substituteModal .grid.two { grid-template-columns: 1fr 1fr; }
     #substituteModal .field { margin-bottom: 0; }
     #substituteModal .field label {
-      display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px;
+      display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;
       font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
     }
     #substituteModal input, #substituteModal select, #substituteModal textarea {
-      width: 100%; border: 1px solid #d1d5db; border-radius: 12px;
-      padding: 11px 12px; font-size: 14px; background: #fff; color: #111827; outline: none;
+      width: 100%; border: 1px solid var(--line-medium); border-radius: 12px;
+      padding: 11px 12px; font-size: 14px; background: #fff; color: var(--text); outline: none;
     }
     #substituteModal button { width: auto; }
     #substituteModal textarea { resize: vertical; min-height: 80px; }
     html.dark #substituteModal input, html.dark #substituteModal select, html.dark #substituteModal textarea {
-      background: #0f172a; color: #e2e8f0; border-color: #334155;
+      background: var(--navy-800); color: var(--text); border-color: var(--line-soft);
     }
-    #substituteModal .field-required label { color: #dc2626; }
+    #substituteModal .field-required label { color: var(--danger); }
     #substituteModal .field-required input, #substituteModal .field-required select {
-      background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d;
+      background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger-strong);
     }
     html.dark #substituteModal .field-required input, html.dark #substituteModal .field-required select {
-      background: #7f1d1d; border: 2px solid #dc2626; color: #fee2e2;
+      background: var(--danger-strong); border: 2px solid var(--danger); color: var(--danger-text-on-dark);
     }
-    #substituteModal .field-readonly label { color: #9ca3af; }
+    #substituteModal .field-readonly label { color: var(--text-faint); }
     #substituteModal .field-readonly input {
-      background: #f3f4f6; border: 1px solid #d1d5db; color: #9ca3af; cursor: not-allowed;
+      background: var(--prio-p3-bg); border: 1px solid var(--line-medium); color: var(--text-faint); cursor: not-allowed;
     }
     html.dark #substituteModal .field-readonly input {
-      background: #1e293b; border: 1px solid #334155; color: #64748b; cursor: not-allowed;
+      background: var(--navy-700); border: 1px solid var(--line-soft); color: var(--text-faint); cursor: not-allowed;
     }
-    #substituteModal .field-optional label { color: #6b7280; }
-    html.dark #substituteModal .field-optional label { color: #94a3b8; }
+    #substituteModal .field-optional label { color: var(--text-muted); }
+    html.dark #substituteModal .field-optional label { color: var(--text-on-navy-muted); }
 
 /* ── Správa řešitelů (#resiteleManagementModal, sdílí styl) ── */
     #resiteleManagementModal .modal-card { width: min(720px, 100%); max-height: 90vh; overflow: auto; }
     #resiteleManagementModal .modal-head {
       position: sticky; top: 0; z-index: 2;
-      background: #fff; padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
+      background: #fff; padding: 18px 20px; border-bottom: 1px solid var(--line-soft);
       display: flex; justify-content: space-between; align-items: center; gap: 12px;
     }
-    html.dark #resiteleManagementModal .modal-head { background: #1e293b; border-color: #334155; }
+    html.dark #resiteleManagementModal .modal-head { background: var(--navy-700); border-color: var(--line-soft); }
     #resiteleManagementModal .modal-body { padding: 20px; }
     #resiteleManagementModal .actions-row { display: flex; gap: 8px; }
     #resiteleManagementModal .actions-row button { width: auto; }
@@ -776,34 +763,34 @@
     #resiteleManagementModal .grid.two { grid-template-columns: 1fr 1fr; }
     #resiteleManagementModal .field { margin-bottom: 0; }
     #resiteleManagementModal .field label {
-      display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px;
+      display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;
       font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
     }
     #resiteleManagementModal input, #resiteleManagementModal select, #resiteleManagementModal textarea {
-      width: 100%; border: 1px solid #d1d5db; border-radius: 12px;
-      padding: 11px 12px; font-size: 14px; background: #fff; color: #111827; outline: none;
+      width: 100%; border: 1px solid var(--line-medium); border-radius: 12px;
+      padding: 11px 12px; font-size: 14px; background: #fff; color: var(--text); outline: none;
     }
     #resiteleManagementModal button { width: auto; }
     #resiteleManagementModal textarea { resize: vertical; min-height: 80px; }
     html.dark #resiteleManagementModal input, html.dark #resiteleManagementModal select, html.dark #resiteleManagementModal textarea {
-      background: #0f172a; color: #e2e8f0; border-color: #334155;
+      background: var(--navy-800); color: var(--text); border-color: var(--line-soft);
     }
-    #resiteleManagementModal .field-required label { color: #dc2626; }
+    #resiteleManagementModal .field-required label { color: var(--danger); }
     #resiteleManagementModal .field-required input, #resiteleManagementModal .field-required select {
-      background: #fef2f2; border: 2px solid #dc2626; color: #7f1d1d;
+      background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger-strong);
     }
     html.dark #resiteleManagementModal .field-required input, html.dark #resiteleManagementModal .field-required select {
-      background: #7f1d1d; border: 2px solid #dc2626; color: #fee2e2;
+      background: var(--danger-strong); border: 2px solid var(--danger); color: var(--danger-text-on-dark);
     }
-    #resiteleManagementModal .field-readonly label { color: #9ca3af; }
+    #resiteleManagementModal .field-readonly label { color: var(--text-faint); }
     #resiteleManagementModal .field-readonly input {
-      background: #f3f4f6; border: 1px solid #d1d5db; color: #9ca3af; cursor: not-allowed;
+      background: var(--prio-p3-bg); border: 1px solid var(--line-medium); color: var(--text-faint); cursor: not-allowed;
     }
     html.dark #resiteleManagementModal .field-readonly input {
-      background: #1e293b; border: 1px solid #334155; color: #64748b; cursor: not-allowed;
+      background: var(--navy-700); border: 1px solid var(--line-soft); color: var(--text-faint); cursor: not-allowed;
     }
-    #resiteleManagementModal .field-optional label { color: #6b7280; }
-    html.dark #resiteleManagementModal .field-optional label { color: #94a3b8; }
+    #resiteleManagementModal .field-optional label { color: var(--text-muted); }
+    html.dark #resiteleManagementModal .field-optional label { color: var(--text-on-navy-muted); }
 
     </style>
 </head>
@@ -857,13 +844,13 @@
     <div class="control-card">
       <h3>Legenda</h3>
       <div class="legend">
-        <div class="legend-item"><span class="swatch" style="background:var(--p0)"></span>P0</div>
-        <div class="legend-item"><span class="swatch" style="background:var(--px)"></span>PX volno/doc</div>
-        <div class="legend-item"><span class="swatch" style="background:var(--p1)"></span>P1</div>
-        <div class="legend-item"><span class="swatch" style="background:var(--p2)"></span>P2</div>
-        <div class="legend-item"><span class="swatch" style="background:var(--p3)"></span>P3</div>
-        <div class="legend-item"><span class="swatch" style="background:var(--wait)"></span>Čeká se</div>
-        <div class="legend-item"><span class="swatch" style="background:var(--done)"></span>Dokončeno</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--tile-p0)"></span>P0</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--tile-px)"></span>PX volno/doc</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--tile-p1)"></span>P1</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--tile-p2)"></span>P2</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--tile-p3)"></span>P3</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--warn-block)"></span>Čeká se</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--success-block)"></span>Dokončeno</div>
       </div>
     </div>
   </aside>
