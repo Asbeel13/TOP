@@ -55,15 +55,16 @@ důkladné řešení: nový sesterský soubor **`components.css`**.
   mřížky Dashboardu/Přehledu desktop (plná barevná plocha buňky)
   `components.css` NENAHRAZUJE — jiný účel, zůstávají svým vlastním
   pravidlem v každé stránce.
-- **Ověřeno zatím jen staticky** — vyváženost `/* */` v `theme.css`
-  (103/103), vyváženost `{ }` v `components.css` (34/34), a strojová
-  kontrola, že každý `var(--x)` použitý v `components.css` je skutečně
-  deklarovaný v `theme.css`. **Živé vizuální ověření (izolovaná
-  stránka, `getComputedStyle`) se NEPODAŘILO provést** — na tomhle
-  stroji není funkční Python ani Node pro lokální server a Browser
-  nástroj odmítá skriptovat `file://` stránky přímo (jen statický
-  náhled). Až budou oba soubory nahrané, ověřit živě na GitHub Pages
-  stejnou metodou jako dřív (`document.styleSheets`, `getComputedStyle`).
+- **Ověřeno staticky** (vyváženost `/* */` v `theme.css` 103/103,
+  vyváženost `{ }` v `components.css` 34/34, strojová kontrola že
+  každý `var(--x)` v `components.css` je deklarovaný v `theme.css`) i
+  **živě na GitHub Pages** po nahrání JK (2026-09-15): oba soubory se
+  rozparsovaly bez chyby (35 CSS pravidel, žádné opakování bugu s
+  uříznutým komentářem), `--brand-accent` dává přesně `#FF5914`,
+  `--navy-800` přesně `#262421`, font `.btn-primary` je skutečně
+  `Jost`, `.icon-btn`/`.task-card` mají nové menší zaoblení
+  (4px/8px), a barva priority P0 (`#fff1f2`/`#be123c`) je beze změny
+  — přesně jak bylo rozhodnuto.
 
 **Zatím NEPROVEDENO (další krok):**
 1. Zapojit `<link rel="stylesheet" href="components.css">` (PO
