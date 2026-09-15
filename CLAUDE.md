@@ -261,9 +261,13 @@ v1.4.0:
 **Ověřeno:** vyváženost `{ }` v `<style>` (237/237) i v celém souboru
 (607/607, dřív 604/604 — +3 páry odpovídají přesně 3 novým pravidlům),
 počet `<script>` tagů beze změny (4), žádný nový výskyt rizikového
-`-*/` vzoru. **Soubor zatím nenahraný** — čeká na JK, doověřit živě
-po nahrání (v obou režimech, na `.primary`/`#todayBtn`/`.add-task-btn`
-kvůli výše popsaným specificitním pastem).
+`-*/` vzoru. **Nahráno a živě ověřeno v obou režimech** (2026-09-15) — probe test
+potvrdil `--brand-accent` (`rgb(255, 89, 20)`) na `.primary`/`#todayBtn`
+SHODNĚ ve světlém i tmavém režimu (obě specificitní opravy fungují),
+font Work Sans/Jost aplikovaný. (První test po nahrání ještě ukázal
+starý vzhled — opět jen zpoždění šíření přes GitHub Pages CDN,
+okamžité opakování ukázalo správný výsledek — stejný vzorec jako u
+předchozích dvou souborů.)
 
 Zbývá poslední soubor: `tydenni_prehled.html` (stejné zúžené
 zacházení, navíc zkontrolovat stejné dvě třídy pastí — hex hodnoty ve
