@@ -21,6 +21,12 @@
       color: var(--text);
       -webkit-tap-highlight-color: transparent;
     }
+    /* Formulářové prvky nedědí font z body automaticky (UA výchozí
+       chování) — bez tohohle by tlačítka/inputy zůstala na systémovém
+       fontu i po zapojení Work Sans. Doplněno 2026-09-15 (retroaktivně,
+       objeveno při zapojování dashboard_mobile — stejná mezera platila
+       i tady). */
+    button, input, select, textarea { font-family: inherit; }
     body {
       min-height: 100vh; /* záloha pro starší prohlížeče */
       min-height: 100dvh; /* na iOS/WebKitu správně zohledňuje schovávající se lištu */
