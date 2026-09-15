@@ -106,11 +106,24 @@ Provedeno:
 blocích zvlášť, počet `<script>` tagů beze změny (2), strojová kontrola
 že žádná použitá CSS třída (`task-card`, `priority-tag.*`, `meta-tag`,
 `person-block`/`person-head`/`avatar`/`person-name`/`person-code`/
-`person-tasks`) nechybí v `components.css`. **Živé vizuální ověření
-(izolovaná stránka) se nepodařilo provést** stejně jako u samotného
-`theme.css`/`components.css` výše — chybí funkční Python/Node pro
-lokální server na tomhle stroji. **Soubor zatím nenahraný** — čeká na
-JK, doověřit živě na GitHub Pages po nahrání.
+`person-tasks`) nechybí v `components.css`.
+
+**Nahrávání — poučení k zapsání:** JK při prvním pokusu omylem nahrál
+jen `components.css`, `tydenni_prehled_mobile.html` zůstal na GitHubu
+starý — odhaleno standardní `git fetch` + `diff` kontrolou (ne věřením
+"nahráno"), přesně podle zavedené disciplíny. Po opravě ověřeno
+bajt-po-bajtu shodné. **Živé ověření na GitHub Pages** (2026-09-15):
+`getComputedStyle` potvrdil `--font-body`/`--font-heading` skutečně
+aplikované (Work Sans/Jost), `.today-btn` má `--brand-accent`
+(`rgb(255, 89, 20)`) a nový `--radius-sm` (8px). **Past nalezená
+cestou:** první test v prohlížeči ukázal starý vzhled i PO opravě
+uploadu — způsobeno HTTP cache prohlížeče (`max-age=600`), ne chybou
+nasazení; potvrzeno `fetch(..., {cache:"no-store"})` a znovunačtením
+s cache-bustovaným URL parametrem, oboje ukázalo správný, nový obsah.
+Skutečná data úkolů (karty osob/úkolů) nešlo ověřit vizuálně bez
+GitHub tokenu (appka správně vyžaduje přihlášení) — token se nezadává
+(bezpečnostní pravidlo), tenhle konkrétní vizuální detail tedy ověří
+JK sám v appce.
 
 Zbývají 4 soubory: `tydenni_dashboard_mobile.html`,
 `sprava_ukolu_linked.html`,
