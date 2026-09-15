@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílené komponenty (components.css) — TOP
-   verze 1.0.0 — 2026-09-15
+   verze 1.0.1 — 2026-09-15
    ==========================================================================
    Sesterský soubor k theme.css. Zatímco theme.css obsahuje JEN proměnné
    (pravidlo dohodnuté při review se SPA stranou, viz theme.css hlavička),
@@ -31,6 +31,14 @@
    přehled + desktopový dashboard, Artifact 2026-09-15). Zapojení do
    skutečných souborů TOP je samostatný následný krok, soubor po
    souboru — stejná metodika jako u theme.css.
+
+   v1.0.1 (2026-09-15, zapojování zahájeno — tydenni_prehled_mobile.html,
+   1. ze 5 souborů TOP): mockup nepočítal s malými ikona+text štítky pro
+   "opakující se úkol" / "vícedenní úkol" / SPZ auta (v mockupu jen
+   ukázkově, bez skutečného zapojení) — doplněna nová třída `.meta-tag`,
+   genuinní mezera zjištěná stejně jako u předchozích souborů při
+   zapojování theme.css (gap objevený AŽ při skutečném použití, ne
+   předem odhadem).
    ========================================================================== */
 
 /* ── Tlačítka ── */
@@ -97,6 +105,24 @@
 .priority-tag.px { background: var(--prio-px-bg); color: var(--prio-px-text); }
 .priority-tag.waiting { background: var(--warn-soft); color: var(--warn-strong); }
 .priority-tag.done { background: var(--success-soft); color: var(--success-strong); }
+
+/* ── Malý štítek s ikonou (opakující se úkol, vícedenní úkol, SPZ auta)
+   — NOVÉ v1.0.1, doplněno při zapojování prvního souboru. Na rozdíl od
+   .priority-tag nemá barevné pozadí, jen tlumený text + ikonu. ── */
+.meta-tag {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.meta-tag svg {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
 
 /* ── Karta úkolu (kartové/seznamové zobrazení — mobilní přehled,
    mobilní dashboard; NE husté kalendářní mřížky desktopu, viz hlavička
