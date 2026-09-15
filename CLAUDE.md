@@ -169,11 +169,44 @@ aplikováno): `--brand-accent` na `.today-btn` i `.fab-add`
 Zpětně opravený `tydenni_prehled_mobile.html` (font reset na
 tlačítkách) ověřen zároveň, beze změny předchozích hodnot.
 
-Zbývají 3 soubory: `sprava_ukolu_linked.html`,
-`tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`.
+### `sprava_ukolu_linked.html` zapojen na `components.css` + fonty (2026-09-15, 3. ze 5 souborů)
+
+Tenhle soubor je administrativní (tabulky, Kanban, formuláře) — žádné
+kartové zobrazení jako u mobilních souborů, takže `.task-card`/
+`.person-block` z `components.css` se sem NEAPLIKUJÍ (nemá to smysl,
+stejná logika jako u hustých kalendářních mřížek desktopu). Rozsah
+téhle úpravy byl proto užší, cíleně jen na:
+- Font: `body { font-family:Inter,Segoe UI,Arial,sans-serif }` →
+  `var(--font-body)`. Doplněn stejný `font-family:inherit` reset pro
+  `button`/`.file-label`/inputy jako v mobilních souborech (stejná
+  mezera, nalezená znovu).
+- `.title-wrap h1`/`.panel-head h2` → `var(--font-heading)`.
+- **`.primary`** (jediná hlavní CTA třída na stránce — "Uložit změny",
+  "+ Přidat", "+ Přidat pravidlo", "Uložit" u zástupu, všechny ji už
+  měly nastavenou) → `var(--brand-accent)`/`var(--brand-accent-ink)`.
+  Díky tomu, že všechna tahle tlačítka sdílela jednu třídu, stačila
+  JEDNA úprava a projevilo se to všude — přesně ten efekt, který JK
+  chtěl od `theme.css` už dřív, teď funguje i pro tvar/barvu tlačítek.
+- **Záměrně NEZMĚNĚNO** (zůstává `var(--accent)`, modrá): `.tab-btn.active`
+  (výběr záložky, ne CTA — stejné rozlišení jako `side-btn.active-L`
+  v mobilních souborech), `.fab-nav` (navigační odkaz na Dashboard/SPA,
+  ne akce), `.pill` (dekorativní štítek "ALLDATBASE"), tlačítko "Zástup"
+  a "Obnovit" u vozidla (sekundární administrativní akce, ne hlavní CTA
+  stránky), debug panel (`#7c3aed`, zdokumentovaná výjimka z dřívějška).
+
+**Ověřeno:** vyváženost `{ }` v celém souboru (631/631, dřív 630/630 —
++1 pár odpovídá přesně jedné nové přidané CSS deklaraci), počet
+`<script>` tagů beze změny (4), žádný nový výskyt rizikového `-*/`
+vzoru (kontrola komentářového bugu z `theme.css` v1.3.1). **Soubor
+zatím nenahraný** — čeká na JK, doověřit živě po nahrání.
+
+Zbývají 2 soubory: `tydenni_dashboard_live_reload_local_linked.html`,
+`tydenni_prehled.html` (oba dostanou stejné zúžené zacházení jako
+tenhle — font + `--brand-accent` na skutečné CTA prvky, husté
+kalendářní mřížky beze změny tvaru).
 
 **Zatím NEPROVEDENO (další krok):**
-1. Pokračovat zapojováním zbylých 3 souborů TOP — stejná metodika
+1. Pokračovat zapojováním zbylých 2 souborů TOP — stejná metodika
    (test → schválení → JK nahraje).
 2. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
    `#0b1222`...) na nové `--chrome-*` tokeny — přesné namapování se
