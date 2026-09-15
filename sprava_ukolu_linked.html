@@ -468,7 +468,13 @@ initDarkMode();
     html.dark .stat .label { color: var(--text-faint); }
     html.dark .topbar { background: var(--panel); border-color: var(--line-soft); }
     html.dark button:hover, html.dark .file-label:hover { background: var(--line-soft); }
-    html.dark .primary { background: var(--accent-strong); border-color: var(--accent-strong); }
+    /* .primary dark-mode přepis SMAZÁN 2026-09-15 (firemní redesign) —
+       --brand-accent je invariantní (stejná hodnota v obou režimech,
+       stejně jako --accent-block-* apod.), žádný zvláštní tmavý
+       odstín nepotřebuje. Genuinní mezera nalezená AŽ při živém testu
+       (probe element s .dark aktivním) — stejný vzorec jako dřívější
+       "prohozená barva" nálezy, tentokrát chybějící smazání přepisu,
+       ne špatná hodnota. */
     html.dark .danger { background: var(--danger-soft); color: var(--danger-strong); }
     html.dark input, html.dark select, html.dark textarea { background: var(--bg); }
 
