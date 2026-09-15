@@ -218,14 +218,60 @@ potvrdil, že server už měl opravený obsah — šlo o krátké zpoždění
 šíření přes GitHub Pages CDN, ne o chybu; okamžité opakování ukázalo
 správný výsledek v obou režimech.
 
-Zbývají 2 soubory: `tydenni_dashboard_live_reload_local_linked.html`,
-`tydenni_prehled.html` (oba dostanou stejné zúžené zacházení jako
-tenhle — font + `--brand-accent` na skutečné CTA prvky, husté
-kalendářní mřížky beze změny tvaru).
+### `tydenni_dashboard_live_reload_local_linked.html` zapojen na `components.css` + fonty (2026-09-15, 4. ze 5 souborů)
+
+Hlavní pracovní obrazovka — sidebar + husté kalendářní mřížky (beze
+změny tvaru, jak bylo plánováno). Rozsah stejný typ jako Správa úkolů
+(font + skutečné CTA na `--brand-accent`), ale navíc konečně dořešeny
+natvrdo zapsané "chrome" barvy pomocí nových tokenů z `theme.css`
+v1.4.0:
+
+- `#334155`→`--chrome-border`, `#64748b`→`--chrome-muted`,
+  `#0b1222`→`--chrome-input-bg`, `#e2e8f0`→`--chrome-legend` (nové
+  invariantní tokeny) — ale **jen v opravdovém sidebar/chrome
+  kontextu** (`.move-btn`/`.hide-btn`, popisky v `.control-card`).
+- `#475569`/`#94a3b8` v sidebaru → existující `--border-on-navy`/
+  `--text-on-navy-muted` (teď teplé) — tohle byly ve skutečnosti
+  UŽ DŘÍV zapomenuté převody na existující tokeny, ne nová mezera.
+- **Genuinní nález cestou:** stejné hex hodnoty (`#334155`/`#e2e8f0`/
+  `#475569`/`#94a3b8`/`#64748b`) se používaly i uvnitř modalu "Řešitelé"
+  (`buildResiteleList()`, JS `rowStyle`/`nameStyle`/`btnStyle`) — ale
+  TAM je to světlý panel (`--panel`), ne trvale tmavý sidebar chrome.
+  Použití invariantních `--chrome-*` tokenů by tam bylo ŠPATNĚ (modal
+  by v tmavém režimu zůstal napořád stejný, místo aby se přepnul).
+  Opraveno na adaptivní tokeny (`--line-soft`, `--text`, `--line-medium`,
+  `--text-muted`, `--text-faint`), ne na nové invariantní — přesně ta
+  past, na kterou upozorňuje poučení u Dashboardu z minulé fáze
+  (stejný hex, jiný kontext, jiný správný token).
+- `.primary`/`#todayBtn`/`.add-task-btn:hover` → `--brand-accent`.
+  Bare `button{}` (obecný styl, používá ho i needeklarované "Zavřít"
+  v modalech) záměrně beze změny, ať se needeklarovaná tlačítka
+  needěláně nezabarví — stejné rozlišení jako `.primary`-vs-bare-button
+  ve Správě úkolů.
+- **2 mezery ve specificitě nalezené a opravené PŘED nahráním (ne až
+  živým testem, poučeno ze Správy úkolů):** `html.dark button, html.dark
+  select, html.dark input {...}` (2 elementy + 1 třída) má vyšší
+  specificitu než samotné `.primary` (1 třída) — potichu by přebilo
+  oranžovou zpátky na `--navy-700` v tmavém režimu. Stejně
+  `html.dark .add-task-btn {...}` (resting stav, 2 třídy+1 element) má
+  vyšší specificitu než `.add-task-btn:hover` (2 třídy) — potichu by
+  přebilo oranžový hover. Oba doplněny explicitním `html.dark .primary,
+  html.dark #todayBtn {...}` a `html.dark .add-task-btn:hover {...}`.
+
+**Ověřeno:** vyváženost `{ }` v `<style>` (237/237) i v celém souboru
+(607/607, dřív 604/604 — +3 páry odpovídají přesně 3 novým pravidlům),
+počet `<script>` tagů beze změny (4), žádný nový výskyt rizikového
+`-*/` vzoru. **Soubor zatím nenahraný** — čeká na JK, doověřit živě
+po nahrání (v obou režimech, na `.primary`/`#todayBtn`/`.add-task-btn`
+kvůli výše popsaným specificitním pastem).
+
+Zbývá poslední soubor: `tydenni_prehled.html` (stejné zúžené
+zacházení, navíc zkontrolovat stejné dvě třídy pastí — hex hodnoty ve
+světlých modalech vs. skutečný sidebar/chrome, a specificitu
+`html.dark` přepisů vůči novým `.primary`/CTA pravidlům).
 
 **Zatím NEPROVEDENO (další krok):**
-1. Pokračovat zapojováním zbylých 2 souborů TOP — stejná metodika
-   (test → schválení → JK nahraje).
+1. Zapojit poslední soubor TOP (`tydenni_prehled.html`).
 2. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
    `#0b1222`...) na nové `--chrome-*` tokeny — přesné namapování se
    dořeší až při zapojování KAŽDÉHO souboru, kde se vyskytují (zatím
