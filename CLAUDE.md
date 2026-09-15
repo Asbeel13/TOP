@@ -269,13 +269,46 @@ starý vzhled — opět jen zpoždění šíření přes GitHub Pages CDN,
 okamžité opakování ukázalo správný výsledek — stejný vzorec jako u
 předchozích dvou souborů.)
 
-Zbývá poslední soubor: `tydenni_prehled.html` (stejné zúžené
-zacházení, navíc zkontrolovat stejné dvě třídy pastí — hex hodnoty ve
-světlých modalech vs. skutečný sidebar/chrome, a specificitu
-`html.dark` přepisů vůči novým `.primary`/CTA pravidlům).
+### `tydenni_prehled.html` zapojen na `components.css` + fonty (2026-09-15, 5. z 5, HOTOVO — celý TOP zapojen)
+
+Poslední soubor — nejmenší/nejčistší ze všech (čistě read-only
+nahlížecí obrazovka). Kontrola obou pastí z minulého souboru s
+výsledkem "beze změny potřeba":
+- **Světlé modaly** (`#displaySettingsModal`, person-row) už při
+  minulém sjednocení palety správně používaly ADAPTIVNÍ tokeny
+  (`var(--line-medium)`, `var(--text-muted)`, `var(--border-on-navy)`
+  v `html.dark` přepisu) — žádná chrome-vs-modal past tady není,
+  poučení z Dashboardu bylo tentokrát aplikované od začátku správně.
+- **Specificita:** `.topbar button.primary` má už tak dost vysokou
+  specificitu (2 třídy), aby přebilo `html.dark button` (1 třída + 2
+  elementy) — žádný extra `html.dark .primary` přepis netřeba.
+- **Genuinní zjištění:** `.primary` je v tomhle souboru MRTVÝ kód —
+  žádný prvek v markupu tuhle třídu nepoužívá (`#todayBtn`/"Dnes" tu
+  nemá žádnou zvýrazněnou CTA podobu, na rozdíl od mobilních souborů
+  — vědomý rozdíl, tahle stránka je čistě read-only nahlížení, ne
+  "founding" akce). Aktualizoval jsem barvu na `--brand-accent`
+  stejně jako sourozenecké soubory, pro budoucí konzistenci, i když
+  se teď nikde nevykreslí — bezriziková změna.
+- Chrome literály (`#334155`→`--chrome-border`, `#64748b`→
+  `--chrome-muted`) v topbaru — teď měly kam se převést díky novým
+  tokenům z `theme.css` v1.4.0 (dřív explicitně zdokumentované jako
+  "nemají invariantní ekvivalent", teď mají).
+
+**Ověřeno:** vyváženost `{ }` v celém souboru (548/548, dřív 547/547 —
++1 pár odpovídá jedné nové `font-family:inherit` deklaraci), počet
+`<script>` tagů beze změny (4), žádný nový výskyt rizikového `-*/`
+vzoru. **Soubor zatím nenahraný** — čeká na JK, doověřit živě po
+nahrání.
+
+**Tímhle je fáze "zapojit firemní redesign (theme.css v1.4.0 +
+components.css) do TOP" u všech 5 hlavních souborů KOMPLETNÍ.**
+Zbývá jen: analogicky zvážit/nabídnout stejný redesign na SPA straně
+(zatím žádné rozhodnutí), a případné doladění detailů podle zpětné
+vazby JK po vyzkoušení v praxi.
 
 **Zatím NEPROVEDENO (další krok):**
-1. Zapojit poslední soubor TOP (`tydenni_prehled.html`).
+1. Žádný povinný — čekat na JK, jestli chce ještě něco doladit, nebo
+   jestli se má nabídnout stejný redesign SPA straně.
 2. Převést natvrdo zapsané "chrome" hex hodnoty (`#334155`, `#64748b`,
    `#0b1222`...) na nové `--chrome-*` tokeny — přesné namapování se
    dořeší až při zapojování KAŽDÉHO souboru, kde se vyskytují (zatím
