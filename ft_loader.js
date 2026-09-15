@@ -82,12 +82,12 @@ const FTLoader = (() => {
     div.id = "ftTokenDialog";
     div.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;";
     div.innerHTML = `
-      <div style="background:white;border-radius:16px;padding:32px;width:480px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:sans-serif;">
-        <h2 style="margin:0 0 8px;font-size:20px;">🔑 Přístup k databázi TOP</h2>
+      <div style="background:white;border-radius:16px;padding:32px;width:480px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:var(--font-body, sans-serif);">
+        <h2 style="margin:0 0 8px;font-size:20px;font-family:var(--font-heading, sans-serif);">🔑 Přístup k databázi TOP</h2>
         <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">Zadej svůj GitHub Personal Access Token. Obdržíš ho od správce systému.</p>
-        <input id="ftTokenInput" type="password" placeholder="ghp_... nebo github_pat_..." style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:8px;">
-        <input id="ftUserInput" type="text" placeholder="Tvoje zkratka (např. JK, RS, LR)" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:16px;">
-        <button id="ftTokenSave" style="width:100%;padding:12px;background:#1d4ed8;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Uložit a pokračovat →</button>
+        <input id="ftTokenInput" type="password" placeholder="ghp_... nebo github_pat_..." style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:8px;font-family:inherit;">
+        <input id="ftUserInput" type="text" placeholder="Tvoje zkratka (např. JK, RS, LR)" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:16px;font-family:inherit;">
+        <button id="ftTokenSave" style="width:100%;padding:12px;background:var(--brand-accent, #1d4ed8);color:var(--brand-accent-ink, white);border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-heading, sans-serif);">Uložit a pokračovat →</button>
         <p style="color:#9ca3af;font-size:11px;margin:12px 0 0;text-align:center;">Token se uloží jen v tomto prohlížeči. Při příštím otevření se zadávat nemusí.</p>
       </div>
     `;
