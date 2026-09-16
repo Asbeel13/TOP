@@ -2205,3 +2205,35 @@ uzavřená.** Jediné, co zbývá do budoucna: sledovat případné změny
 `theme.css` od SPA strany (Konvence č. 6), a až JK poskytne skutečné
 firemní barvy, upravit HODNOTY v `theme.css` — projeví se to
 automaticky ve všech 5 souborech TOP i v SPA.
+
+### 2026-09-16 — Sjednocení velikosti tří `.fab-nav` tlačítek v Dashboardu
+
+JK nahlásil (screenshot z mobilu): tři plovoucí navigační tlačítka
+("Dovolené (SPA)", "Týdenní přehled", "Správa úkolů") v
+`tydenni_dashboard_live_reload_local_linked.html` měla viditelně
+různou velikost.
+
+**Příčina:** základní (>720px) pravidlo `.fab-nav` mělo `min-width:
+220px; width: auto;` — šířka pilulky se tedy přizpůsobovala DÉLCE
+textu (hlavně `.fab-sub` podnadpisu). Živě změřeno na
+`https://asbeel13.github.io/TOP/` v šířce 800px: "Dovolené (SPA)"
+238px, "Týdenní přehled" 220px, "Správa úkolů" 229px — reálný, i když
+ne extrémní rozdíl. (Poznámka: v čistě mobilní šířce ≤720px se už
+dřív používalo `width: calc(100% - 28px)`, což je samo o sobě shodné
+pro všechny tři — pokud JK viděl výraznější rozdíl přímo na telefonu,
+šlo pravděpodobně o okrajovou šířku/mód prohlížeče blízko 720px
+hranice, ne o čistě úzký mobilní režim.)
+
+**Oprava:** `min-width:220px; width:auto;` → pevné `width: 240px;`
+(240px pokrývá i nejdelší potřebnou šířku beze zalomení textu,
+ověřeno živě přímým přepočtem `getBoundingClientRect()` na živé
+appce — všechny tři teď 240×64px, žádné zalomení podnadpisu na 2
+řádky). Mobilní pravidlo (`calc(100% - 28px)` pod 720px) beze změny —
+tam byla shoda už předtím.
+
+**Ověřeno:** vyváženost `{ }` beze změny (607/607 — jen zkrácení 3
+řádků na 1, žádná nová/odebraná složená závorka), živě přepočítáno na
+`https://asbeel13.github.io/TOP/` v šířkách 800px i 375px (emulace
+mobilu) — obě po zásahu ukazují identických 240×64px pro všechna tři
+tlačítka, bez zalomení textu. **Soubor zatím nenahraný** — čeká na JK
+(Konvence č. 4).
