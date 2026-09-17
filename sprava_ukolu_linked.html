@@ -2590,10 +2590,6 @@ async function debugGitHub() {
 let _filtersRestoredOnce = false;
 
 function loadFromRaw(raw) {
-    if (!_filtersRestoredOnce) {
-      _filtersRestoredOnce = true;
-      restoreSpravaFilterState();
-    }
     // rowIndex musí být STABILNÍ napříč přenačteními dat (polling každých
     // 5 s, SPA sync přeskládává tasks[]) — odkazuje na něj currentEditIndex
     // otevřeného modalu, Kanban drag i zaškrtnutí řádků. Pozice v poli
@@ -2655,6 +2651,15 @@ function loadFromRaw(raw) {
     renderDokonceniTable();
     renderOpakovaciTable();
     fillAssigneeFilter();
+    // Obnovení uložených filtrů až PO naplnění #filterAssignee (oprava
+    // 2026-09-17): dřív běželo hned na začátku, kdy měl select ještě prázdné
+    // options — nastavení value na neexistující option ho vrátí na "", a
+    // následné applyFilters() → saveSpravaFilterState() tu prázdnou hodnotu
+    // zapsalo zpět, takže filtr Řešitel nikdy nepřežil reload stránky.
+    if (!_filtersRestoredOnce) {
+      _filtersRestoredOnce = true;
+      restoreSpravaFilterState();
+    }
     renderStats();
     applyFilters();
     handleUrlParams();
