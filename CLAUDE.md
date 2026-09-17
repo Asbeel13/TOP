@@ -2303,9 +2303,89 @@ tlačítko (`#7c3aed`, zdokumentovaná vývojářská výjimka).
 **Ověřeno staticky:** vyváženost `{ }` v celém souboru (629/629, dřív
 630/630 — čistý úbytek odpovídá zrušení víc starých pravidel, než
 kolik přibylo nových), `( )` (1641/1641), žádný zbylý odkaz na
-`.kanban-card`/`.kc-title`/`.kc-meta`/`.kc-overdue`. **Soubor zatím
-nenahraný** — čeká na JK (Konvence č. 4), pak živé ověření obou
-tlačítek + Kanban karet v obou režimech.
+`.kanban-card`/`.kc-title`/`.kc-meta`/`.kc-overdue`.
+
+**✅ Nahráno a živě ověřeno (2026-09-17):** JK nahrál `sprava_ukolu_linked.html`
+zároveň s `theme.css`/`components.css`. `cmp` (ne jen `git diff --stat`,
+viz poučení z 2026-08-05) potvrdil byte-po-bytu shodu se všemi třemi
+lokálními soubory. `getComputedStyle` na živé stránce (transition
+dočasně vypnuté kvůli přesnému měření) potvrdil `.fab-nav`: světlý
+režim `#262421`/bílý text, tmavý režim `#322f2a`/`#e2e8f0` — přesně
+plánovaná oprava čitelnosti. Šířka `.fab-nav` přesně `240px`. Tlačítko
+"Nový úkol" má `class="btn btn-secondary"`. **Kanban karty
+(`.task-card`/`.priority-tag`) se nedalo ověřit vizuálně** — appka bez
+GitHub tokenu nemá žádná data (0 úkolů), token nezadávám (bezpečnostní
+pravidlo) — skutečný vzhled karet s reálnými daty ověří JK sám.
+
+**Dodatečný nález po nahrání — JK poslal screenshot:** aktivní záložka
+(`.tab-btn.active` — "Databáze úkolů"/"Přehled aut"/"Opakující se
+úkoly") zůstala na `var(--accent)` (klasická modrá `#1d4ed8`), zatímco
+zbytek appky je po redesignu antracit+oranžová. Byla to vědomá výjimka
+ze sjednocení palety 2026-09-14 ("modrá = stav výběru, ne CTA", stejné
+rozlišení jako `.side-btn.active-L` v mobilních souborech) — vizuálně
+ale teď trčí jako jediný sytě modrý prvek v jinak antracitové appce.
+**JK se rozhodl (`AskUserQuestion`): přebarvit na tmavou antracitovou**
+(ne na oranžovou, ne ponechat modrou). Provedeno: `.tab-btn.active` →
+`var(--navy-800)`/bílý text (světlý režim), `html.dark .tab-btn.active`
+→ `var(--navy-700)`/`var(--text)` (tmavý režim) — stejné tokeny a stejný
+vzorec světlá/tmavá jako u `.fab-nav` výše, takže hodnoty jsou už
+prokazatelně správné (ověřeno naživo u `.fab-nav`), není potřeba
+duplikovat test. Ověřeno staticky: vyváženost `{ }` beze změny
+(629/629), `( )` 1641→1642 (+1 pár odpovídá přesně jedné náhradě
+`color:#fff`→`color:var(--text)` v tmavém pravidle). Žádná jiná
+konfliktní deklarace `.tab-btn.active` v souboru (jen tahle dvě
+pravidla). **Soubor zatím nenahraný** — čeká na JK (Konvence č. 4).
+
+### 2026-09-17 — Audit napevno zapsaných barev ve `sprava_ukolu_linked.html` (na žádost JK) + 2 genuinní nálezy opraveny
+
+JK požádal o kompletní průchod souboru na napevno zapsané barvy (hex,
+`rgba()`, klíčová slova `white`/`black`...). Nalezeno a roztříděno:
+
+- **5 už dřív zdokumentovaných výjimek** (beze změny, nízké riziko):
+  `html.dark .tab-btn` pozadí `#111827`, tmavý focus okraj `#3b82f6`,
+  Debug tlačítko + Debug panel (`#7c3aed`/`#f5f5f5`/`background:white`,
+  vývojářský nástroj mimo návrhový systém), okraj kategorie vozidla
+  "Provoz Nivnice" (`#e2e8f0`).
+- **Stíny/překryvy `rgba(0,0,0,…)`** (13 výskytů) — čistě dekorativní
+  efekty, stejný vzorec jako `--shadow` proměnná v `theme.css` samotném,
+  netokenizují se ani jinde v appce — nejde o nekonzistenci.
+- **4 genuinní, dosud nezapsané nálezy** — dva opraveny na žádost JK:
+  1. `.tab-btn.active { color:#fff }` (světlý režim) → `var(--panel)` —
+     stejný token, jaký používá `.fab-nav` pro totéž (bílý text na tmavém
+     pozadí), literál byl pozůstatek vlastní nedávné úpravy z téhož dne.
+  2. `showReadOnlyRedirect()` (obrazovka "Nemáš oprávnění k úpravám",
+     zobrazí se needitovanému uživateli a přesměruje na Přehled) —
+     vůbec nededila firemní typografii (`font-family:sans-serif`) a měla
+     napevno `background:rgba(15,23,42,0.94)`/`color:white`. Opraveno na
+     `background:color-mix(in srgb, var(--bg) 94%, transparent)`,
+     `color:var(--text)`, `font-family:var(--font-body)` (+ nadpis
+     `var(--font-heading)`), podnadpis `var(--text-on-navy-muted)` →
+     `var(--text-muted)` (aby seděl k nově adaptivnímu pozadí místo
+     natvrdo tmavého). `initDarkMode()` běží synchronně na začátku
+     souboru, dřív než tahle obrazovka může nastat, takže `html.dark`
+     třída je vždy správně nastavená předem — přechod na proměnné je
+     bezpečný, obrazovka se teď chová stejně v obou režimech místo
+     natvrdo tmavého vzhledu.
+  3–4. (ponechány beze změny, nebyly součástí zadání) — `btnStyle` pro
+     "Vyřadit" u vozidel (`background:white`, možná stejná past jako
+     kdysi u modalu Řešitelé) a tlačítko "Obnovit" (`color:white` místo
+     tokenu) ve `renderAutaManagementLists()`.
+
+**Ověřeno staticky:** vyváženost `{ }` beze změny (629/629), `( )`
+1642→1647 (+5 párů odpovídá přesně součtu nových `var()`/`color-mix()`
+volání ve dvou opravách).
+
+**✅ Nahráno a živě ověřeno (2026-09-17):** `cmp` potvrdil byte-po-bytu
+shodu s GitHub Pages. `getComputedStyle` potvrdil `.tab-btn.active`
+světlý režim `#262421`/bílá (`var(--panel)`) — beze změny vzhledu, jen
+literál nahrazen tokenem. `showReadOnlyRedirect()` je uzavřená v IIFE
+(needostupná z konzole, viz "Časté testovací pasti") — ověřeno replikací
+přesného `cssText` řetězce na izolovaném prvku: `color-mix(in srgb,
+var(--bg) 94%, transparent)` dává `rgb(15,23,42)` @ 94 % (identické se
+starou `rgba(15,23,42,0.94)`), `var(--text)` dává `#e2e8f0`,
+`var(--font-body)` se rozparsuje na `"Work Sans", Arial, Helvetica,
+sans-serif` — obrazovka "Nemáš oprávnění" teď vizuálně vypadá stejně
+jako předtím, ale je theme-aware a má firemní font.
 
 ### 2026-09-17 — Oprava vedlejšího nálezu: neviditelný text `.fab-nav` v `tydenni_prehled.html` v tmavém režimu
 
@@ -2330,3 +2410,173 @@ je `<a>`, takže tu na rozdíl od Dashboardu žádná specificitní past s
 548/548 — +1 pár odpovídá přesně jednomu novému pravidlu). **Soubor
 zatím nenahraný** — čeká na JK (Konvence č. 4), pak živé ověření
 `getComputedStyle` v tmavém režimu na `https://asbeel13.github.io/TOP/`.
+
+### 2026-09-17 — Kontrola kódu TOP (+ vazby na SPA): 18 nálezů, opraveny 2 nejzávažnější
+
+JK zadal průchod celého kódu TOP s ohledem na propojení se SPA
+(`topSync.js`). Výsledek: seznam 18 nálezů (2 vysoké, 7 středních, 9
+nízkých) předaný JK v konverzaci; JK schválil opravu bodů 1 a 2, zbytek
+zatím neopraven (viz "Neopravené nálezy" níže).
+
+**1) `tydenni_prehled.html` — 110 kB reálných produkčních dat natvrdo v
+kódu (VYSOKÁ, opraveno).** `FALLBACK_DATA` na řádku 562 obsahovalo 252
+skutečných úkolů (snapshot z 2026-04-20, včetně názvů zakázek a
+poznámek) — veřejně čitelné na GitHub Pages bez tokenu. Je to totožný
+nález jako kritická oprava č. 5 z auditu 2026-08-05, která ale byla
+provedena **jen v Dashboardu**; Přehled zůstal přehlédnutý. Nahrazeno
+prázdnou kostrou `{"tasks": [], "backlog": [], "owners": [],
+"resitele": [], "generatedAt": null}` (stejné klíče, stejný tvar jako v
+Dashboardu). Soubor se zmenšil ze 156 kB na 44 kB. Ověřeno: žádný
+výskyt reálných dat (`grep "VERA 3NINE"` = 0), syntaxe OK (načtení v
+prohlížeči bez `SyntaxError`), CRLF konce řádků zachované, diff proti
+HEAD = přesně 1 změněný řádek (+ už čekající `.fab-nav` oprava výše).
+**Past cestou:** první náhrada přes `awk` v Git Bash tiše odstranila
+VŠECHNY `\r` (CRLF → LF v celém souboru, `git diff` hlásil 1119 změněných
+řádků) — obnoveno přes `perl -pi -e 's/\r?\n/\r\n/'`. **Poučení:** po
+hromadné textové náhradě přes unixové nástroje na těchhle CRLF souborech
+vždy zkontrolovat `file` / počet `\r` a `git diff --numstat`, ne jen
+obsah změněného řádku.
+
+**2) `sprava_ukolu_linked.html` — editace v modalu mohla přepsat JINÝ
+úkol (VYSOKÁ, opraveno).** `loadFromRaw()` přidělovalo `rowIndex = i+1`
+podle POZICE v `tasks[]` a přepočítávalo ho při každém příchodu nových
+dat (polling 5 s, storage event z jiné záložky). Na `rowIndex` přitom
+odkazuje `currentEditIndex` otevřeného modalu, `cancelSingleTask`,
+Kanban drag i zaškrtnutí řádků. Pokud se během otevřeného modalu změnilo
+pořadí pole, `saveTaskFromModal` udělalo `Object.assign` (včetně ID!) na
+úplně jiný úkol — tiše, bez chyby. **SPA sync pořadí mění pravidelně:**
+odfiltruje `*SPA` úkoly a připojí je na konec, takže každý TOP úkol
+založený po posledním syncu se posune o počet SPA úkolů. Oprava:
+- Nová `taskIdentityKey(t)` = `JSON.stringify(taskToRawFormat(t))` —
+  otisk obsahu v normalizovaném tvaru (nezávislý na pozici i na tom, kdo
+  soubor naposledy uložil).
+- `loadFromRaw()` si před přepsáním `tasks` uloží mapu otisk → předchozí
+  objekty; každý nově načtený úkol se spáruje s předchozím stavem a
+  převezme jeho `rowIndex` **a** `selected` (zaškrtnutí teď přežije
+  reload — dřív se resetovalo při každém pollu). Nový nebo cizím zásahem
+  změněný úkol dostane nové, dosud nepoužité číslo (`max+1`, roste
+  monotónně). Interní `_key` se nikam neukládá (`taskToRawFormat`
+  vyjmenovává pole explicitně, viz Nástraha č. 1).
+- `saveTaskFromModal` a `cancelSingleTask`: pokud úkol s `currentEditIndex`
+  už v paměti není (= mezitím ho někdo jiný upravil/smazal), zobrazí
+  srozumitelný `alert` a NEuloží nic — dřív se změna buď tiše zahodila
+  (`if (existing)` bez else, ale `autoSaveIfPossible()` proběhlo), nebo
+  se zapsala do cizího úkolu. Tohle je zároveň první skutečná detekce
+  konfliktu při editaci existujícího úkolu (viz "Nevyřešeno" u
+  2026-08-13 — plný snapshot v `saveWorkbook()` zůstává beze změny).
+- Dva zástupy za stejné pravidlo (stejné `id`, jiné datum) dostávají
+  odlišné `rowIndex` — otisk zahrnuje `plannedDate`.
+
+Ověřeno: vyváženost `{ }` 633/633, `( )` 1674/1674; syntaxe načtením v
+prohlížeči (bez `SyntaxError`, skript doběhl až k `FTLoader.init`).
+
+**Srovnávací test stará vs. nová verze (na žádost JK, stejná metoda
+jako u kritické opravy 2026-08-21):** z opraveného souboru i z verze na
+GitHubu (`git show HEAD:...`) vyrobena testovací kopie, kde je
+`<script src="ft_loader.js">` nahrazen inline STAVOVÝM mockem
+(`getRawJson()` vrací kopii "serveru", `saveToGitHub()` do něj zapíše a
+zaloguje PUT, `__externalChange()` simuluje příchod cizí změny přes
+polling), `localStorage` nahrazen in-memory shim (data: URL ho nemá),
+`alert`/`confirm` zachytávané. Scénář: otevřený modal na úkolu C
+(`rowIndex 4`) → SPA sync přeskládá `tasks[]` (`*SPA7*` na konec) a
+přibude nový úkol D → uložení "C UPRAVENO" → pak modal na A, kolega
+mezitím A upraví, uložit "A MOJE VERZE".
+
+| | Stará verze (HEAD) | Opravená verze |
+|---|---|---|
+| Po přeskládání `rowIndex 4` ukazuje na | **D** (`*T999*`) | C (`*T123*`) |
+| Uložený `tasks[]` | `*0001* *0002* *T123* *T123* *SPA7*` — **D zmizel, `*T123*` je 2×** | jen `*T123*` má nový název, ostatní 4 beze změny |
+| Zaškrtnutí B po pollu | ztraceno | zachováno |
+| Cizí úprava A + moje uložení | **tiše přepsáno** na "A MOJE VERZE", žádné varování | odmítnuto (alert), žádný PUT, v DB zůstala kolegova verze |
+
+Stará verze tedy chybu přesně reprodukuje (ztráta úkolu D + duplicitní
+ID — stejná třída následku jako incident 2026-08-21), opravená ne.
+Testovací kopie byly jen dočasně ve složce TOP (prohlížeč v Claude Code
+nepustí skripty u souborů mimo projekt) a jsou smazané; mock
+(`mock_ftloader.js`) + shim zůstaly ve scratchpadu session — postup
+(perl náhrada `<script src>` za inline mock) je snadno zopakovatelný.
+**Oba soubory zatím nenahrané** — čeká na JK (Konvence č. 4).
+
+**3) `ft_loader.js` — ověření role z whitelistu se po prvním úspěchu už
+nikdy neopakovalo (STŘEDNÍ, opraveno — druhé kolo, JK schválil).**
+`init()` volalo `resolveUserFromWhitelist()` jen když v localStorage
+chyběl příznak `ftUserVerified === "true"` — výsledek prvního ověření
+tak platil napořád. Změna role (Plánovač → Operátor/Nahlížeč) nebo
+vyřazení uživatele z `users.json` se v už ověřeném prohlížeči nikdy
+neprojevily, dokud si uživatel sám nesmazal localStorage. Oprava:
+ověření běží při KAŽDÉM startu stránky (cena = 1 GET `users.json`
+navíc); při síťové chybě `resolveUserFromWhitelist()` příznaky nemění,
+takže poslední známý stav zůstává (žádný výpadek přístupu offline).
+Navíc nový příznak `_verifyDone` — polling nezačne stahovat
+`database.json`, dokud ověření nedoběhne, ať první `onData` (kde
+Dashboard/Správa úkolů rozhodují o roli) nikdy neběží se zastaralou
+rolí. Vyváženost `{ }` 186/186, `( )` 511/511 (+2 páry = přesně dva nové
+callbacky). Týká se VŠECH 5 stránek (sdílený soubor).
+
+**4) Správa úkolů — filtr "Řešitel" se nikdy neobnovil po reloadu
+(STŘEDNÍ, opraveno — druhé kolo).** `restoreSpravaFilterState()` běžela
+hned na začátku `loadFromRaw()`, kdy `#filterAssignee` (v HTML prázdný
+`<select>`) ještě neměl žádné `<option>` — nastavení `value` na
+neexistující option ho vrátí na `""`, a následné `applyFilters()` →
+`saveSpravaFilterState()` tu prázdnou hodnotu zapsalo zpět, takže se
+uložený filtr přepsal při každém načtení stránky. Ostatní filtry
+(Stav, Priorita…) mají options staticky v HTML, proto fungovaly.
+Oprava: blok obnovení přesunut až ZA `fillAssigneeFilter()` (pořád jen
+jednou, `_filtersRestoredOnce`), před `applyFilters()`.
+
+**Srovnávací test 3 + 4 (stejná harness jako u bodu 2):** pro
+`ft_loader.js` samostatná stránka s inline kopií souboru, `fetch`
+nahrazen mockem (`users.json`/`database.json`/`activity.json` z paměti,
+přepínače síťová chyba / "visící" požadavek), `hashToken` v testovací
+kopii nahrazen `"HASH-" + token` (data: URL nemá `crypto.subtle`).
+Výchozí stav localStorage: token, `ftUserVerified="true"`,
+`ftUserRole="planovac"`; v `users.json` mezitím role `operator`.
+
+| Scénář | Stará verze (HEAD) | Opravená verze |
+|---|---|---|
+| Role po startu / při prvním `onData` | `planovac` / `planovac` — **`users.json` se vůbec nestáhl** | `operator` / `operator`, pořadí `GET users.json` → `GET database.json` |
+| Uživatel vyřazen z whitelistu | zůstává `verified=true`, `planovac` | `verified=false`, role `null` |
+| Síťová chyba při ověření | — | poslední známý stav zachován (`planovac`, verified) |
+| Ověření "visí" 5,6 s | — | polling `database.json` neproběhl (jen `GET users.json`) |
+| Správa úkolů: uložený filtr Řešitel = `DH`, po načtení | value `""`, uloženo `""`, zobrazeny oba úkoly (RS i DH) | value `DH`, uloženo `DH`, zobrazen jen úkol DH |
+
+Testovací kopie opět dočasně ve složce TOP, po testu smazané. **Soubory
+zatím nenahrané** — čeká na JK (Konvence č. 4): k původní sadě přibyl
+`ft_loader.js`.
+
+**Neopravené nálezy (JK zatím nezadal), pro příští session — stručně:**
+5. Správa úkolů — každý poll překreslí tabulky aut/pravidel/výjimek a
+   smaže rozepsané formuláře (Přidat pravidlo, Rezervace, Nové vozidlo)
+   i neuloženou inline editaci pravidla.
+6. Duplicitní ID u zástupu — `find(t => t.id === id)` u vícedenního
+   zástupu (`isMultiDay`, ne `recurring`) zapíše `completedDays` do
+   prvního nalezeného (Dashboard/Přehled/oba mobily); "Upravit" přes
+   `?id=` otevře první z nich.
+7. `topSync.js` — sync bez horní hranice data (tasks[] v TOP poroste
+   o historickou dovolenou napořád) + `lastUpdated` se přepisuje při
+   každém běhu u všech SPA úkolů (šum v historii, vždy nahoře při
+   řazení podle Aktualizace).
+8. SPA — změna zkratky/deaktivace uživatele/přejmenování stavu sync
+   nespustí (`scheduleSync()` volá jen `entries.js`); zkratka bez
+   kontroly velikosti písmen ("jk" ≠ "JK" → v Dashboardu se tiše
+   nezobrazí).
+9. `ft_loader.js:335` — `updatedBy`/committer bere neověřený
+   `ftCurrentUser` z dialogu místo whitelistem ověřené zkratky.
+10. `sw.js` — v `APP_SHELL` chybí `components.css`; `caches.match` může
+    vrátit `undefined` → offline TypeError; cachují se i chybové
+    odpovědi.
+11. Správa úkolů `openSubstituteModal` nabízí i vyřazené řešitele.
+12. `checkAutoWarning` nevylučuje zrušené úkoly (na rozdíl od
+    `getAutoDostupnostDen`).
+13. Kanban/editace: přesun pryč z "Dokončeno" nemaže `completedDays`;
+    `percent` se nastavuje, ale neukládá.
+14. Dashboard `:1683` — jméno/zkratka v hlavičce řádku bez `escapeHtml`.
+15. Dashboard — zápisové funkce bez vnitřní kontroly `can-write`
+    (vzor z mobilního Dashboardu 2026-09-08 tu chybí).
+16. Mrtvý kód: Dashboard `XLSX_FILE`/`excelDateToISO`/`parseBool`…;
+    knihovna xlsx (~1 MB) se stahuje v Dashboardu i Přehledu zbytečně;
+    `index.html`/`config.js` legacy (`ft_pendingToken` nikdo nečte).
+17. `showReadOnlyRedirect` v Dashboardu a mobilním Dashboardu má pořád
+    natvrdo barvy/`sans-serif` (Správa úkolů opravena 2026-09-17).
+18. `ft_loader.js:441` — `init()` maže sdílenou cache; ostatní záložky
+    na chvíli dostanou "Data ještě nejsou načtena".
