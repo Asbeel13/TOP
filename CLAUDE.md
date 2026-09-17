@@ -2237,3 +2237,72 @@ tam byla shoda už předtím.
 mobilu) — obě po zásahu ukazují identických 240×64px pro všechna tři
 tlačítka, bez zalomení textu. **Soubor zatím nenahraný** — čeká na JK
 (Konvence č. 4).
+
+### 2026-09-17 — Sjednocení `sprava_ukolu_linked.html` se zbytkem TOP (barvy + vizuální styl komponent)
+
+JK se zeptal, proč Správa úkolů nevypadá jako zbytek appky. Odpověď
+vedla ke genuinnímu nálezu (ne jen k vysvětlení záměrného užšího
+rozsahu z 2026-09-15): **`.fab-nav` tu zůstávalo modré**
+(`background: var(--accent)`) i po firemním redesignu, zatímco
+Dashboard/Přehled mezitím přešly na tmavou antracitovou
+(`var(--navy-800)`). Živě ověřeno přes `getComputedStyle` —
+`rgb(29, 78, 216)` na obou plovoucích tlačítkách, v OBOU režimech
+(žádný `html.dark .fab-nav` přepis tu předtím nebyl). Šlo o zapomenutý
+pozůstatek starší, samostatné výjimky ze sjednocení palety
+2026-09-14 ("`.fab-nav` je navigační odkaz, ne akce, zůstává modré"),
+který nikdo nerevidoval, když Dashboard/Přehled svoje `.fab-nav`
+později (2026-09-15, firemní redesign) přebarvily na tmavou.
+
+**Vedlejší nález cestou (jiný soubor, mimo dnešní zadání):**
+`tydenni_prehled.html` má stejný typ `.fab-nav` (`background:
+var(--navy-800); color: var(--panel);`), ale **bez** `html.dark
+.fab-nav` přepisu, který Dashboard má. Živě ověřeno: v tmavém režimu
+vychází `color: rgb(30, 41, 59)` (`--panel` tmavá hodnota) na pozadí
+`rgb(38, 36, 33)` (`--navy-800`) — text je tam prakticky neviditelný
+(oba odstíny tmavé). **Nahlášeno jako samostatný úkol** (spawn_task) —
+mimo rozsah dnešního zadání (to bylo cíleně jen o Správě úkolů), čeká
+na rozhodnutí/potvrzení.
+
+JK po vysvětlení schválil širší zásah ("barvy + vizuální styl
+komponent") — tři změny v `sprava_ukolu_linked.html`:
+
+1. **`.fab-nav` sjednoceno** na stejný vzor jako Dashboard/Přehled:
+   `background: var(--navy-800); color: var(--panel);`, hover
+   `var(--navy-hover)`, nový `html.dark .fab-nav { background:
+   var(--navy-700); color: var(--text); box-shadow: 0 4px 16px
+   rgba(0,0,0,0.5); }` (text by jinak zmizel ve tmavém režimu, přesně
+   nález popsaný výše u `tydenni_prehled.html`). Zároveň sjednocena i
+   ŠÍŘKA (`min-width:220px;width:auto` → pevných `240px`, stejná
+   oprava jako u Dashboardu 2026-09-16 výše) — tahle stránka má jen 2
+   tlačítka, ale stejná logika platí.
+2. **Kanban karty převedeny na `.task-card`/`.priority-tag`**
+   (`components.css`) místo bespoke `.kanban-card`/`.badge`/`.kc-*`
+   — teď mají stejný pruh+štítek vzhled jako karty v mobilním
+   přehledu/dashboardu. Zachovány jen vlastnosti, které `.task-card`
+   neřeší (byl navržen pro NEpřetahovací kartový seznam): `cursor:grab`,
+   `.dragging`, `.cancelled` — jako scoped přepisy
+   `.kanban-col-body .task-card...`, ne úpravou sdílené třídy samotné.
+   V tmavém režimu karta zůstává o odstín tmavší než sloupec
+   (`var(--bg)` vs. `var(--panel)`) — zachování původního vizuálního
+   rozlišení kartička/sloupec, teď jen přes scoped `html.dark
+   .kanban-col-body .task-card` přepis místo staré `.kanban-card`.
+   `priorityClass()` (vrací `"prio-P0"`..`"prio-PX"` pro starý
+   `.badge` v tabulce, beze změny) namapováno na malá písmena
+   `"p0"`..`"px"`, která čekají `.priority-tag`/`.task-card` modifiery.
+3. **Tlačítko "Nový úkol"** → `class="btn btn-secondary"` místo holého
+   `<button>` — stejná třída jako sekundární tlačítka v mobilních
+   souborech. `.success`/`.primary`/`.danger` (Uložit změny/modal
+   Uložit/Zrušit úkol) beze změny — to je hotovo, ne v rozsahu.
+
+**Vědomě NEZMĚNĚNO** (mimo schválený rozsah): tabulka Databáze úkolů
+(`.badge prio-*`, husté řádky — jiný účel než karta), `.tab-btn.active`
+(modrá, výběrový stav), `.success`/`.danger`/`.primary` tvar/radius,
+ostatní holá tlačítka (Zavřít, Vyčistit filtry, Zástup...), Debug
+tlačítko (`#7c3aed`, zdokumentovaná vývojářská výjimka).
+
+**Ověřeno staticky:** vyváženost `{ }` v celém souboru (629/629, dřív
+630/630 — čistý úbytek odpovídá zrušení víc starých pravidel, než
+kolik přibylo nových), `( )` (1641/1641), žádný zbylý odkaz na
+`.kanban-card`/`.kc-title`/`.kc-meta`/`.kc-overdue`. **Soubor zatím
+nenahraný** — čeká na JK (Konvence č. 4), pak živé ověření obou
+tlačítek + Kanban karet v obou režimech.
