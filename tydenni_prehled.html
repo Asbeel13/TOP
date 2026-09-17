@@ -424,6 +424,13 @@
         justify-content: center;
       }
     }
+    /* NOVÉ 2026-09-17 — genuinní mezera nalezená při sjednocování Správy
+       úkolů (viz CLAUDE.md): tenhle soubor má stejné .fab-nav jako
+       Dashboard (background: var(--navy-800); color: var(--panel)), ale
+       chyběl mu Dashboardův html.dark přepis. V tmavém režimu je
+       --panel tmavá (#1e293b) na stejně tmavém --navy-800 (#262421) —
+       text tlačítka "Dovolené (SPA)" byl prakticky nečitelný. */
+    html.dark .fab-nav { background: var(--navy-700); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
     html.dark button, html.dark select, html.dark input { background: var(--navy-700); color: var(--text); border-color: var(--line-soft); }
     html.dark .schedule { background: var(--navy-800); }
     html.dark .head { background: var(--navy-700); color: var(--text-on-navy-muted); border-color: var(--line-soft); }

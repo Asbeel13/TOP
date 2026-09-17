@@ -302,26 +302,24 @@ initDarkMode();
       overflow-y: auto;
       max-height: 65vh;
     }
-    .kanban-card {
-      background: var(--panel);
-      border: 1px solid var(--line-soft);
-      border-radius: 8px;
-      padding: 8px 10px;
-      cursor: grab;
-      font-size: 12px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-    }
-    .kanban-card:hover { border-color: var(--accent-block-border); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-    .kanban-card.dragging { opacity: 0.4; }
-    .kanban-card.cancelled { opacity: 0.5; cursor: not-allowed; text-decoration: line-through; }
-    .kanban-card .kc-title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
-    .kanban-card .kc-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--text-muted); }
-    .kanban-card .kc-overdue { color: var(--danger); font-weight: 700; }
-    /* Pozadí kanban sloupce/karty potřebuje jiný tmavý odstín, než jaký by
-       automaticky dal --input-bg-soft/--panel — zbytek (okraje, kc-meta,
-       drag-over) se přepne automaticky přes theme.css. */
+    /* NOVÉ 2026-09-17 — Kanban karty převedeny na sdílenou `.task-card`
+       (+ `.priority-tag`) z components.css místo bespoke `.kanban-card`,
+       ať mají stejný pruh+štítek vzhled jako karty v mobilním
+       přehledu/dashboardu (JK zadání "sjednoť to všechno ve správě
+       úkolů"). Zůstávají jen vlastnosti, které `.task-card` neřeší,
+       protože v kartovém přehledu odjinud nepotřebuje — přetahování
+       (`cursor:grab`, `.dragging`) a zrušený úkol (`.cancelled`). */
+    .kanban-col-body .task-card { cursor: grab; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .kanban-col-body .task-card:hover { border-color: var(--accent-block-border); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .kanban-col-body .task-card.dragging { opacity: 0.4; }
+    .kanban-col-body .task-card.cancelled { opacity: 0.5; cursor: not-allowed; text-decoration: line-through; }
+    /* Pozadí kanban sloupce potřebuje jiný tmavý odstín, než jaký by
+       automaticky dal --input-bg-soft — karta uvnitř už dostává správný
+       --panel/--line-soft z components.css .task-card samotného, jen v
+       tmavém režimu potřebuje být TMAVŠÍ než sloupec (--bg misto --panel),
+       ať zůstane vizuálně odlišená, stejně jako to bylo u bespoke verze. */
     html.dark .kanban-col { background: var(--panel); }
-    html.dark .kanban-card { background: var(--bg); }
+    html.dark .kanban-col-body .task-card { background: var(--bg); }
     .actions-row{
       display:flex;
       gap:8px;
@@ -406,13 +404,12 @@ initDarkMode();
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      min-width: 220px;
-      width: auto;
+      width: 240px;
       padding: 14px 18px;
       border-radius: 999px;
       border: 1px solid rgba(15, 23, 42, 0.1);
-      background: var(--accent);
-      color: #ffffff;
+      background: var(--navy-800);
+      color: var(--panel);
       text-decoration: none;
       font-weight: 700;
       box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
@@ -421,7 +418,7 @@ initDarkMode();
     .fab-nav:hover {
       transform: translateY(-2px);
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.34);
-      background: var(--accent-strong);
+      background: var(--navy-hover);
     }
     .fab-nav .fab-sub {
       display: block;
@@ -468,6 +465,16 @@ initDarkMode();
     html.dark .stat .label { color: var(--text-faint); }
     html.dark .topbar { background: var(--panel); border-color: var(--line-soft); }
     html.dark button:hover, html.dark .file-label:hover { background: var(--line-soft); }
+    /* NOVÉ 2026-09-17 — .fab-nav dřív zůstávalo na var(--accent) (modrá) i
+       po firemním redesignu (byla to jen dřívější, samostatná "výběr vs.
+       CTA" výjimka z fáze sjednocení palety 2026-09-14 — Dashboard/Přehled
+       ale svoje .fab-nav mezitím při firemním redesignu 2026-09-15 převedly
+       na var(--navy-800), zatímco tady se na to při užším rozsahu úpravy
+       zapomnělo). Sjednoceno na stejnou tmavou antracitovou i tady, včetně
+       přepisu pro tmavý režim — jinak by text (var(--panel), v tmavém
+       režimu tmavý) zmizel na tmavém var(--navy-800) pozadí, stejná past
+       jako popsaná u tydenni_prehled.html (viz CLAUDE.md). */
+    html.dark .fab-nav { background: var(--navy-700); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
     /* .primary dark-mode přepis SMAZÁN 2026-09-15 (firemní redesign) —
        --brand-accent je invariantní (stejná hodnota v obou režimech,
        stejně jako --accent-block-* apod.), žádný zvláštní tmavý
@@ -513,7 +520,7 @@ initDarkMode();
       </div>
       <div class="actions">
         <button class="success" onclick="saveWorkbook()">Uložit změny</button>
-        <button onclick="openNewTaskModal()">Nový úkol</button>
+        <button class="btn btn-secondary" onclick="openNewTaskModal()">Nový úkol</button>
         <button id="debugBtn" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;" onclick="debugGitHub()">🔍 Debug</button>
         <button id="darkModeBtn" class="dark-mode-btn" onclick="applyDarkMode(!document.documentElement.classList.contains('dark'))" style="font-size:16px;padding:6px 12px;" title="Tmavý režim">🌙</button>
       </div>
@@ -1231,18 +1238,23 @@ function kanbanCardHtml(task) {
   const draggable = !task.cancelled;
   const r = resitele.find(x => x.zkratka === task.assignee);
   const assigneeLabel = task.assignee || "Nezařazeno";
-  const assigneeStyle = (r && r.vyrazen) ? "color:var(--danger);font-weight:700;" : "";
+  const assigneeDanger = !!(r && r.vyrazen);
+  // priorityClass() vrací "prio-P0".."prio-PX" (pro starý .badge) — .priority-tag/
+  // .task-card z components.css čekají malé písmo bez prefixu ("p0".."px").
+  const prioKey = priorityClass(task.priority).replace("prio-", "").toLowerCase();
   return `
-    <div class="kanban-card ${task.cancelled ? "cancelled" : ""}"
+    <div class="task-card ${prioKey} ${task.cancelled ? "cancelled" : ""}"
          draggable="${draggable}"
          ${draggable ? `ondragstart="kanbanDragStart(event, ${task.rowIndex})" ondragend="kanbanDragEnd(event)"` : ""}
          onclick="editTask(${task.rowIndex})">
-      <div class="kc-title">${escapeHtml(task.id || "")} ${escapeHtml(task.task || "")}</div>
-      <div class="kc-meta">
-        <span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority || "P2")}</span>
-        <span style="${assigneeStyle}">${escapeHtml(assigneeLabel)}</span>
-        ${task.plannedDate ? `<span>${escapeHtml(formatDate(task.plannedDate))}</span>` : ""}
-        ${overdue ? `<span class="kc-overdue">⏰ po termínu</span>` : ""}
+      <div class="tag-row">
+        <span class="priority-tag ${prioKey}">${escapeHtml(task.priority || "P2")}</span>
+      </div>
+      <div class="title">${escapeHtml(task.id || "")} ${escapeHtml(task.task || "")}</div>
+      <div class="meta">
+        <span${assigneeDanger ? ' class="danger"' : ""}>${escapeHtml(assigneeLabel)}</span>
+        ${task.plannedDate ? ` · ${escapeHtml(formatDate(task.plannedDate))}` : ""}
+        ${overdue ? ` · <span class="danger">⏰ po termínu</span>` : ""}
       </div>
     </div>`;
 }
