@@ -1387,7 +1387,11 @@ function deleteSelected(){
 function cancelSingleTask(){
   if (currentEditIndex == null) return;
   const task = tasks.find(t => t.rowIndex === currentEditIndex);
-  if (!task || task.cancelled) return;
+  if (!task) {
+    alert("Úkol se mezitím změnil nebo byl smazán jiným uživatelem a data se automaticky přenačetla. Zavři okno a otevři úkol znovu.");
+    return;
+  }
+  if (task.cancelled) return;
   if (!confirm(`Opravdu zrušit úkol ${task.id || ""}? (lze obnovit)`)) return;
   task.cancelled = true;
   task.lastUpdated = formatDateISO(new Date());
@@ -1531,9 +1535,15 @@ function saveTaskFromModal(){
   if (currentEditIndex != null) {
     // Editace existujícího úkolu — aktualizuj v paměti, beze změny mechanismu
     const existing = tasks.find(t => t.rowIndex === currentEditIndex);
-    if (existing) {
-      Object.assign(existing, taskData, { rowIndex: existing.rowIndex, selected: existing.selected });
+    if (!existing) {
+      // Úkol s tímhle rowIndex už v paměti není — mezitím ho někdo jiný
+      // upravil/smazal a data se automaticky přenačetla (viz loadFromRaw).
+      // Neukládat naslepo: dřív by se změna tiše zahodila (nebo, se starým
+      // pozičním rowIndex, zapsala do úplně jiného úkolu).
+      alert("Úkol se mezitím změnil nebo byl smazán jiným uživatelem a data se automaticky přenačetla. Zavři okno, otevři úkol znovu a zadej změnu ještě jednou.");
+      return;
     }
+    Object.assign(existing, taskData, { rowIndex: existing.rowIndex, selected: existing.selected });
     applyFilters();
     renderTable();
     renderStats();
@@ -2451,6 +2461,14 @@ function taskToRawFormat(t) {
   };
 }
 
+// Otisk obsahu úkolu pro stabilní párování rowIndex napříč přenačteními
+// (viz loadFromRaw). Počítá se z normalizovaného tvaru (taskToRawFormat),
+// ne z pozice v poli — stejný úkol beze změny dá stejný klíč bez ohledu
+// na to, kdo a odkud soubor naposledy uložil.
+function taskIdentityKey(t) {
+  return JSON.stringify(taskToRawFormat(t));
+}
+
 function tasksToJson() {
   const raw = FTLoader.getRawJson() || {};
   const updatedTasks = tasks.map(taskToRawFormat);
@@ -2576,8 +2594,22 @@ function loadFromRaw(raw) {
       _filtersRestoredOnce = true;
       restoreSpravaFilterState();
     }
-    tasks = (raw.tasks || []).map((t, i) => ({
-      rowIndex: i + 1,
+    // rowIndex musí být STABILNÍ napříč přenačteními dat (polling každých
+    // 5 s, SPA sync přeskládává tasks[]) — odkazuje na něj currentEditIndex
+    // otevřeného modalu, Kanban drag i zaškrtnutí řádků. Pozice v poli
+    // stabilní není, proto se každý úkol spáruje s předchozím stavem v
+    // paměti podle otisku obsahu (taskIdentityKey) a převezme jeho
+    // rowIndex + výběr; nový nebo cizím zásahem změněný úkol dostane nové
+    // číslo, takže se rozepsaná úprava nikdy neuloží do jiného úkolu.
+    const prevByKey = new Map();
+    tasks.forEach(t => {
+      if (!t._key) return;
+      if (!prevByKey.has(t._key)) prevByKey.set(t._key, []);
+      prevByKey.get(t._key).push(t);
+    });
+    let nextRowIndex = tasks.reduce((m, t) => Math.max(m, t.rowIndex || 0), 0) + 1;
+    tasks = (raw.tasks || []).map(t => ({
+      rowIndex: 0,
       id: t.id || "",
       task: t.title || "",
       title: t.title || "",
@@ -2603,7 +2635,13 @@ function loadFromRaw(raw) {
       activeDays: Array.isArray(t.activeDays) ? t.activeDays : undefined,
       completedDays: Array.isArray(t.completedDays) ? t.completedDays : undefined,
       selected: false,
-    }));
+    })).map(mem => {
+      mem._key = taskIdentityKey(mem);
+      const prev = (prevByKey.get(mem._key) || []).shift();
+      mem.rowIndex = prev ? prev.rowIndex : nextRowIndex++;
+      mem.selected = prev ? !!prev.selected : false;
+      return mem;
+    });
     auta = raw.auta || [];
     autaRezervace = raw.auta_rezervace || [];
     resitele = raw.resitele || [];
