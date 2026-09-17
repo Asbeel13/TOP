@@ -2306,3 +2306,27 @@ kolik přibylo nových), `( )` (1641/1641), žádný zbylý odkaz na
 `.kanban-card`/`.kc-title`/`.kc-meta`/`.kc-overdue`. **Soubor zatím
 nenahraný** — čeká na JK (Konvence č. 4), pak živé ověření obou
 tlačítek + Kanban karet v obou režimech.
+
+### 2026-09-17 — Oprava vedlejšího nálezu: neviditelný text `.fab-nav` v `tydenni_prehled.html` v tmavém režimu
+
+Navazuje na nález ze sekce výše (spawnutý jako samostatný úkol,
+teď dokončený ve stejné konverzaci). `tydenni_prehled.html` má
+stejné `.fab-nav` jako Dashboard (`background: var(--navy-800);
+color: var(--panel);`), ale chyběl mu Dashboardův `html.dark .fab-nav`
+přepis. V tmavém režimu je `--panel` tmavá (`#1e293b`) na stejně
+tmavém `--navy-800` (`#262421`) — text tlačítka "Dovolené (SPA)" byl
+prakticky nečitelný. Živě potvrzeno předem přes `getComputedStyle`
+(`color: rgb(30, 41, 59)` na `background: rgb(38, 36, 33)`).
+
+**Oprava:** doplněn identický `html.dark .fab-nav { background:
+var(--navy-700); color: var(--text); box-shadow: 0 4px 16px
+rgba(0,0,0,0.5); }` jako v Dashboardu — vloženo hned za mobilní
+`@media` blok `.fab-nav`, před `html.dark button, html.dark select,
+html.dark input` (ten cílí jen na `button`/`select`/`input`, `.fab-nav`
+je `<a>`, takže tu na rozdíl od Dashboardu žádná specificitní past s
+`.primary`/`#todayBtn` nehrozí).
+
+**Ověřeno staticky:** vyváženost `{ }` v celém souboru (549/549, dřív
+548/548 — +1 pár odpovídá přesně jednomu novému pravidlu). **Soubor
+zatím nenahraný** — čeká na JK (Konvence č. 4), pak živé ověření
+`getComputedStyle` v tmavém režimu na `https://asbeel13.github.io/TOP/`.
