@@ -87,7 +87,7 @@
 }
 
 /* ── Štítek priority/stavu (pilulka nad kartou úkolu) ──
-   Barvy převzaté beze změny z theme.css --prio-*/--warn-*/--success-*. */
+   Barvy převzaté beze změny z proměnných theme.css (prio, warn, success). */
 .priority-tag {
   font-family: var(--font-heading);
   font-weight: 600;
