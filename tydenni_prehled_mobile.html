@@ -701,11 +701,11 @@ async function markTaskAsDoneFromModal() {
     const raw = FTLoader.getRawJson();
     if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
     const user = FTLoader.getCurrentUser() || "mobilní přehled";
-    // Hledat jen podle id nestačí: reálný záznam se stejným id může existovat
-    // pro JINÉ datum (typicky "zástup" u opakujícího se pravidla) — takový
-    // záznam nepatří k tomuto konkrétnímu výskytu, i když má stejné id.
-    const rawTask = (raw.tasks || []).find(t => t.id === id);
-    const task = (isRecurring && rawTask && rawTask.plannedDate !== plannedDate) ? null : rawTask;
+    // Hledat jen podle id nestačí: víc raw záznamů může mít STEJNÉ id (víc
+    // zástupů za stejné pravidlo v různých obdobích, nebo jeden vícedenní
+    // zástup) — FTLoader.findRawTaskForOccurrence vybere ten, jehož skutečný
+    // rozsah dní klikaný den opravdu obsahuje (oprava 2026-09-17, nález č. 6).
+    const task = FTLoader.findRawTaskForOccurrence(raw.tasks, id, plannedDate);
 
     if (isRecurring && !task) {
       raw.dokonceni = raw.dokonceni || [];

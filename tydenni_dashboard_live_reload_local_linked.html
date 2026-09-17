@@ -1611,10 +1611,17 @@ function openModal(task) {
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
   els.modalChips.innerHTML = chips.map(ch => `<span class="chip">${escapeHtml(String(ch))}</span>`).join("");
   if (task.id && !task.recurring) {
-    els.modalEditBtn.href = `sprava_ukolu_linked.html?id=${encodeURIComponent(task.id)}`;
+    // &datum= navíc (oprava 2026-09-17, nález č. 6): víc "zástupů" za stejné
+    // opakující se pravidlo sdílí stejné id — bez data by Správa úkolů přes
+    // handleUrlParams() otevřela/smazala první nalezený záznam s tímhle id,
+    // ne nutně ten, na který se tady kliklo. plannedDate identifikuje
+    // konkrétní klikaný výskyt (viz FTLoader.findRawTaskForOccurrence).
+    const datumParam = encodeURIComponent(task.plannedDate || "");
+    els.modalEditBtn.href = `sprava_ukolu_linked.html?id=${encodeURIComponent(task.id)}&datum=${datumParam}`;
     els.modalEditBtn.style.display = "inline-block";
     els.modalDeleteBtn.style.display = "inline-block";
     els.modalDeleteBtn.dataset.taskId = task.id;
+    els.modalDeleteBtn.dataset.plannedDate = task.plannedDate || "";
   } else {
     els.modalEditBtn.style.display = "none";
     els.modalDeleteBtn.style.display = "none";
@@ -1821,10 +1828,11 @@ els.hideDone.addEventListener("change", e => {
 document.getElementById("closeModal").addEventListener("click", () => els.modal.classList.remove("open"));
 document.getElementById("modalDeleteBtn").addEventListener("click", () => {
   const id = els.modalDeleteBtn.dataset.taskId;
+  const plannedDate = els.modalDeleteBtn.dataset.plannedDate || "";
   if (!id) return;
   if (!confirm(`Opravdu smazat úkol ${id}? Tato akce je nevratná.`)) return;
   els.modal.classList.remove("open");
-  window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}`, "top_edit_window");
+  window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}&datum=${encodeURIComponent(plannedDate)}`, "top_edit_window");
 });
 document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
 document.getElementById("modalSubstituteBtn").addEventListener("click", () => openSubstituteModal(els.modalSubstituteBtn.dataset.ruleId));
@@ -1841,11 +1849,11 @@ async function markTaskAsDoneFromModal() {
     const raw = FTLoader.getRawJson();
     if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
     const user = FTLoader.getCurrentUser() || "dashboard";
-    // Hledat jen podle id nestačí: reálný záznam se stejným id může existovat
-    // pro JINÉ datum (typicky "zástup" u opakujícího se pravidla) — takový
-    // záznam nepatří k tomuto konkrétnímu výskytu, i když má stejné id.
-    const rawTask = (raw.tasks || []).find(t => t.id === id);
-    const task = (isRecurring && rawTask && rawTask.plannedDate !== plannedDate) ? null : rawTask;
+    // Hledat jen podle id nestačí: víc raw záznamů může mít STEJNÉ id (víc
+    // zástupů za stejné pravidlo v různých obdobích, nebo jeden vícedenní
+    // zástup) — FTLoader.findRawTaskForOccurrence vybere ten, jehož skutečný
+    // rozsah dní klikaný den opravdu obsahuje (oprava 2026-09-17, nález č. 6).
+    const task = FTLoader.findRawTaskForOccurrence(raw.tasks, id, plannedDate);
 
     if (isRecurring && !task) {
       // Čistě generovaný výskyt opakujícího se pravidla (bez zástupu) — dokončení

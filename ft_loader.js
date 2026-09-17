@@ -440,21 +440,30 @@ const FTLoader = (() => {
     // 1. Vymaž starou cache s špatným kódováním
     try { localStorage.removeItem(DATA_KEY); } catch(e) {}
 
-    // 2. Ověř identitu proti seznamu (pokud ještě není ověřená) — TEPRVE PAK
-    //    načti data, aby kontrola oprávnění při onData měla platný výsledek.
+    // 2. Ověř identitu proti seznamu — TEPRVE PAK načti data, aby kontrola
+    //    oprávnění při onData měla platný výsledek.
+    //    Ověřuje se při KAŽDÉM startu stránky (oprava 2026-09-17), ne jen
+    //    když v localStorage ještě chybí příznak "ověřeno": dřív se výsledek
+    //    prvního ověření držel napořád, takže změna role nebo vyřazení
+    //    uživatele z users.json se v už ověřeném prohlížeči nikdy neprojevily.
+    //    Cena = jeden GET users.json navíc při načtení stránky. Při síťové
+    //    chybě resolveUserFromWhitelist() příznaky nemění (viz tam), takže
+    //    poslední známý stav zůstává — žádný výpadek přístupu offline.
+    let _verifyDone = false;
     const existingToken = getToken();
     if (existingToken) {
-      const verifyPromise = localStorage.getItem(VERIFIED_FLAG_KEY) !== "true"
-        ? resolveUserFromWhitelist(existingToken).catch(() => {})
-        : Promise.resolve();
-      verifyPromise.then(() => fetchFromGitHub(false));
+      resolveUserFromWhitelist(existingToken)
+        .catch(() => {})
+        .then(() => { _verifyDone = true; fetchFromGitHub(false); });
     } else {
-      showTokenDialog(() => fetchFromGitHub(false));
+      showTokenDialog(() => { _verifyDone = true; fetchFromGitHub(false); });
     }
 
-    // 3. Polling — data i indikátor aktivity
+    // 3. Polling — data i indikátor aktivity (až po dokončení ověření výše,
+    //    ať první onData nikdy neproběhne se zastaralou rolí)
     if (_pollTimer) clearInterval(_pollTimer);
     _pollTimer = setInterval(() => {
+      if (!_verifyDone) return;
       fetchFromGitHub(true);
       if (_onActivity && getToken()) {
         checkActivity().then(info => _onActivity(info));
@@ -599,6 +608,23 @@ const FTLoader = (() => {
     return allDates.length > 0 && allDates.every(d => completed.includes(d));
   }
 
+  // ── Nalezení raw záznamu pro konkrétní klikaný výskyt (oprava 2026-09-17,
+  // nález č. 6) ────────────────────────────────────────────────────────────
+  // Víc raw záznamů v tasks[] může mít STEJNÉ id — typicky víc "zástupů" za
+  // stejné opakující se pravidlo v různých obdobích (openSubstituteModal
+  // nekontroluje kolizi, protože id zástupu je záměrně shodné s id pravidla),
+  // nebo jediný vícedenní zástup, jehož vlastní plannedDate (začátek rozsahu)
+  // se liší od klikaného dne uprostřed rozsahu. Prostý `find(t => t.id ===
+  // id)` bez ohledu na datum (dřívější kód to řešil jen pro `recurring`
+  // jednodenní výskyt porovnáním `rawTask.plannedDate !== plannedDate`) mohl
+  // zapsat completedDays/úpravu do ÚPLNĚ JINÉHO záznamu se stejným id.
+  // Řešení: mezi všemi kandidáty se stejným id vybrat ten, jehož SKUTEČNÝ
+  // rozsah dní (respektuje durationDays/activeDays, stejná logika jako
+  // getMultiDayOccurrenceDates) klikaný den opravdu obsahuje.
+  function findRawTaskForOccurrence(rawTasks, id, plannedDate) {
+    return (rawTasks || []).find(t => t && t.id === id && getMultiDayOccurrenceDates(t).includes(plannedDate)) || null;
+  }
+
   // ── Generování ID nových úkolů ──────────────────────────────────────────
   // DŘÍVE: "nejvyšší číslo v datech + 1", počítáno NEZÁVISLE v Dashboardu
   // (generateNextIdNew) i ve Správě úkolů (generateNextId) — dvě oddělené
@@ -649,6 +675,7 @@ const FTLoader = (() => {
     getMultiDayOccurrenceDates,
     isMultiDayTaskFullyComplete,
     generateNextTaskId,
+    findRawTaskForOccurrence,
   };
 
 })();

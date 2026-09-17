@@ -1959,11 +1959,26 @@ function switchTab(tab) {
 let _defaultTabSet = false;
 let _urlParamsProcessed = false;
 
+// Odkazy z Dashboardu (Upravit/Smazat) teď nosí i &datum= (oprava 2026-09-17,
+// nález č. 6) — víc raw záznamů (zástupů) může mít STEJNÉ id, prostý
+// `tasks.find(t => t.id === id)` by otevřel/smazal první nalezený, ne nutně
+// ten klikaný. Mezi kandidáty se stejným id vybere ten, jehož skutečný rozsah
+// dní (respektuje durationDays/activeDays) daný den obsahuje — stejná logika
+// jako FTLoader.findRawTaskForOccurrence, jen nad touhle stránkou vlastním
+// `tasks` polem (má identický tvar polí plannedDate/durationDays/activeDays).
+// Bez data (starší odkaz, nebo jediný kandidát) padá zpátky na první nalezený.
+function findTaskForOccurrence(id, datum) {
+  const candidates = tasks.filter(t => t.id === id);
+  if (candidates.length <= 1 || !datum) return candidates[0] || null;
+  return candidates.find(t => FTLoader.getMultiDayOccurrenceDates(t).includes(datum)) || candidates[0];
+}
+
 function handleUrlParams() {
   const params = new URLSearchParams(window.location.search);
   const urlId      = params.get("id");
   const vyjimkaId  = params.get("vyjimka");
-  const vyjimkaDatum = params.get("datum");
+  const datumParam = params.get("datum");
+  const vyjimkaDatum = datumParam;
   const deleteId   = params.get("delete");
 
   const hasRelevantParam = !!(urlId || (vyjimkaId && vyjimkaDatum) || deleteId);
@@ -1989,7 +2004,7 @@ function handleUrlParams() {
   if (deleteId) {
     switchTab("tasks");
     setTimeout(() => {
-      const task = tasks.find(t => t.id === deleteId);
+      const task = findTaskForOccurrence(deleteId, datumParam);
       if (task) {
         if (confirm(`Zrušit úkol ${deleteId} — ${task.task}? (lze obnovit)`)) {
           task.cancelled = true;
@@ -2007,7 +2022,7 @@ function handleUrlParams() {
   }
   if (urlId) {
     switchTab("tasks");
-    const task = tasks.find(t => t.id === urlId);
+    const task = findTaskForOccurrence(urlId, datumParam);
     if (task) {
       setTimeout(() => editTask(task.rowIndex), 100);
     } else {
@@ -2588,6 +2603,10 @@ async function debugGitHub() {
   // ── FTLoader načte data z GitHubu a předá je správě úkolů ──
 
 let _filtersRestoredOnce = false;
+// Poslední syrová data, na jejichž základě naposledy proběhlo skutečné
+// překreslení tabulek Aut/Opakujících se úkolů/Výjimek/Dokončení (nález č.
+// 5, viz níže v loadFromRaw) — undefined vynutí render při prvním načtení.
+let _lastRawAuta, _lastRawOpakovaci, _lastRawVyjimky, _lastRawDokonceni;
 
 function loadFromRaw(raw) {
     // rowIndex musí být STABILNÍ napříč přenačteními dat (polling každých
@@ -2646,10 +2665,29 @@ function loadFromRaw(raw) {
     opakovaci = raw.opakovaci || [];
     buildResitelSelect();
     buildAutaDatalist();
-    renderAutaTable();
-    renderVyjimkyTable();
-    renderDokonceniTable();
-    renderOpakovaciTable();
+
+    // Oprava 2026-09-17 (nález č. 5): tyhle čtyři render* dřív běžely při
+    // KAŽDÉM přenačtení dat — polling 5 s, a hlavně SPA sync (zapisuje do
+    // tasks[] každých ~8 s), který se auta/pravidel/výjimek/dokončení vůbec
+    // nedotýká. Přepsání innerHTML smazalo rozepsané formuláře ("Přidat
+    // pravidlo", "Rezervace", "Nové vozidlo") i neuloženou inline editaci
+    // existujícího pravidla (input má jen onchange, ne oninput — rozepsaný
+    // text bez opuštění pole zmizel). Řešení: porovnat syrová data s tím, co
+    // přišlo PŘI PŘEDCHOZÍM volání loadFromRaw — drtivá většina pollů (SPA
+    // sync, editace/dokončení úkolu) teď žádný z těchhle čtyř renderů vůbec
+    // nespustí. Manuální akce (Přidat/Smazat/Vyřadit/Zaškrtnout aktivní…)
+    // volají render* přímo mimo loadFromRaw a fungují beze změny — tohle
+    // gatuje jen překreslení vyvolané přenačtením dat z GitHubu.
+    // renderOpakovaciTable() navíc čte `resitele` (dropdown Řešitel u
+    // každého pravidla), proto je součástí i jejího klíče.
+    const rawAutaKey = JSON.stringify([auta, autaRezervace]);
+    const rawOpakovaciKey = JSON.stringify([opakovaci, resitele]);
+    const rawVyjimkyKey = JSON.stringify(opakovaciVyjimky);
+    const rawDokonceniKey = JSON.stringify(opakovaciDokonceni);
+    if (rawAutaKey !== _lastRawAuta) { renderAutaTable(); _lastRawAuta = rawAutaKey; }
+    if (rawVyjimkyKey !== _lastRawVyjimky) { renderVyjimkyTable(); _lastRawVyjimky = rawVyjimkyKey; }
+    if (rawDokonceniKey !== _lastRawDokonceni) { renderDokonceniTable(); _lastRawDokonceni = rawDokonceniKey; }
+    if (rawOpakovaciKey !== _lastRawOpakovaci) { renderOpakovaciTable(); _lastRawOpakovaci = rawOpakovaciKey; }
     fillAssigneeFilter();
     // Obnovení uložených filtrů až PO naplnění #filterAssignee (oprava
     // 2026-09-17): dřív běželo hned na začátku, kdy měl select ještě prázdné
