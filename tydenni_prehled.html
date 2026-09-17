@@ -556,7 +556,6 @@ function initTaskScale() {
 }
 document.addEventListener("DOMContentLoaded", initTaskScale);
 </script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="ft_loader.js"></script>
 <script>
 const FALLBACK_DATA = {"tasks": [], "backlog": [], "owners": [], "resitele": [], "generatedAt": null};
@@ -571,8 +570,6 @@ function buildPeopleLabels(resitele) {
   });
 }
 
-const XLSX_FILE = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
-const LOCAL_WATCH_INTERVAL_MS = 5000;
 const STORAGE_KEY = "ftDashboardPeopleLayout";
 
 let DATA = JSON.parse(JSON.stringify(FALLBACK_DATA));

@@ -1295,6 +1295,15 @@ function kanbanDrop(e) {
   } else {
     task.doneDate = "";
     task.percent = 0;
+    // Oprava 2026-09-17 (nález č. 13): u vícedenního úkolu dřív dokončeného
+    // po jednotlivých dnech (Dashboard "Hotovo") by completedDays jinak
+    // zůstalo beze změny — expandMultiDayTasks() v ft_loader.js bere
+    // dayDone přednostně před task.state, takže by TOP appka pořád
+    // ukazovala všechny dny jako hotové, i když přetažení mimo sloupec
+    // "Dokončeno" mělo úkol viditelně "znovuotevřít".
+    if (Array.isArray(task.completedDays) && task.completedDays.length > 0) {
+      task.completedDays = [];
+    }
   }
 
   applyFilters();
@@ -1544,6 +1553,12 @@ function saveTaskFromModal(){
       return;
     }
     Object.assign(existing, taskData, { rowIndex: existing.rowIndex, selected: existing.selected });
+    // Stejná reconciliace jako v kanbanDrop() výše (nález č. 13) — editace
+    // stavu pryč z "Dokončeno" u vícedenního úkolu dřív dokončeného po
+    // dnech by jinak nechala completedDays beze změny.
+    if (existing.state !== "Dokončeno" && Array.isArray(existing.completedDays) && existing.completedDays.length > 0) {
+      existing.completedDays = [];
+    }
     applyFilters();
     renderTable();
     renderStats();
@@ -1707,8 +1722,12 @@ function checkAutoWarning(spz, datum, currentTaskRowIndex) {
     warn.style.display = "block";
     return;
   }
-  // Kontrola přes ostatní úkoly
+  // Kontrola přes ostatní úkoly — vyloučit zrušené (oprava 2026-09-17,
+  // nález č. 12): getAutoDostupnostDen() zrušené úkoly už vylučovala,
+  // tahle sesterská funkce ne, takže varování mohlo strašit i kvůli
+  // autu přiřazenému úkolu, který byl mezitím zrušen.
   const conflict = tasks.find(t =>
+    !t.cancelled &&
     t.rowIndex !== currentTaskRowIndex &&
     t.auto === spz && t.plannedDate === datum
   );
@@ -2280,7 +2299,10 @@ function openSubstituteModal(ruleId) {
 
   const sel = document.getElementById("sub_owner");
   sel.innerHTML = '<option value="">— nevybráno —</option>';
-  resitele.forEach(r => {
+  // Oprava 2026-09-17 (nález č. 11): dřív nabízela i vyřazené řešitele —
+  // Dashboardova vlastní kopie stejného modalu už filtr měla (audit
+  // 2026-08-05), tahle zůstala přehlédnutá.
+  resitele.filter(r => !r.vyrazen).forEach(r => {
     const opt = document.createElement("option");
     opt.value = r.zkratka;
     opt.textContent = `${r.zkratka} – ${r.jmeno} ${r.prijmeni}`.trim();

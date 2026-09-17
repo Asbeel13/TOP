@@ -2544,39 +2544,201 @@ Testovací kopie opět dočasně ve složce TOP, po testu smazané. **Soubory
 zatím nenahrané** — čeká na JK (Konvence č. 4): k původní sadě přibyl
 `ft_loader.js`.
 
-**Neopravené nálezy (JK zatím nezadal), pro příští session — stručně:**
-5. Správa úkolů — každý poll překreslí tabulky aut/pravidel/výjimek a
-   smaže rozepsané formuláře (Přidat pravidlo, Rezervace, Nové vozidlo)
-   i neuloženou inline editaci pravidla.
-6. Duplicitní ID u zástupu — `find(t => t.id === id)` u vícedenního
-   zástupu (`isMultiDay`, ne `recurring`) zapíše `completedDays` do
-   prvního nalezeného (Dashboard/Přehled/oba mobily); "Upravit" přes
-   `?id=` otevře první z nich.
-7. `topSync.js` — sync bez horní hranice data (tasks[] v TOP poroste
-   o historickou dovolenou napořád) + `lastUpdated` se přepisuje při
-   každém běhu u všech SPA úkolů (šum v historii, vždy nahoře při
-   řazení podle Aktualizace).
-8. SPA — změna zkratky/deaktivace uživatele/přejmenování stavu sync
-   nespustí (`scheduleSync()` volá jen `entries.js`); zkratka bez
-   kontroly velikosti písmen ("jk" ≠ "JK" → v Dashboardu se tiše
-   nezobrazí).
-9. `ft_loader.js:335` — `updatedBy`/committer bere neověřený
-   `ftCurrentUser` z dialogu místo whitelistem ověřené zkratky.
-10. `sw.js` — v `APP_SHELL` chybí `components.css`; `caches.match` může
-    vrátit `undefined` → offline TypeError; cachují se i chybové
-    odpovědi.
-11. Správa úkolů `openSubstituteModal` nabízí i vyřazené řešitele.
-12. `checkAutoWarning` nevylučuje zrušené úkoly (na rozdíl od
-    `getAutoDostupnostDen`).
-13. Kanban/editace: přesun pryč z "Dokončeno" nemaže `completedDays`;
-    `percent` se nastavuje, ale neukládá.
-14. Dashboard `:1683` — jméno/zkratka v hlavičce řádku bez `escapeHtml`.
-15. Dashboard — zápisové funkce bez vnitřní kontroly `can-write`
-    (vzor z mobilního Dashboardu 2026-09-08 tu chybí).
-16. Mrtvý kód: Dashboard `XLSX_FILE`/`excelDateToISO`/`parseBool`…;
-    knihovna xlsx (~1 MB) se stahuje v Dashboardu i Přehledu zbytečně;
-    `index.html`/`config.js` legacy (`ft_pendingToken` nikdo nečte).
-17. `showReadOnlyRedirect` v Dashboardu a mobilním Dashboardu má pořád
-    natvrdo barvy/`sans-serif` (Správa úkolů opravena 2026-09-17).
-18. `ft_loader.js:441` — `init()` maže sdílenou cache; ostatní záložky
-    na chvíli dostanou "Data ještě nejsou načtena".
+**5) Správa úkolů — každý poll překreslil tabulky Aut/Opakujících se
+úkolů/Výjimek/Dokončení, i když se data vůbec nezměnila (STŘEDNÍ,
+opraveno — třetí kolo, JK schválil).** `loadFromRaw()` volalo
+`renderAutaTable()`/`renderOpakovaciTable()`/`renderVyjimkyTable()`/
+`renderDokonceniTable()` bezpodmínečně při KAŽDÉM přenačtení dat —
+polling 5 s, a hlavně SPA sync (zapisuje do `tasks[]` každých ~8 s),
+který se téhle části dat vůbec netýká. Přepsání `innerHTML` smazalo
+rozepsané formuláře ("Přidat pravidlo", "Rezervace", "Nové vozidlo") i
+neuloženou inline editaci existujícího pravidla (input má jen
+`onchange`, ne `oninput` — text bez opuštění pole zmizel). Oprava: čtyři
+nové proměnné (`_lastRawAuta`/`_lastRawOpakovaci`/`_lastRawVyjimky`/
+`_lastRawDokonceni`) drží `JSON.stringify` syrových dat z PŘEDCHOZÍHO
+volání `loadFromRaw`; render se spustí, jen když se odpovídající pole
+oproti minule skutečně liší. `renderOpakovaciTable()` čte i `resitele`
+(dropdown Řešitel u pravidla), proto je součástí jejího klíče.
+Manuální akce (Přidat/Smazat/Vyřadit/Zaškrtnout aktivní…) volají
+`render*` přímo mimo `loadFromRaw` a fungují beze změny.
+
+**6) Duplicitní ID u "zástupu" — `find(t => t.id === id)` bez ohledu na
+datum mohl zapsat/otevřít ŠPATNÝ záznam (STŘEDNÍ, opraveno — třetí kolo).**
+`openSubstituteModal`/`saveSubstituteModal` nekontrolují kolizi — dva
+zástupy za STEJNÉ opakující se pravidlo v různých obdobích dostanou
+STEJNÉ `id` (rovné id pravidla). Dřívější oprava (2026-08-05) srovnávala
+`rawTask.plannedDate !== plannedDate`, ale jen když byl klikaný výskyt
+`recurring: true` — u vícedenního zástupu (`isMultiDay`, ne `recurring`)
+se vůbec neaplikovala, takže `markTaskAsDoneFromModal` ve všech 4
+souborech (Dashboard, Přehled desktop, oba mobily) mohlo zapsat
+`completedDays` do prvního nalezeného záznamu se stejným id, ne do
+klikaného. Stejně tak Dashboardovo "✏️ Upravit"/"🗑 Smazat" (odkaz
+`sprava_ukolu_linked.html?id=...`) otevřelo/smazalo první nalezený.
+
+Oprava: nová sdílená `FTLoader.findRawTaskForOccurrence(rawTasks, id,
+plannedDate)` v `ft_loader.js` — mezi všemi kandidáty se stejným id
+vybere ten, jehož SKUTEČNÝ rozsah dní (respektuje `durationDays`/
+`activeDays`, stejná logika jako už existující
+`getMultiDayOccurrenceDates`) klikaný den opravdu obsahuje. Nahrazuje
+dřívější ad-hoc kontrolu ve všech 4 `markTaskAsDoneFromModal`. Dashboard
+navíc posílá `&datum=` v odkazu Upravit (a `dataset.plannedDate` u
+Smazat); `sprava_ukolu_linked.html` má novou `findTaskForOccurrence(id,
+datum)` (stejný princip, nad vlastním `tasks` polem) použitou v
+`handleUrlParams()` pro `urlId` i `deleteId` větev — bez data (starší
+odkaz) padá zpátky na první nalezený jako dřív, žádná regrese.
+
+**Srovnávací test (stejná harness jako u bodů 1–4, mock rozšířen o
+skutečnou implementaci `getMultiDayOccurrenceDates`/
+`findRawTaskForOccurrence`, ne stub):** dva zástupy `RFT015` (Z1: od
+2026-09-01, 5 dní; Z2: od 2026-09-20, 5 dní), kliknuto "Hotovo" na
+2026-09-22 (3. den Z2).
+
+| | Stará verze (HEAD) | Opravená verze |
+|---|---|---|
+| `completedDays` zapsáno do | **Z1** (`09-01`, špatný záznam) | Z2 (`09-20`, správný záznam) |
+
+Ověřeno na všech 4 souborech (Dashboard, Přehled desktop, mobilní
+Přehled, mobilní Dashboard) — opravená verze všude zapsala do Z2, stará
+HEAD verze (testováno na Dashboardu jako reprezentativním vzorku,
+zbylé 3 mají identickou kopii kódu) do Z1. `findTaskForOccurrence` ve
+Správě úkolů samostatně ověřena: den `09-22` → Z2, den `09-02` → Z1, bez
+data → první nalezený (Z1, zpětná kompatibilita). Bod 5 ověřen srovnáním
+proti HEAD stejně jako u bodu 1–4 (SPA-sync-like změna `tasks[]` beze
+změny auta/pravidel → stará verze formuláře smaže, opravená ne; skutečná
+změna auta → obě verze re-renderují, opravená správně). Žádné chyby v
+konzoli na žádné z testovaných stránek. Testovací kopie opět dočasně ve
+složce TOP, po testu smazané.
+
+**Soubory zatím nenahrané** — čeká na JK (Konvence č. 4): k sadě přibyly
+`tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`,
+`tydenni_prehled_mobile.html`, `tydenni_dashboard_mobile.html` (jen
+lookup fix) a znovu `ft_loader.js`/`sprava_ukolu_linked.html`.
+
+### 2026-09-17 — Kontrola kódu TOP: dokončeny zbylé nálezy 7–18 (čtvrté kolo)
+
+JK zadal opravu všech zbylých nálezů z kontroly kódu (viz předchozí tři
+kola výše). Nález č. 8 (SPA strana, zkratka/sync trigger) byl vyřešen
+samostatně už dřív týž den — viz `INTEGRACE.md`. Tady zbylých 11 bodů
+(7, 9–18), rozdělené mezi SPA (`topSync.js`) a TOP.
+
+**7) `topSync.js` — sync bez horní hranice + `lastUpdated` vždy nové
+(SPA strana, STŘEDNÍ, opraveno).** `selectSchvaleneProSync` teď má
+`AND e.datum_do >= date('now', ?)` s novou proměnnou
+`TOP_SYNC_RETENTION_DAYS` (výchozí 14 dní grace period po konci
+dovolené — zdokumentováno v `.env.example`). `vytvorUkol()`'s
+`lastUpdated` teď bere `radek.schvaleno_kdy` (přidáno do SELECTu),
+fallback na `new Date().toISOString()` jen pro starší řádky bez tohohle
+pole. Modifikátor pro `date()` sestaven v JS (`` `-${RETENTION_DAYS}
+days}` ``) a poslán jako jeden bound parametr, ne skládán uvnitř SQL
+řetězcem — jednodušší a bez rizika implicitní konverze typů.
+
+**9) `ft_loader.js` — `updatedBy`/committer bral neověřenou hodnotu
+(NÍZKÁ, opraveno).** `saveToGitHub()` četlo přímo
+`localStorage.getItem(USER_KEY)` (= cokoliv napsané do dialogu při
+zadání tokenu) místo veřejně exponovaného `FTLoader.getCurrentUser()`,
+který správně upřednostňuje whitelistem ověřenou `ftResolvedUser`.
+Opraveno na `getCurrentUserFromConfig()` (stejná funkce, kterou uvnitř
+volá `getCurrentUser()`).
+
+**10) `sw.js` (NÍZKÁ, opraveno).** `APP_SHELL` doplněn o `components.css`
+(obě mobilní stránky ho od 2026-09-15 načítají, cache verze povýšena na
+`top-mobile-v3`). Fetch handler: cachuje se jen `response.ok` (dřív se
+ukládaly i 404/500 odpovědi jako "poslední dobrá" verze); `catch` větev
+teď vrací `cached || new Response(..., {status:503})` místo
+`caches.match(...)`, které bez shody vrací `undefined` a shodí celý
+fetch TypeErrorem.
+
+**11) Správa úkolů `openSubstituteModal` nabízela i vyřazené řešitele
+(NÍZKÁ, opraveno).** Doplněn `.filter(r => !r.vyrazen)`, stejně jako
+Dashboardova vlastní kopie modalu měla už od auditu 2026-08-05.
+
+**12) `checkAutoWarning` nevylučovala zrušené úkoly (NÍZKÁ, opraveno).**
+Doplněno `!t.cancelled &&` do conflict-checku, stejně jako sesterská
+`getAutoDostupnostDen()` už měla.
+
+**13) Kanban/editace: přesun pryč z "Dokončeno" nemazal `completedDays`
+(STŘEDNÍ, opraveno).** U vícedenního úkolu dřív dokončeného po
+jednotlivých dnech (Dashboard "Hotovo") `expandMultiDayTasks()` v
+`ft_loader.js` bere `dayDone` (z `completedDays`) přednostně před
+`task.state` — takže by TOP appka pořád ukazovala všechny dny jako
+hotové, i když přetažení karty mimo sloupec "Dokončeno" (nebo změna
+stavu v editačním modalu) mělo úkol viditelně "znovuotevřít". Oprava v
+`kanbanDrop()` i `saveTaskFromModal()`: při přechodu na jiný stav než
+"Dokončeno" se `completedDays` vyprázdní, pokud předtím něco obsahovalo.
+(`percent` zůstává beze změny — ověřil jsem, že to pole TOP task schéma
+vůbec nemá, `taskToRawFormat()` ho nikdy neserializuje; jde o vědomě
+odstraněné pole z UI, ne o bug, viz komentář "m_percent odstraněno" u
+modalu.)
+
+**14) Dashboard — jméno/zkratka v hlavičce řádku bez `escapeHtml`
+(NÍZKÁ, opraveno).** `renderScheduleForSide()`'s `personCell.innerHTML`
+teď escapuje `person`/`PEOPLE_LABELS[person]`, stejně jako to už
+Přehled dělal (audit 2026-08-05 opravil jen tam).
+
+**15) Dashboard — zápisové funkce bez vnitřní kontroly oprávnění
+(STŘEDNÍ, opraveno).** Tlačítka "👥 Řešitelé"/"↺ Obnovit tovární
+nastavení" dostala `class="can-write-only"` (bezpečné podle Nástrahy
+č. 9 — žádná vlastní JS podmínka viditelnosti navíc). Pěti zápisovým
+funkcím (`saveResiteleChange`, `addNewResitel`, `markTaskAsDoneFromModal`,
+`saveSubstituteModal`, `saveNewTaskFromModal`) přidána `if
+(!document.body.classList.contains("can-write")) { alert(...); return;
+}` jako první řádek — stejný vzor jako mobilní Dashboard (2026-09-08).
+
+**16) Mrtvý kód odstraněn (NÍZKÁ, opraveno).** Dashboard: smazány
+`XLSX_FILE`/`LOCAL_WATCH_INTERVAL_MS`/`normalizeOwner`/`excelDateToISO`/
+`parseBool` (nikde v souboru dál nepoužité — grep ověřen) a `<script
+src=".../xlsx@0.18.5/...">` (~1 MB knihovna se stahovala, ale appka
+`XLSX.*` nikdy nevolala). Přehled: stejně `XLSX_FILE`/
+`LOCAL_WATCH_INTERVAL_MS` + stejný xlsx script tag. **Vědomě
+NEODSTRANĚNO:** `index.html`/`config.js` — `config.js` je AKTIVNĚ
+používaný fallback (`ft_loader.js` čte `window.FT_CONFIG?.token`), ne
+mrtvý kód, můj původní nález byl v tomhle bodě nepřesný. `index.html`
+(starý OAuth redirect, `ft_pendingToken` potvrzeně nikým nečtený,
+soubor odnikud neodkazovaný) je pravděpodobně skutečně mrtvý, ale
+mazání celého souboru je jiná kategorie rizika než úprava kódu uvnitř
+— ponecháno na tvém rozhodnutí, ne provedeno automaticky.
+
+**17) `showReadOnlyRedirect` — natvrdo barvy/`sans-serif` (NÍZKÁ,
+opraveno).** Opraveno v Dashboardu i mobilním Dashboardu. **Ne** stejným
+vzorem jako Správa úkolů (`--bg`/`--text`, theme-aware) — místo toho
+invariantní `--navy-900`/`--text-on-navy-softer`/`--text-on-navy-muted`
+tokeny (obrazovka zůstává záměrně VŽDY tmavá, jako trvalý sidebar/chrome
+koncept, který Správa úkolů nemá; mobilní verze už `--text-on-navy-muted`
+částečně používala, což byl signál pro tenhle záměr). `rgba(15,23,42,…)`
+byla navíc stará cool-slate barva z doby PŘED firemním redesignem
+2026-09-15 — nahrazením `--navy-900` (teplá antracitová) se obrazovka
+sjednotila s barvou zbytku chrome, ne jen "opravil hardcoded kód".
+
+**18) `ft_loader.js` — `init()` mazal sdílenou cache (NÍZKÁ, opraveno).**
+`localStorage.removeItem(DATA_KEY)` bezpodmínečně při každém `init()`
+(historicky jednorázová migrace špatného kódování, dávno vyřešená)
+nahrazeno kontrolou — cache se maže, jen když `JSON.parse` selže
+(skutečně poškozená). Otevření druhé záložky appky tím přestává mazat
+platnou, čerstvou cache první záložky.
+
+**Ověření (Node.js nedostupné pro SPA stranu, browser harness pro
+TOP):** bod 7 — simulace `vytvorUkol()`'s `lastUpdated` logiky jako čistý
+JS (bere `schvaleno_kdy`, fallback na `now()`), SQL syntaxe `date('now',
+?)` standardní/dobře zdokumentovaná, nespuštěno živě (žádné SQLite
+odsud). Body 9, 18 — mock `FTLoader`/`fetch`, ověřeno: `committer.name`
+teď "JK" (ověřená zkratka) místo "cokoliv" (dialog); platná cache z
+"druhé záložky" přežije `init()` beze změny, poškozená (`{neplatny
+json` se smaže. Bod 10 — `sw.js` spuštěn v mockovaném service-worker
+prostředí (`self`/`caches`/`fetch` mocky, syntetické `install`/`fetch`
+eventy): `components.css` v `APP_SHELL`, 200 odpověď se cachuje, 404 NE,
+offline+necachováno vrací `Response{status:503}` (ne `undefined`),
+offline+cachováno vrací cachovaný obsah. Body 11–15 — scénáře na
+mockované Správě úkolů/Dashboardu (vyřazený řešitel v nabídce zástupu,
+varování jen u aktivního konfliktu, `completedDays` prázdné hned po
+Kanban dropu i po uložení modalu — synchronně, než async
+save/reload cokoliv přepíše, XSS payload v jménu řešitele escapovaný v
+`personCell.innerHTML`, tlačítka `can-write-only` `display:none`/
+`inline-block` podle třídy na `body`, všech pět zápisových funkcí
+zavolaných přímo bez `can-write` vrátí alert a `putsAttempted: 0`).
+Bez chyb v konzoli na žádné testované stránce. Vyváženost `{ }`/`( )`
+sedí ve všech upravených souborech (TOP i `topSync.js`). Testovací
+kopie dočasně ve složce TOP, po testu smazané.
+
+**Soubory zatím nenahrané** — čeká na JK (Konvence č. 4): k sadě
+přibyl `sw.js`. SPA strana (`topSync.js`, `.env.example`) vyžaduje
+restart SPA serveru, žádná DB migrace.

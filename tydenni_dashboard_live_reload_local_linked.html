@@ -868,8 +868,11 @@
       <h3>Lidé &amp; sloupce</h3>
       <div style="font-size:10px;color:var(--chrome-muted);margin-bottom:6px;">L = levý, P = pravý · šipky = pořadí · 👁 = skrýt/zobrazit</div>
       <div id="peopleFilters"></div>
-      <button onclick="resetPeopleLayoutToDefault()" style="margin-top:10px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid var(--border-on-navy);color:var(--text-on-navy-muted);border-radius:6px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
-      <button onclick="openResiteleManagementModal()" style="margin-top:8px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid var(--border-on-navy);color:var(--text-on-navy-muted);border-radius:6px;cursor:pointer;width:100%;">👥 Řešitelé</button>
+      <!-- can-write-only (oprava 2026-09-17, nález č. 15): binární viditelnost
+           jen podle oprávnění, žádná vlastní JS podmínka navíc — bezpečné
+           použití třídy podle Nástrahy č. 9 v CLAUDE.md. -->
+      <button class="can-write-only" onclick="resetPeopleLayoutToDefault()" style="margin-top:10px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid var(--border-on-navy);color:var(--text-on-navy-muted);border-radius:6px;cursor:pointer;width:100%;">↺ Obnovit tovární nastavení</button>
+      <button class="can-write-only" onclick="openResiteleManagementModal()" style="margin-top:8px;font-size:11px;padding:6px 10px;background:transparent;border:1px solid var(--border-on-navy);color:var(--text-on-navy-muted);border-radius:6px;cursor:pointer;width:100%;">👥 Řešitelé</button>
     </div>
 
     <div class="control-card" style="display:flex;justify-content:space-between;align-items:center;">
@@ -1171,7 +1174,6 @@ function toggleSidebarCollapse() {
 }
 applySidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
 </script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="ft_loader.js"></script>
 <script>
 const FALLBACK_DATA = {"tasks": [], "backlog": [], "owners": [], "generatedAt": null};
@@ -1321,6 +1323,14 @@ async function obnovitResitel(zkratka) {
 }
 
 async function saveResiteleChange(zkratka, vyrazen) {
+  // Oprava 2026-09-17 (nález č. 15): viditelnost tlačítka v UI NIKDY
+  // nestačí sama o sobě jako ochrana (stejné poučení jako u mobilního
+  // Dashboardu, 2026-09-08) — kontrola i uvnitř samotné zápisové funkce,
+  // nezávisle na tom, jak byla vyvolána.
+  if (!document.body.classList.contains("can-write")) {
+    alert("Nemáš oprávnění spravovat řešitele.");
+    return;
+  }
   try {
     const raw = FTLoader.getRawJson();
     if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
@@ -1338,6 +1348,10 @@ async function saveResiteleChange(zkratka, vyrazen) {
 }
 
 async function addNewResitel() {
+  if (!document.body.classList.contains("can-write")) {
+    alert("Nemáš oprávnění přidávat řešitele.");
+    return;
+  }
   const zkratka = (document.getElementById("newRes_zkratka").value || "").trim();
   const jmeno = (document.getElementById("newRes_jmeno").value || "").trim();
   const prijmeni = (document.getElementById("newRes_prijmeni").value || "").trim();
@@ -1366,8 +1380,6 @@ async function addNewResitel() {
 }
 
 
-const XLSX_FILE = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
-const LOCAL_WATCH_INTERVAL_MS = 5000;
 let DATA = JSON.parse(JSON.stringify(FALLBACK_DATA));
 
 // ── Perzistence nastavení uživatele (týden, filtry) ────────────────────
@@ -1687,7 +1699,7 @@ function renderScheduleForSide(targetEl, side) {
   activePeople.forEach(person => {
     const personCell = document.createElement("div");
     personCell.className = "person";
-    personCell.innerHTML = `<div><div class="code">${person}</div><div class="name">${PEOPLE_LABELS[person] || person}</div></div>`;
+    personCell.innerHTML = `<div><div class="code">${escapeHtml(person)}</div><div class="name">${escapeHtml(PEOPLE_LABELS[person] || person)}</div></div>`;
     targetEl.appendChild(personCell);
 
     dates.forEach((d, idx) => {
@@ -1838,6 +1850,10 @@ document.getElementById("modalDoneBtn").addEventListener("click", () => markTask
 document.getElementById("modalSubstituteBtn").addEventListener("click", () => openSubstituteModal(els.modalSubstituteBtn.dataset.ruleId));
 
 async function markTaskAsDoneFromModal() {
+  if (!document.body.classList.contains("can-write")) {
+    alert("Nemáš oprávnění označovat úkoly jako hotové.");
+    return;
+  }
   const id = els.modalDoneBtn.dataset.taskId;
   const plannedDate = els.modalDoneBtn.dataset.plannedDate;
   const isRecurring = els.modalDoneBtn.dataset.recurring === "1";
@@ -1940,6 +1956,10 @@ function closeSubstituteModal() {
 }
 
 async function saveSubstituteModal() {
+  if (!document.body.classList.contains("can-write")) {
+    alert("Nemáš oprávnění zapisovat zástup.");
+    return;
+  }
   const ruleId = document.getElementById("sub_id").value;
   const owner = document.getElementById("sub_owner").value;
   if (!owner) { alert("Vyber zástupce."); return; }
@@ -2021,38 +2041,6 @@ function setSyncStatus(message, isError = false) {
   els.syncStatus.style.color = isError ? "#cc1f1a" : "";
 }
 
-
-function normalizeOwner(value) {
-  return String(value || "").trim() || "Nezařazeno";
-}
-
-function excelDateToISO(value) {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0,10);
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const utcDays = Math.floor(value - 25569);
-    const utcValue = utcDays * 86400;
-    const dateInfo = new Date(utcValue * 1000);
-    return dateInfo.toISOString().slice(0,10);
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const iso = new Date(trimmed);
-    if (!Number.isNaN(iso.getTime())) return iso.toISOString().slice(0,10);
-    const m = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-    if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
-  }
-  return null;
-}
-
-function parseBool(value) {
-  if (typeof value === "boolean") return value;
-  const normalized = String(value || "").trim().toLowerCase();
-  return ["true", "pravda", "ano", "1", "yes"].includes(normalized);
-}
 
 function applyData(nextData) {
   DATA = nextData;
@@ -2224,6 +2212,10 @@ function closeNewTaskModal() {
 }
 
 async function saveNewTaskFromModal() {
+  if (!document.body.classList.contains("can-write")) {
+    alert("Nemáš oprávnění zakládat nové úkoly.");
+    return;
+  }
   const title = (document.getElementById("m2_task").value || "").trim();
   if (!title) { alert("Pole Úkol je povinné."); return; }
   const assignee = (document.getElementById("m2_assignee").value || "").trim();
@@ -2367,13 +2359,20 @@ function showActivityBanner(info) {
 }
 
 function showReadOnlyRedirect(customMessage) {
+  // Oprava 2026-09-17 (nález č. 17): natvrdo zapsaná stará barva
+  // (rgba(15,23,42,...) — cool slate z doby PŘED firemním redesignem
+  // 2026-09-15) a sans-serif. Nahrazeno invariantními --navy-900/
+  // --text-on-navy-* tokeny (obrazovka je záměrně vždy tmavá, nezávisle
+  // na světlém/tmavém režimu appky — stejný princip jako trvale tmavý
+  // sidebar/chrome, ne přechod na theme-aware --bg/--text jako u Správy
+  // úkolů, která žádný "vždy tmavý chrome" koncept nemá) + firemní font.
   const div = document.createElement("div");
-  div.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.94);z-index:10001;display:flex;align-items:center;justify-content:center;color:white;font-family:sans-serif;text-align:center;padding:20px;";
+  div.style.cssText = "position:fixed;inset:0;background:color-mix(in srgb, var(--navy-900) 94%, transparent);z-index:10001;display:flex;align-items:center;justify-content:center;color:var(--text-on-navy-softer);font-family:var(--font-body, sans-serif);text-align:center;padding:20px;";
   div.innerHTML = `
     <div>
       <div style="font-size:48px;margin-bottom:16px;">🔒</div>
-      <div style="font-size:20px;font-weight:700;margin-bottom:8px;">Nemáš oprávnění k úpravám</div>
-      <div style="font-size:14px;color:#94a3b8;">${customMessage || "Tvůj přístup je jen pro čtení. Přesměrovávám na týdenní přehled…"}</div>
+      <div style="font-size:20px;font-weight:700;font-family:var(--font-heading, sans-serif);margin-bottom:8px;">Nemáš oprávnění k úpravám</div>
+      <div style="font-size:14px;color:var(--text-on-navy-muted);">${customMessage || "Tvůj přístup je jen pro čtení. Přesměrovávám na týdenní přehled…"}</div>
     </div>
   `;
   document.body.appendChild(div);

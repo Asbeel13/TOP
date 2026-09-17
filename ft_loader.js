@@ -332,7 +332,16 @@ const FTLoader = (() => {
   async function saveToGitHub(json, commitMessage) {
     if (!_lastSha) throw new Error("SHA neznámé — nejdřív načti data");
 
-    const user = localStorage.getItem(USER_KEY) || "unknown";
+    // Oprava 2026-09-17 (nález č. 9): dřív čteno přímo z localStorage
+    // (ftCurrentUser — cokoliv, co si uživatel napsal do dialogu při
+    // zadávání tokenu, nikdy neověřené proti whitelistu). Veřejné
+    // FTLoader.getCurrentUser() (používané všude jinde pro commit zprávy)
+    // přitom správně upřednostňuje ftResolvedUser (zkratku ověřenou v
+    // resolveUserFromWhitelist) — saveToGitHub() tenhle přesnější zdroj
+    // nikdy nepoužívalo, takže json.updatedBy/committer v historii commitů
+    // top-data mohly ukazovat jiné jméno, než jaké appka jinde hlásila
+    // jako "Načteno · ... · kdo".
+    const user = getCurrentUserFromConfig();
     json.updatedAt = new Date().toISOString();
     json.updatedBy = user;
 
@@ -437,8 +446,22 @@ const FTLoader = (() => {
 
     // Cache se zobrazí až po prvním úspěšném načtení z GitHubu
 
-    // 1. Vymaž starou cache s špatným kódováním
-    try { localStorage.removeItem(DATA_KEY); } catch(e) {}
+    // 1. Vymaž cache, jen když je OPRAVDU poškozená (oprava 2026-09-17,
+    //    nález č. 18) — dřív se DATA_KEY mazal bezpodmínečně při KAŽDÉM
+    //    init() (historicky kvůli jednorázové migraci špatného kódování,
+    //    dávno vyřešené). To ale znamenalo, že otevření DRUHÉ záložky
+    //    appky smazalo platnou, čerstvou cache PRVNÍ záložky — sdílenou
+    //    přes initStorageSync() — dokud se druhá záložka sama znovu
+    //    nenačetla z GitHubu; první záložka mezitím na pokus o uložení
+    //    dostala "Data ještě nejsou načtena, zkus to za chvíli znovu."
+    //    Teď se maže jen skutečně nerozparsovatelná cache, platná
+    //    (i z jiné záložky) zůstává netknutá.
+    try {
+      const existingCache = localStorage.getItem(DATA_KEY);
+      if (existingCache) JSON.parse(existingCache);
+    } catch(e) {
+      try { localStorage.removeItem(DATA_KEY); } catch(e2) {}
+    }
 
     // 2. Ověř identitu proti seznamu — TEPRVE PAK načti data, aby kontrola
     //    oprávnění při onData měla platný výsledek.
