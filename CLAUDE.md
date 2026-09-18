@@ -2805,3 +2805,17 @@ token nezadávám (bezpečnostní pravidlo). **Soubor zatím nenahraný** —
 čeká na JK (Konvence č. 4), pak živé ověření že appka normálně načítá
 (a že další uložení z appky drží soubor kompaktní, ne že se zase
 nafoukne).
+
+**✅ Nahráno a bajtově ověřeno (2026-09-18)** — `git fetch` +
+`diff` proti `origin/main` potvrdil shodu.
+
+**Doplňkový audit na žádost JK** ("zkontroluj TOP i SPA, ať tu není
+skript, co by databázi znovu nafoukl"): grep přes celý repozitář
+potvrdil, že `saveToGitHub()` je JEDINÉ místo, které do
+`database.json` zapisuje — volané ze všech 5 HTML stránek, žádná
+vlastní kopie zápisové logiky jinde. Jediný další odkaz na
+`database.json` je `debugGitHub()` (Správa úkolů), čistě diagnostický
+GET bez zápisu. Žádný zbylý `JSON.stringify(..., null, 2)` v
+repozitáři. Stejný audit na SPA straně (`topSync.js` jediné místo
+mluvící s GitHub API) zapsán v `Esperanto/INTEGRACE.md` sekce 5,
+záznam 2026-09-18 — **incident uzavřen.**
