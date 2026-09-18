@@ -295,9 +295,23 @@ const FTLoader = (() => {
       if (sha === _lastSha) return false;
       _lastSha = sha;
 
-      // Dekóduj Base64 → UTF-8 správně
-      const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
-      const jsonStr = new TextDecoder("utf-8").decode(bytes);
+      // Dekóduj Base64 → UTF-8 správně. KRITICKÁ OPRAVA (2026-09-18) — nad
+      // ~1MB GitHub Contents API pole "content" v JSON odpovědi vůbec
+      // nevrací (jen sha/size/download_url), takže tenhle blok mlčky
+      // dostal undefined a appka spadla na "Chyba načtení: Unexpected end
+      // of JSON input" (nahlásil JK po syncu svátků ze SPA, database.json
+      // přerostl 1MB). Když content chybí, druhý dotaz na stejnou URL s
+      // "raw" Accept hlavičkou — funguje až do 100MB, stejná autentizace.
+      // Stejná oprava už byla nasazená v SPA `topSync.js` (nactiSoubor()).
+      let jsonStr;
+      if (data.content) {
+        const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+        jsonStr = new TextDecoder("utf-8").decode(bytes);
+      } else {
+        const rawResp = await fetch(apiUrl(), { headers: headers({ "Accept": "application/vnd.github.v3.raw" }) });
+        if (!rawResp.ok) throw new Error(`GitHub API (raw, soubor nad 1MB) ${rawResp.status}`);
+        jsonStr = await rawResp.text();
+      }
       const json = JSON.parse(jsonStr);
       const parsed = parseDatabase(json);
 
@@ -346,7 +360,13 @@ const FTLoader = (() => {
     json.updatedBy = user;
 
     // Enkóduj JSON → UTF-8 → Base64 (po částech, aby nedošlo k přetečení zásobníku u velkých souborů)
-    const jsonBytes = new TextEncoder().encode(JSON.stringify(json, null, 2));
+    // Kompaktní zápis (bez odsazení), ne JSON.stringify(json, null, 2) jako
+    // dřív — KRITICKÁ OPRAVA (2026-09-18, viz fetchFromGitHub() výš). Bez
+    // tohohle by první další uložení z appky (odkudkoliv — Dashboard,
+    // Správa úkolů) zase nafouklo soubor zpátky nad ~1MB, i po SPA-side
+    // opravě v topSync.js. Nikdo tenhle soubor needituje ručně, odsazení
+    // nemá funkční přínos.
+    const jsonBytes = new TextEncoder().encode(JSON.stringify(json));
     let binary = "";
     const CHUNK = 8192;
     for (let i = 0; i < jsonBytes.length; i += CHUNK) {
