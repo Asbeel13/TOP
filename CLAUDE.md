@@ -2742,3 +2742,66 @@ kopie dočasně ve složce TOP, po testu smazané.
 **Soubory zatím nenahrané** — čeká na JK (Konvence č. 4): k sadě
 přibyl `sw.js`. SPA strana (`topSync.js`, `.env.example`) vyžaduje
 restart SPA serveru, žádná DB migrace.
+### 2026-09-18 — KRITICKÁ OPRAVA: appka přestala číst `database.json` (soubor přerostl limit GitHub Contents API)
+
+Souvisí s novou funkcí sync státních svátků ze SPA (`topSync.js`, viz
+`Esperanto/INTEGRACE.md` sekce 5) — po prvním syncu (+620 úkolů:
+35 dovolené + 585 svátků) JK nahlásil v TOP appce `Chyba načtení:
+Unexpected end of JSON input`. Appka přestala načítat data úplně.
+
+**Kořenová příčina:** `top-data/database.json` přerostl ~1 MB — GitHub
+Contents API nad tuhle hranici v běžné JSON odpovědi na GET pole
+`content`/`encoding` vůbec nevrací (jen `sha`/`size`/`download_url`).
+`fetchFromGitHub()` čekalo `data.content` bezpodmínečně — dostalo
+`undefined`, `atob(undefined...)` resp. navazující dekódování skončilo
+prázdným/neplatným řetězcem, `JSON.parse()` na tom spadl přesně s
+"Unexpected end of JSON input". Potvrzeno přímo — JK stáhl
+`database.json` lokálně, velikost 1,26 MB.
+
+**Souběh příčin, ne jen svátky:** appka měla i PŘED svátky už 1530+
+produkčních úkolů, takže soubor byl blízko hranice sám o sobě — sync
+svátků byl spouštěč, ne jediná příčina. Bez zásahu by appka na stejnou
+zeď časem narazila i bez týhle nové funkce.
+
+**Postup řešení (týž den, s JK průběžně):**
+1. **Okamžitá SPA-side oprava** (`topSync.js`) — `nactiSoubor()` dostal
+   fallback na `Accept: application/vnd.github.raw+json`, když
+   `content` v odpovědi chybí (funguje do 100 MB); `ulozSoubor()`
+   přepnut z odsazeného na kompaktní `JSON.stringify()`. Po nasazení
+   JK appka zase naběhla — soubor klesl na 882 kB.
+2. **JK se zeptal, jak řešit limit dlouhodobě** — probráno teoreticky:
+   (a) stejná oprava čtení i v TOP `ft_loader.js` [tenhle zápis], (b)
+   zúžit okno svátků (provedeno na SPA straně, 3→2 roky, 585→390
+   úkolů), (c) archivace starých dokončených úkolů TOP (nezadáno), (d)
+   rozdělení `database.json` na víc souborů (nezadáno), (e) dlouhodobě
+   opustit GitHub API jako databázi (viz "Otevřená teoretická diskuze:
+   vlastní server" výš — tenhle limit je druhý, nezávislý důvod).
+3. **Tahle oprava (TOP strana), provedena AŽ PO potvrzení JK, že
+   souběžná relace na TOP skončila** (běžela od dřívějška, viz
+   changelog výš) — bezpečnostní opatření proti kolizi na
+   rozpracovaném `ft_loader.js`.
+
+**Provedeno v `ft_loader.js`:**
+- **`fetchFromGitHub()`** — stejný vzorec jako SPA `nactiSoubor()`:
+  když `data.content` chybí, druhý dotaz na stejnou URL s hlavičkou
+  `Accept: application/vnd.github.v3.raw` (v3-verze raw typu, ať
+  odpovídá zbytku souboru, který používá `application/vnd.github.v3+json`
+  jinde — `headers()` helper spreaduje `extra` jako poslední, takže
+  tohle bezpečně přebije výchozí `Accept`). Řeší čtení nad 1 MB do
+  100 MB.
+- **`saveToGitHub()`** — **genuinní nález cestou, nebyl v původním
+  zadání:** psalo `JSON.stringify(json, null, 2)` (odsazeně), stejná
+  chyba, co byla v SPA `ulozSoubor()` PŘED opravou. Bez tohohle by
+  první další uložení z appky (odkudkoliv) zase nafouklo soubor zpátky
+  nad 1 MB, i po SPA-side i TOP-side opravě čtení — kompaktní zápis
+  (`JSON.stringify(json)`) je proto nutná součást řešení, ne
+  volitelná kosmetika. `users.json`/`activity.json` čtení (`data.content`
+  na dalších 2 místech v souboru) záměrně NEDOTČENO — malé soubory,
+  nikdy nepřiblíží se 1 MB, oprava by tam byla zbytečná.
+
+**Ověřeno staticky:** vyváženost `{ }` (194/194) a `( )` (555/555) v
+celém `ft_loader.js`. **NE živě** — appka vyžaduje GitHub token,
+token nezadávám (bezpečnostní pravidlo). **Soubor zatím nenahraný** —
+čeká na JK (Konvence č. 4), pak živé ověření že appka normálně načítá
+(a že další uložení z appky drží soubor kompaktní, ne že se zase
+nafoukne).
