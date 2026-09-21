@@ -722,6 +722,9 @@ initDarkMode();
             </select>
           </div>
         </div>
+        <div class="grid">
+          <div class="field field-optional"><label>Spoluřešitelé (úkol se v kalendáři ukáže i u nich)</label><div id="m_coowners"></div></div>
+        </div>
         <div class="grid two">
           <div class="field field-required"><label>Plánovaný datum realizace</label><input id="m_planned" type="date" /></div>
           <div class="field field-optional"><label>Datum požadovaného ukončení</label><input id="m_due" type="date" /></div>
@@ -966,7 +969,7 @@ function fillAssigneeFilter(){
     });
   } else {
     // Fallback: unikátní hodnoty z dat
-    const assignees = [...new Set(tasks.map(t => t.assignee).filter(Boolean))].sort((a,b) => a.localeCompare(b, "cs"));
+    const assignees = [...new Set(tasks.flatMap(t => [t.assignee, ...taskCoOwners(t)]).filter(Boolean))].sort((a,b) => a.localeCompare(b, "cs"));
     els.filterAssignee.innerHTML = `<option value="">Všichni</option>` + assignees.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
   }
   els.filterAssignee.value = current;
@@ -1048,13 +1051,14 @@ function applyFilters(){
     if (!task.cancelled && showCancelled) return false;
 
     const haystack = [
-      task.id, task.task, task.project, task.assignee, task.note, task.internalNote, task.internalProject
+      task.id, task.task, task.project, task.assignee, ...taskCoOwners(task), task.note, task.internalNote, task.internalProject
     ].join(" ").toLowerCase();
 
     if(search && !haystack.includes(search)) return false;
     if(project && !task.project.toLowerCase().includes(project)) return false;
     if(internalProject && !(task.internalProject || "").toLowerCase().includes(internalProject)) return false;
-    if(assignee && task.assignee !== assignee) return false;
+    // Filtr Řešitel zahrnuje i spoluřešitele (rozhodnutí JK 2026-09-21).
+    if(assignee && task.assignee !== assignee && !taskCoOwners(task).includes(assignee)) return false;
     if(state && task.state !== state) return false;
     if(priority && task.priority !== priority) return false;
 
@@ -1153,7 +1157,9 @@ function renderTable(){
       <td>${(() => {
         const r = resitele.find(x => x.zkratka === task.assignee);
         const label = escapeHtml(task.assignee || "Nezařazeno");
-        return (r && r.vyrazen) ? `<strong style="color:var(--danger);" title="Vyřazený řešitel">${label}</strong>` : label;
+        const co = taskCoOwners(task);
+        const coHtml = co.length ? `<div class="muted" title="Spoluřešitelé">+ ${escapeHtml(co.join(", "))}</div>` : "";
+        return ((r && r.vyrazen) ? `<strong style="color:var(--danger);" title="Vyřazený řešitel">${label}</strong>` : label) + coHtml;
       })()}</td>
       <td>${escapeHtml(formatDate(task.plannedDate))}</td>
       <td>${escapeHtml(formatDate(task.doneDate))}</td>
@@ -1252,7 +1258,7 @@ function kanbanCardHtml(task) {
       </div>
       <div class="title">${escapeHtml(task.id || "")} ${escapeHtml(task.task || "")}</div>
       <div class="meta">
-        <span${assigneeDanger ? ' class="danger"' : ""}>${escapeHtml(assigneeLabel)}</span>
+        <span${assigneeDanger ? ' class="danger"' : ""}>${escapeHtml(assigneeLabel)}</span>${taskCoOwners(task).length ? ` <span title="Spoluřešitelé">+ ${escapeHtml(taskCoOwners(task).join(", "))}</span>` : ""}
         ${task.plannedDate ? ` · ${escapeHtml(formatDate(task.plannedDate))}` : ""}
         ${overdue ? ` · <span class="danger">⏰ po termínu</span>` : ""}
       </div>
@@ -1445,6 +1451,27 @@ function openTaskModal(task=null){
     }
     assigneeSel.value = assigneeVal;
   }
+  // Spoluřešitelé — sdílený picker z ft_loader.js. Úkoly ze SPA syncu
+  // zamčené (topSync.js je přepisuje). Při změně hlavního řešitele se
+  // picker překreslí, ať se nový hlavní ze seznamu vyřadí. Bez picker
+  // funkce (stará ft_loader.js z HTTP cache) zůstane prázdný a uložení
+  // coOwners nezmění (readCoOwnerPicker → null).
+  const coBox = document.getElementById("m_coowners");
+  const renderCo = (selected) => {
+    if (!coBox || !FTLoader.renderCoOwnerPicker) return;
+    FTLoader.renderCoOwnerPicker(coBox, {
+      resitele,
+      selected,
+      primary: assigneeSel ? assigneeSel.value : "",
+      locked: /^\*?SPA/.test(String(task?.id || "")),
+    });
+  };
+  if (coBox) { coBox.innerHTML = ""; coBox.dataset.ready = "0"; }
+  renderCo(task ? taskCoOwners(task) : []);
+  if (assigneeSel) assigneeSel.onchange = () => {
+    const current = FTLoader.readCoOwnerPicker ? FTLoader.readCoOwnerPicker(coBox) : null;
+    if (current !== null) renderCo(current);
+  };
   setValue("m_state", task?.state || "Nový");
   // m_percent odstraněno — pole se nezobrazuje
   setValue("m_created", task ? formatDateISO(task.createdDate) : formatDateISO(new Date()));
@@ -1518,6 +1545,11 @@ function saveTaskFromModal(){
     auto: (getValue("m_auto") || "").trim(),
     cancelled: false,
   };
+  // Spoluřešitelé jen když je picker skutečně vykreslený — jinak (null)
+  // klíč vůbec nenastavit, Object.assign níže pak existující coOwners
+  // zachová. Normalizaci (bez hlavního, bez duplicit) dělá taskToRawFormat.
+  const pickedCoOwners = FTLoader.readCoOwnerPicker ? FTLoader.readCoOwnerPicker(document.getElementById("m_coowners")) : null;
+  if (pickedCoOwners !== null) taskData.coOwners = pickedCoOwners;
 
   if(!taskData.task){
     alert("Pole Úkol je povinné.");
@@ -2471,7 +2503,31 @@ function restoreTask(rowIndex) {
 // tasksToJson() (plné uložení) a saveNewTaskWithRetry() (bezpečné
 // přidání nového úkolu), ať se nerozjedou dvě nezávislé kopie stejné
 // logiky (stejná nástraha jako dřív u dropdownu řešitele).
+// Spoluřešitelé (coOwners, 2026-09-21): normalizovaný seznam — bez
+// prázdných hodnot, duplicit a hlavního řešitele. Stejná pravidla jako
+// FTLoader.getCoOwners, ale ZÁMĚRNĚ vlastní kopie: používá ji i
+// taskToRawFormat (ukládání) a to nesmí záviset na tom, jestli prohlížeč
+// z HTTP cache nepodal starší ft_loader.js bez getCoOwners — spadlo by
+// celé uložení, ne jen zobrazení.
+function normalizeCoOwners(list, primary) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const result = [];
+  list.forEach(c => {
+    const co = String(c || "").trim();
+    if (!co || co === primary || seen.has(co)) return;
+    seen.add(co);
+    result.push(co);
+  });
+  return result;
+}
+
+function taskCoOwners(t) {
+  return normalizeCoOwners(t.coOwners, t.assignee || t.owner || "");
+}
+
 function taskToRawFormat(t) {
+  const coOwners = normalizeCoOwners(t.coOwners, t.assignee || t.owner || "Nezařazeno");
   return {
     id: t.id,
     title: t.task || t.title || "",
@@ -2495,6 +2551,9 @@ function taskToRawFormat(t) {
     lastUpdated: t.lastUpdated || "",
     activeDays: Array.isArray(t.activeDays) && t.activeDays.length > 0 ? t.activeDays : undefined,
     completedDays: Array.isArray(t.completedDays) && t.completedDays.length > 0 ? t.completedDays : undefined,
+    // NÁSTRAHA č. 1: musí být i v loadFromRaw() — jinak se pole při
+    // jakémkoliv uložení tiše smaže u všech úkolů.
+    coOwners: coOwners.length > 0 ? coOwners : undefined,
   };
 }
 
@@ -2671,6 +2730,9 @@ function loadFromRaw(raw) {
       lastUpdated: t.lastUpdated || "",
       activeDays: Array.isArray(t.activeDays) ? t.activeDays : undefined,
       completedDays: Array.isArray(t.completedDays) ? t.completedDays : undefined,
+      // Protějšek k taskToRawFormat (Nástraha č. 1) — bez tohohle by se
+      // coOwners při příštím uložení čehokoliv ztratily.
+      coOwners: Array.isArray(t.coOwners) ? t.coOwners.slice() : undefined,
       selected: false,
     })).map(mem => {
       mem._key = taskIdentityKey(mem);

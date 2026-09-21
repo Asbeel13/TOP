@@ -5,6 +5,272 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## 🟡 Spoluřešitelé úkolu (2026-09-21, IMPLEMENTOVÁNO lokálně, kroky 1–4 — čeká na nahrání JK)
+
+**Zadání JK:** u každého úkolu zůstává hlavní řešitel (= dnešní pole
+Řešitel/`owner`), navíc jde doplnit další řešitele. Úkol se v kalendáři
+ukáže i u nich — jeden úkol pro víc lidí místo zakládání kopií.
+Probráno zatím jen teoreticky + read-only průzkum kódu (grep `owner` 229×
+/ `assignee` 44× napříč 6 soubory). Nezávisle posouzeno i druhou Claude
+instancí, její dva postřehy ověřeny v kódu (viz níže).
+
+### Rozhodnutí JK (2026-09-21)
+
+1. **Jeden stav pro celý úkol** — "Hotovo" od kteréhokoliv řešitele =
+   hotovo pro všechny (vč. jednotlivých dnů v `completedDays`). Žádné
+   per-řešitel dokončení.
+2. **Kopie u spoluřešitele vizuálně označit** jako sdílenou (štítek/
+   odlišný styl karty), ať je poznat hlavní vs. spoluřešitel a úkol se
+   nepočítá dvakrát.
+3. **Opakující se úkoly (`opakovaci`) — zatím NE.** Pravidla mají vlastní
+   `owner` (jiný objekt než `task`), spoluřešitelé se jich netýkají.
+   Zapsáno jako bod do budoucna (viz "Nápady uživatele", bod 3).
+4. **Filtr "Řešitel" ve Správě úkolů zahrne i spoluřešitele** ("Řešitel
+   = JK" ukáže i úkoly, kde je JK jen spoluřešitel).
+
+### Datový model
+
+- `owner` **beze změny** = hlavní řešitel. Nové volitelné pole
+  `coOwners: ["LR","MK"]` (chybí/prázdné u všech stávajících úkolů →
+  nulová migrace, SPA sync i opakující se úkoly beze změny).
+- Zamítnuto: `owners: []` s hlavním na prvním místě — migrace 960+ úkolů
+  a přepis všeho, co čte `owner`.
+- Validace: hlavní řešitel nesmí být zároveň ve `coOwners`, žádné
+  duplicity, vyřazení řešitelé (`vyrazen`) se nenabízejí.
+- **U `*SPA` úkolů (dovolená, svátky) spoluřešitele NENABÍZET** —
+  `topSync.js` je při každém běhu maže a vytváří znovu, ručně přidaní
+  spoluřešitelé by se tiše ztratili.
+
+### Architektura řešení — rozpad v `parseDatabase()`
+
+`ft_loader.js` už dnes vyrábí kopie úkolů (`expandMultiDayTasks()` rozpadá
+vícedenní úkol na dny, `generateRecurring()` přidává výskyty) a všechny
+pohledy seskupují `DATA.tasks` podle `t.owner`. Proto: v `parseDatabase()`
+(po `expandMultiDayTasks`, před `generateRecurring`, ř. ~260–263) vyrobit
+pro každého spoluřešitele kopii s `owner: <spoluřešitel>`,
+`primaryOwner: <hlavní>`, `isCoOwnerCopy: true`. Zobrazení podle osoby
+(kalendář, sloupce lidí, mobilní karty) pak funguje **bez úprav**.
+`allTasks` (surová data pro Správu úkolů) zůstává bez kopií.
+
+### Mapa míst v kódu (stav k 2026-09-21, čísla řádků se budou posouvat)
+
+**POZOR — zhruba polovina výskytů `owner` NENÍ `task.owner`:** klíč v
+rozvržení lidí (`DEFAULT_PEOPLE_LAYOUT`, `peopleLayout`, `PEOPLE_LABELS`,
+`selectedPeople`, `loadPeopleLayout`) a `{owner}/{repo}` v GitHub API.
+**Tyhle NEMĚNIT.**
+
+- **A. Jádro — `ft_loader.js`:** 196 (`generateRecurring`, nechat),
+  207–263 (`parseDatabase`/`expandMultiDayTasks` — místo rozpadu),
+  264 (`owners` z `t.owner`), 266–270 (návratový objekt).
+- **B. Zobrazení podle osoby (funguje díky kopiím, jen ověřit):**
+  prehled_mobile 598–612; prehled 823–832; dashboard_mobile 738–752;
+  Dashboard 1484 (`selectedPeople`), 1672–1679, 1769, **1778
+  (`statPeople` — počítadlo), 1312 (`activeTaskCount` v modalu
+  Řešitelé)**. Všechna počítadla nad `DATA.tasks` zkontrolovat na
+  dvojí započtení kopií.
+- **C. Editace/dokončení:**
+  - **"Hotovo" je s kopiemi BEZPEČNÉ (ověřeno):** všechny 4 stránky
+    hledají originál přes `FTLoader.findRawTaskForOccurrence(raw.tasks,
+    id, plannedDate)` (`ft_loader.js:667`) — podle `id` + data, `owner`
+    nečte.
+  - **SKUTEČNÁ CHYBA k ošetření — mobilní úprava:**
+    `tydenni_dashboard_mobile.html:913` předvyplní formulář z
+    `task.owner` zobrazené kopie (= spoluřešitel), ř. 944 to zapíše jako
+    `owner` do originálu → spoluřešitel by se úpravou stal hlavním
+    řešitelem a původní hlavní tiše zmizí. Oprava: ř. 913 číst
+    `task.primaryOwner || task.owner`. Grep všech `.owner =` v celém TOP
+    potvrdil, že je to JEDINÉ přiřazení `owner` do originálu.
+  - **Detail úkolu (jen zobrazení):** štítek `task.owner || "Bez
+    řešitele"` ukáže u kopie spoluřešitele — opravit na hlavního +
+    seznam spoluřešitelů na VŠECH 4 místech: Dashboard 1616, prehled 975,
+    prehled_mobile 665, dashboard_mobile 808.
+  - Zakládání/editační formuláře (přidat výběr spoluřešitelů): Dashboard
+    993, 2106–2109, 2174–2256; dashboard_mobile 419, 450, 913/944,
+    1030, 1068, 1211–1212; Správa 714, 1434–1446, 1514–1515, 1632–1633.
+  - Desktopový Dashboard edituje přes odkaz do Správy úkolů (surová
+    data) a Kanban drag&drop pracuje nad `allTasks` — obojí bezpečné.
+  - Zástup (Správa 800–803, 2298–2369; Dashboard 1079–1082, 1928–1999)
+    — spoluřešitele neřešit.
+- **D. Správa úkolů:** filtr Řešitel 969–1002 (naplnění + localStorage —
+  pozor na past z 2026-09-17, obnovení uloženého filtru až po naplnění
+  selectu), 1035/1057 (samotné filtrování — musí projít i
+  spoluřešitel), 1051 (fulltext), 1154–1155 a 1239–1255 (štítky
+  Kanban/karta). **2487 a 2664 — mapování `owner↔assignee`, pravděpodobně
+  `tasksToJson()`/`loadFromRaw()` = Nástraha č. 1: `coOwners` MUSÍ být
+  přidané na obě místa, jinak se při jakémkoliv uložení smaže u všech
+  úkolů.** Správa používá souběžně `assignee` i `owner` pro totéž —
+  `coOwners` přidat pod jedním názvem.
+- **E. Opakující se pravidla** (Správa 2086–2286, `opakovaci[].owner`)
+  — mimo rozsah (rozhodnutí 3).
+- **F. Ověřit zvlášť (nejsou v grepu):** auta/`auta_rezervace` a
+  případné kolize podle řešitele, styl označení kopie v
+  `components.css` (`.task-card`), `config.js`/`index.html` (legacy).
+
+### Doporučený postup implementace
+
+1. `parseDatabase()` — rozpad na kopie s `primaryOwner`/`isCoOwnerCopy`.
+2. Mobilní úprava (913) + štítky detailu (4 místa) na `primaryOwner`.
+3. `coOwners` do `tasksToJson()`/`loadFromRaw()` + filtr/fulltext/štítky
+   ve Správě úkolů.
+4. UI výběr spoluřešitelů + vizuální označení kopie, soubor po souboru
+   od nejmenšího (`tydenni_prehled_mobile.html`), jako u redesignu.
+5. **Regresní test na kopii živé databáze:** bez `coOwners` musí vše
+   vypadat a chovat se PŘESNĚ jako dnes; s `coOwners` ověřit zobrazení,
+   Hotovo, mobilní úpravu, uložení ve Správě (pole nezmizí), počítadla.
+
+### Průběh implementace
+
+**Krok 1 — HOTOVO lokálně (2026-09-21), NENAHRÁNO (čeká na JK):**
+`ft_loader.js` → nová `expandCoOwnerCopies()` v `parseDatabase()`.
+Kopie s `owner:<spoluřešitel>`, `primaryOwner:<hlavní>`,
+`isCoOwnerCopy:true`; originál se nemění. Upřesnění oproti návrhu:
+- Kopie **jen pro úkoly s `plannedDate`** — nenaplánované by se jinak
+  zdvojovaly v Backlogu Dashboardu (`renderBacklog`, `statBacklog`).
+- Kopie se vytvářejí PO `expandMultiDayTasks` (vícedenní úkol → kopie
+  každého dne), `generateRecurring` dostává dál jen `expandedTasks`
+  (index `id|datum` by se kopiemi stejně nezměnil).
+- Obranně: duplicity, prázdné hodnoty, hlavní řešitel ve `coOwners` a
+  `coOwners` jiného typu než pole se ignorují.
+
+**Ověřeno:** Node na stroji není — test v prohlížeči (Browser pane přes
+dočasný localhost server) nad **kopií živé `database.json`** (2007
+úkolů, mělký klon `top-data` jen pro čtení, po testu smazán), HEAD vs.
+nová verze `parseDatabase` s háčkem na zpřístupnění. 15/15 kontrol OK:
+výstup na živých datech (bez `coOwners`) **bajtově identický** s HEAD
+(2136 zobrazovacích úkolů, 26 owners, 178 opakujících výskytů);
+umělé `coOwners` → správný počet kopií (jednodenní 2, vícedenní 3 dny ×1),
+vstup nemutován, nenaplánovaný/zrušený bez kopie, `allTasks` bez kopií,
+neplatný typ bez pádu. Vyváženost `{}` 198/198, `()` 574/574, `[]`
+34/34, backticky 62 (beze změny).
+
+**Bezpečné nahrát samostatně** — dokud žádný úkol nemá `coOwners`
+(zatím je nejde v UI zadat), chování appky se nemění (ověřeno výše).
+
+**Krok 2 — HOTOVO lokálně (2026-09-21), NENAHRÁNO (čeká na JK):**
+- `ft_loader.js`: nová sdílená `getCoOwners(task)` (exportovaná jako
+  `FTLoader.getCoOwners`) — JEDINÉ místo normalizace seznamu
+  spoluřešitelů (trim, bez duplicit, bez hlavního řešitele, ne-pole =
+  `[]`), hlavního bere z `primaryOwner || owner`, takže funguje pro
+  originál i kopii. `expandCoOwnerCopies()` ji teď používá místo vlastní
+  kopie logiky.
+- Detail úkolu na všech 4 stránkách (Dashboard, Přehled, Přehled mobil,
+  Dashboard mobil): štítek řešitele = `task.primaryOwner || task.owner`,
+  nový štítek `👥 Spoluřešitelé: RS, LR` (jen když nějací jsou).
+- `tydenni_dashboard_mobile.html` `openEditModalFromDetail()`: předvyplnění
+  řešitele z `task.primaryOwner || task.owner` — oprava chyby, kdy by
+  úprava z kopie přepsala hlavního řešitele spoluřešitelem.
+- Dashboard `renderStats()`: `statPlanned`/`statWaiting` počítají jen
+  originály (`!t.isCoOwnerCopy`), `statPeople` kopie započítává.
+- Prověřeno a beze změny: `taskMatches()` (ř. 1484 — kopie projde, když je
+  spoluřešitel vybraný v zobrazení, žádoucí), kolize auta (ř. 2159, `find`
+  — kopie má stejné `auto`/datum, výsledek stejný), Přehledy/mobilní
+  Dashboard nemají žádná počítadla úkolů.
+
+**Ověřeno:** stejný test v prohlížeči nad čerstvou kopií živé
+`database.json` (po testu smazána), 29/29 OK — všech 15 kontrol z kroku 1
+znovu (regrese stále bajtově identická s HEAD), `getCoOwners` pro
+originál/kopii/neplatné vstupy, hlavní řešitel pro detail a mobilní
+úpravu z kopie i originálu, počítadlo bez kopií, a **syntaxe všech inline
+skriptů 4 upravených stránek** (`new Function()` nad každým `<script>`,
+HEAD i nová verze — náhrada za `node --check`). Vyváženost `{}` +1 pár
+na stránku (nový `${...}` ve štítku), `ft_loader.js` 200/200, počet
+`<script>` tagů beze změny.
+
+**Nahrát společně:** `ft_loader.js` + 4 HTML stránky. Chování appky se
+do zadání prvních `coOwners` viditelně nemění. Volání na stránkách je
+jištěné `FTLoader.getCoOwners ? ... : []` — HTTP cache prohlížeče
+(`max-age=600`, viz redesign 2026-09-15) může až 10 min po nahrání
+servírovat novou stránku se STAROU `ft_loader.js`; bez pojistky by
+otevření detailu úkolu spadlo na TypeError. `sw.js` je network-first,
+online problém nedělá, `CACHE_NAME` netřeba povyšovat.
+
+**Krok 3 — HOTOVO lokálně (2026-09-21), NENAHRÁNO (čeká na JK):**
+`sprava_ukolu_linked.html` (jediný soubor):
+- **Nástraha č. 1 ošetřena:** `coOwners` doplněno do `taskToRawFormat()`
+  (uložení — normalizované, prázdné pole se neukládá vůbec) i do
+  mapování v `loadFromRaw()` (načtení). `saveNewTaskWithRetry()` jede
+  přes `taskToRawFormat()`, takže je pokryté automaticky. Úprava z
+  modalu (`Object.assign` bez `coOwners`) pole zachová.
+- Nové lokální `normalizeCoOwners(list, primary)` + `taskCoOwners(t)` —
+  stejná pravidla jako `FTLoader.getCoOwners`, ale **záměrně vlastní
+  kopie**: používá je ukládání a to nesmí spadnout, kdyby prohlížeč z
+  HTTP cache podal starý `ft_loader.js`. Při uložení se tím
+  automaticky odstraní i hlavní řešitel ze `coOwners` (např. když se
+  hlavním řešitelem stane dosavadní spoluřešitel).
+- Filtr "Řešitel" zahrnuje spoluřešitele (rozhodnutí JK), fulltext
+  hledá i ve spoluřešitelích, záložní naplnění filtru (když chybí
+  `resitele`) je obsahuje taky.
+- Tabulka: pod hlavním řešitelem šedě `+ RS, LR`; Kanban karta:
+  `JK + RS, LR`.
+- Záměrně beze změny: zástup (ř. ~2353, nový úkol bez spoluřešitelů),
+  opakující se pravidla.
+
+**Ověřeno:** test v prohlížeči nad čerstvou kopií živé `database.json`
+(po testu smazána), skutečné funkce vytažené přímo ze zdrojáku HEAD i
+nové verze. 15/15 OK: **plný cyklus načtení → uložení živých dat (2007
+úkolů) bajtově shodný s HEAD**, žádný úkol nezískal `coOwners`,
+`taskIdentityKey` (párování `rowIndex`) beze změny; s `coOwners` přežijí
+uložení (vyčištěné), druhý cyklus idempotentní, úprava z modalu je
+zachová, změna hlavního na spoluřešitele ho ze seznamu vyřadí, prázdné
+pole se neuloží; filtr (hlavní ✓ / spoluřešitel ✓ / jiný ✗ / Všichni ✓);
+kontrolní test potvrdil, že STARÁ verze pole při uložení opravdu ztrácí
+(test tedy Nástrahu č. 1 skutečně chytá). Syntaxe obou inline skriptů OK,
+`{}` 646/646, `()` 1754/1754, `<script>` beze změny, bez BOM.
+
+**Krok 4 — HOTOVO lokálně (2026-09-21), NENAHRÁNO (čeká na JK):**
+funkce je tímhle poprvé dostupná uživatelům.
+- `ft_loader.js`: 3 nové sdílené funkce — `renderCoOwnerPicker(container,
+  {resitele, selected, primary, locked})` (zaškrtávací seznam: bez
+  hlavního řešitele, bez vyřazených; už vybraný vyřazený/neznámý zůstane
+  zaškrtnutý s poznámkou, ať úprava nic tiše nesmaže; `locked` = úkol ze
+  SPA syncu → jen text), `readCoOwnerPicker(container)` (vrací `null`,
+  když picker neběží/je zamčený → volající `coOwners` NEMĚNÍ),
+  `getCoOwnerLabel(task)` (`"s JK"` u kopie, `"+ RS, LR"` u originálu).
+- Formuláře: Správa úkolů (modal, nový i úprava; SPA úkoly zamčené),
+  Dashboard (nový úkol), mobilní Dashboard (nový úkol i úprava). Při
+  změně hlavního řešitele se picker překreslí a nového hlavního vyřadí.
+  Všechna volání jištěná pro starou `ft_loader.js` z HTTP cache.
+- Kalendář: Dashboard + Přehled desktop — `.shared-badge` (`👥 s JK` /
+  `👥 + RS, LR`), kopie navíc `outline: 1px dashed` (ZÁMĚRNĚ `outline`,
+  ne `border-color` — nesmí se prát s barevným levým okrajem priority
+  `.task.px` / `html.dark .task.p*`). Oba mobilní pohledy — `.meta-tag`
+  s novou liniovou ikonou `ICON_USERS` v řádku štítků.
+
+**Ověřeno — poprvé na SKUTEČNÝCH stránkách:** všech 5 stránek spuštěno v
+prohlížeči s **mockem GitHub API** (`mock_github.js` vložený před
+`ft_loader.js`: podvrhne `users.json` s hashem testovacího tokenu, role
+planovac; `database.json` = kopie živé DB s uměle doplněnými `coOwners`;
+PUT se zachytí místo zápisu na GitHub — **žádný síťový požadavek na
+GitHub, žádný skutečný token**). Otestováno: Dashboard — štítky, kopie
+s čárkovaným okrajem, nový úkol se spoluřešitelem uložen a po reloadu
+zobrazen u obou lidí; Správa — picker předvyplněný, hlavní se nenabízí,
+změna se uloží, **uložení ÚPLNĚ JINÉHO úkolu `coOwners` ostatních úkolů
+zachová (živý test Nástrahy č. 1)**, filtr Řešitel se spoluřešitelem,
+SPA úkol zamčený; mobilní Dashboard — úprava otevřená z KOPIE u
+spoluřešitele uložila hlavního beze změny (oprava z kroku 2 potvrzena),
+nový úkol z mobilu se spoluřešitelem; oba Přehledy — štítky + detail.
+Žádné JS chyby v konzoli (jediná hláška = registrace service workeru na
+dočasném testovacím serveru, `sw.js` beze změny). Vizuálně zkontrolováno
+screenshoty (desktop Dashboard, modal Správy, mobilní Dashboard, tmavý
+režim). Statika: `{}`/`()` vyvážené, `/* */` +1 pár = nový komentář,
+`<script>` beze změny, CRLF zachováno, bez BOM. Po testu smazána kopie
+dat i `localStorage`/`sessionStorage`/cache testovacího originu.
+
+**Poučení k mocku (znovupoužitelné):** po `saveToGitHub()` stránka
+nepřekreslí nová data sama — `fetchFromGitHub()` končí na `sha ===
+_lastSha`. Mock proto drží svou DB v `sessionStorage` a test po uložení
+stránku znovu načte. Neověřeno, jak se to chová proti skutečnému GitHubu
+(tam hraje roli i cache API odpovědí) — beze změny, jen poznamenáno.
+
+**Pořadí nahrání:** `sprava_ukolu_linked.html` ideálně **spolu s kroky
+1–2 nebo před zadáním prvních `coOwners`** — jakmile nějaký úkol
+`coOwners` má, stará Správa úkolů by je při prvním uložení čehokoliv
+smazala u všech úkolů. Samostatně je bezpečná kdykoliv (na datech bez
+`coOwners` se nic nemění).
+
+Zapsáno i do `Esperanto/INTEGRACE.md` (Konvence č. 7 — dotýká se
+`*SPA` úkolů).
+
 ## ✅ Firemní redesign TOP (2026-09-15, HOTOVO — TOP strana; SPA nerozhodnuto)
 
 **Cíl:** JK poskytl skutečné firemní podklady (logo, barevný manuál, odkaz
@@ -868,6 +1134,14 @@ stávající, testování na kopii dat atd.) — stejně jako u Kanbanu výše.
    Jednosměrná synchronizace SPA → TOP (schválená dovolená se zapíše do
    `tasks[]` jako task s `priority: "PX"`, ID prefix `SPA-`) — viz
    Changelog 2026-08-11 níže pro detaily prvního review handoffu.
+3. **Spoluřešitelé i u opakujících se úkolů** (zapsáno 2026-09-21) —
+   první verze spoluřešitelů (viz sekce "Spoluřešitelé úkolu" nahoře)
+   se vědomě týká jen `tasks[]`, ne pravidel `opakovaci`. Až se k tomu
+   bude přistupovat: pravidlo by dostalo vlastní `coOwners`,
+   `generateRecurring()` (`ft_loader.js` ~ř. 196) by ho předávalo do
+   výskytů, řešit i interakci se zástupem (zástup = task se stejným ID
+   jako pravidlo — kdo zastupuje hlavního vs. spoluřešitele) a s
+   odděleným dokončením v `dokonceni`.
 
 ## Doporučení pro budoucí práci (moje vlastní návrhy, neimplementované)
 

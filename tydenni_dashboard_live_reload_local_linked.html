@@ -393,6 +393,11 @@
     .task.recurring { border-left: 3px solid var(--recurring-border); }
     .task .recurring-icon { font-size: 9px; color: var(--recurring-border); margin-bottom: 1px; }
     .task .multiday-badge { font-size: 9px; color: var(--multiday-icon); font-weight: 700; margin-bottom: 1px; }
+    /* Sdílený úkol (spoluřešitelé, 2026-09-21): štítek na originálu i kopii,
+       kopie u spoluřešitele navíc čárkovaný okraj — odliší ji od vlastních
+       úkolů daného člověka. */
+    .task .shared-badge { font-size: 9px; color: var(--text-muted); font-weight: 700; margin-bottom: 1px; }
+    .task.co-owner-copy { outline: 1px dashed var(--text-muted); outline-offset: -3px; }
     .backlog {
       margin-top: 16px;
       display: grid;
@@ -1001,6 +1006,9 @@
           </select>
         </div>
       </div>
+      <div class="grid">
+        <div class="field field-optional"><label>Spoluřešitelé (úkol se v kalendáři ukáže i u nich)</label><div id="m2_coowners"></div></div>
+      </div>
       <div class="grid two">
         <div class="field field-required"><label>Plánovaný datum realizace</label><input id="m2_planned" type="date" /></div>
         <div class="field field-optional"><label>Datum požadovaného ukončení</label><input id="m2_due" type="date" /></div>
@@ -1604,7 +1612,14 @@ function cardClass(task) {
   if (task.waiting) parts.push("waiting");
   if (normalizeText(task.state).includes("dokončeno")) parts.push("done");
   if (task.recurring) parts.push("recurring");
+  if (task.isCoOwnerCopy) parts.push("co-owner-copy");
   return parts.join(" ");
+}
+
+// Štítek sdíleného úkolu v kartě kalendáře ("👥 s JK" / "👥 + RS, LR").
+function sharedBadgeHtml(task) {
+  const label = FTLoader.getCoOwnerLabel ? FTLoader.getCoOwnerLabel(task) : "";
+  return label ? `<div class="shared-badge" title="Sdílený úkol">👥 ${escapeHtml(label)}</div>` : "";
 }
 
 function openModal(task) {
@@ -1613,11 +1628,13 @@ function openModal(task) {
   els.modalInternal.textContent = task.internalNote || "Bez interní poznámky";
   const chips = [
     task.priority || "Bez priority",
-    task.owner || "Bez řešitele",
+    task.primaryOwner || task.owner || "Bez řešitele",
     task.project || "Bez projektu",
     task.plannedDate ? `Plán: ${task.plannedDate}` : "Bez data",
     task.state || "Bez stavu"
   ];
+  const coOwners = FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : []; // pojistka: stará ft_loader.js z HTTP cache
+  if (coOwners.length) chips.push(`👥 Spoluřešitelé: ${coOwners.join(", ")}`);
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
@@ -1712,6 +1729,7 @@ function renderScheduleForSide(targetEl, side) {
         div.innerHTML = `
           ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
           ${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}
+          ${sharedBadgeHtml(task)}
           <div class="title">${escapeHtml(task.title)}</div>
           <div class="meta">
             <span class="${(task.project || "").toLowerCase().includes("ford") ? "danger" : ""}">${escapeHtml(task.project || "")}</span>
@@ -1774,9 +1792,12 @@ function renderBacklog() {
 
 function renderStats() {
   const weekTasks = getWeekTasks();
-  els.statPlanned.textContent = String(weekTasks.length);
+  // Kopie spoluřešitelů (isCoOwnerCopy) se do počtu úkolů nezapočítávají
+  // (jinak by sdílený úkol byl započtený vícekrát), do počtu lidí ano.
+  const weekOriginals = weekTasks.filter(t => !t.isCoOwnerCopy);
+  els.statPlanned.textContent = String(weekOriginals.length);
   els.statPeople.textContent = String(new Set(weekTasks.map(t => t.owner)).size);
-  els.statWaiting.textContent = String(weekTasks.filter(t => t.waiting).length);
+  els.statWaiting.textContent = String(weekOriginals.filter(t => t.waiting).length);
   els.statBacklog.textContent = String(DATA.tasks.filter(t => !t.plannedDate && taskMatches(t)).length);
 }
 
@@ -2184,6 +2205,20 @@ function openNewTaskModal(owner, dateISO) {
   document.getElementById("m2_project").value = "";
   document.getElementById("m2_sales").value = "";
   document.getElementById("m2_assignee").value = owner || "";
+  // Spoluřešitelé — sdílený picker z ft_loader.js (viz Správa úkolů).
+  // Překreslí se při změně hlavního řešitele, ať se nový hlavní vyřadí.
+  const coBox = document.getElementById("m2_coowners");
+  const assigneeSel = document.getElementById("m2_assignee");
+  const renderCo = (selected) => {
+    if (!coBox || !FTLoader.renderCoOwnerPicker) return;
+    FTLoader.renderCoOwnerPicker(coBox, { resitele: DATA.resitele || [], selected, primary: assigneeSel.value });
+  };
+  if (coBox) { coBox.innerHTML = ""; coBox.dataset.ready = "0"; }
+  renderCo([]);
+  assigneeSel.onchange = () => {
+    const current = FTLoader.readCoOwnerPicker ? FTLoader.readCoOwnerPicker(coBox) : null;
+    if (current !== null) renderCo(current);
+  };
   document.getElementById("m2_state").value = "Nový";
   document.getElementById("m2_created").value = formatDateISOSimple(new Date());
   document.getElementById("m2_planned").value = dateISO || "";
@@ -2263,6 +2298,9 @@ async function saveNewTaskFromModal() {
           lastUpdated: formatDateISOSimple(new Date()),
         };
         if (durationDays > 1) newTask.durationDays = durationDays;
+        const pickedCo = FTLoader.readCoOwnerPicker ? FTLoader.readCoOwnerPicker(document.getElementById("m2_coowners")) : null;
+        const coOwners = pickedCo && FTLoader.getCoOwners ? FTLoader.getCoOwners({ owner: assignee, coOwners: pickedCo }) : [];
+        if (coOwners.length) newTask.coOwners = coOwners;
 
         const checkedDays = [];
         for (let i = 1; i <= 7; i++) {

@@ -578,6 +578,8 @@ function statusTag(task) {
 }
 const ICON_RECUR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>';
 const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>';
+// Sdílený úkol (spoluřešitelé, 2026-09-21) — liniová ikona ve stejném stylu.
+const ICON_USERS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 5.5 5"/></svg>';
 const ICON_CAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l1.5-4.5A2 2 0 0 1 6.4 7h11.2a2 2 0 0 1 1.9 1.5L21 13"/><rect x="2" y="13" width="20" height="5" rx="1.5"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>';
 function escapeHtml(str) {
   return (str ?? "").toString()
@@ -644,6 +646,7 @@ function renderMobileDay() {
                 <span class="priority-tag ${tag.cls}">${escapeHtml(tag.label)}</span>
                 ${task.recurring ? `<span class="meta-tag">${ICON_RECUR} opakující se</span>` : ""}
                 ${task.isMultiDay ? `<span class="meta-tag">${ICON_CALENDAR} den ${task.multiDayIndex}/${task.multiDayTotal}</span>` : ""}
+                ${(() => { const l = FTLoader.getCoOwnerLabel ? FTLoader.getCoOwnerLabel(task) : ""; return l ? `<span class="meta-tag" title="Sdílený úkol">${ICON_USERS} ${escapeHtml(l)}</span>` : ""; })()}
               </div>
               <div class="title">${escapeHtml(task.title)}</div>
               <div class="meta">${escapeHtml(task.project || "")}</div>
@@ -662,10 +665,12 @@ function renderMobileDay() {
 function openModal(task) {
   const chips = [
     task.priority || "Bez priority",
-    task.owner || "Bez řešitele",
+    task.primaryOwner || task.owner || "Bez řešitele",
     task.project || "Bez projektu",
     task.state || "Bez stavu",
   ];
+  const coOwners = FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : []; // pojistka: stará ft_loader.js z HTTP cache
+  if (coOwners.length) chips.push(`👥 Spoluřešitelé: ${coOwners.join(", ")}`);
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);

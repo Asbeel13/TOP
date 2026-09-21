@@ -417,6 +417,7 @@
       </header>
       <div class="mform-field"><label>Název úkolu</label><input id="et_task" /></div>
       <div class="mform-field"><label>Řešitel</label><select id="et_assignee"></select></div>
+      <div class="mform-field"><label>Spoluřešitelé</label><div id="et_coowners"></div></div>
       <div class="mform-field"><label>Priorita</label>
         <select id="et_priority">
           <option value="P0">P0 – nejvyšší</option>
@@ -448,6 +449,7 @@
       </header>
       <div class="mform-field field-required"><label>Úkol</label><input id="nt_task" /></div>
       <div class="mform-field"><label>Řešitel</label><select id="nt_assignee"></select></div>
+      <div class="mform-field"><label>Spoluřešitelé</label><div id="nt_coowners"></div></div>
       <div class="mform-field"><label>Priorita</label>
         <select id="nt_priority">
           <option value="P0">P0 – nejvyšší</option>
@@ -718,6 +720,8 @@ function statusTag(task) {
 }
 const ICON_RECUR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>';
 const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>';
+// Sdílený úkol (spoluřešitelé, 2026-09-21) — liniová ikona ve stejném stylu.
+const ICON_USERS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 5.5 5"/></svg>';
 const ICON_CAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l1.5-4.5A2 2 0 0 1 6.4 7h11.2a2 2 0 0 1 1.9 1.5L21 13"/><rect x="2" y="13" width="20" height="5" rx="1.5"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>';
 function escapeHtml(str) {
   return (str ?? "").toString()
@@ -784,6 +788,7 @@ function renderMobileDay() {
                 <span class="priority-tag ${tag.cls}">${escapeHtml(tag.label)}</span>
                 ${task.recurring ? `<span class="meta-tag">${ICON_RECUR} opakující se</span>` : ""}
                 ${task.isMultiDay ? `<span class="meta-tag">${ICON_CALENDAR} den ${task.multiDayIndex}/${task.multiDayTotal}</span>` : ""}
+                ${(() => { const l = FTLoader.getCoOwnerLabel ? FTLoader.getCoOwnerLabel(task) : ""; return l ? `<span class="meta-tag" title="Sdílený úkol">${ICON_USERS} ${escapeHtml(l)}</span>` : ""; })()}
               </div>
               <div class="title">${escapeHtml(task.title)}</div>
               <div class="meta">${escapeHtml(task.project || "")}</div>
@@ -805,10 +810,12 @@ function openModal(task) {
   _currentModalTask = task;
   const chips = [
     task.priority || "Bez priority",
-    task.owner || "Bez řešitele",
+    task.primaryOwner || task.owner || "Bez řešitele",
     task.project || "Bez projektu",
     task.state || "Bez stavu",
   ];
+  const coOwners = FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : []; // pojistka: stará ft_loader.js z HTTP cache
+  if (coOwners.length) chips.push(`👥 Spoluřešitelé: ${coOwners.join(", ")}`);
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
@@ -910,7 +917,12 @@ function openEditModalFromDetail() {
   document.getElementById("modal").classList.remove("open");
 
   document.getElementById("et_task").value = task.title || "";
-  document.getElementById("et_assignee").value = task.owner || "";
+  // primaryOwner: u zobrazovací kopie spoluřešitele je v task.owner
+  // spoluřešitel — uložení by ho jinak zapsalo jako hlavního řešitele.
+  document.getElementById("et_assignee").value = task.primaryOwner || task.owner || "";
+  setupCoOwnerPicker("et_assignee", "et_coowners",
+    FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : [],
+    /^\*?SPA/.test(String(task.id || "")));
   document.getElementById("et_priority").value = task.priority || "P2";
   document.getElementById("et_state").value = task.state || "Nový";
   document.getElementById("et_planned").value = task.plannedDate || "";
@@ -942,6 +954,12 @@ async function saveEditedTask() {
 
         task.title = title;
         task.owner = document.getElementById("et_assignee").value || "";
+        // Spoluřešitelé jen když picker opravdu běží (null = neměnit).
+        const pickedCo = FTLoader.readCoOwnerPicker ? FTLoader.readCoOwnerPicker(document.getElementById("et_coowners")) : null;
+        if (pickedCo !== null && FTLoader.getCoOwners) {
+          const co = FTLoader.getCoOwners({ owner: task.owner, coOwners: pickedCo });
+          if (co.length) task.coOwners = co; else delete task.coOwners;
+        }
         task.priority = document.getElementById("et_priority").value;
         task.state = document.getElementById("et_state").value;
         task.plannedDate = document.getElementById("et_planned").value || task.plannedDate;
@@ -1028,6 +1046,7 @@ function openNewTaskModalMobile() {
   if (!_canWrite) { alert("Nemáš oprávnění zakládat nové úkoly."); return; }
   document.getElementById("nt_task").value = "";
   document.getElementById("nt_assignee").value = "";
+  setupCoOwnerPicker("nt_assignee", "nt_coowners", [], false);
   document.getElementById("nt_priority").value = "P2";
   document.getElementById("nt_planned").value = toISO(state.currentDate);
   document.getElementById("nt_project").value = "";
@@ -1074,6 +1093,9 @@ async function saveNewTaskMobile() {
           cancelled: false,
           lastUpdated: toISO(new Date()),
         };
+        const pickedCo = FTLoader.readCoOwnerPicker ? FTLoader.readCoOwnerPicker(document.getElementById("nt_coowners")) : null;
+        const coOwners = pickedCo && FTLoader.getCoOwners ? FTLoader.getCoOwners({ owner: newTask.owner, coOwners: pickedCo }) : [];
+        if (coOwners.length) newTask.coOwners = coOwners;
         raw.tasks.push(newTask);
 
         const user = FTLoader.getCurrentUser() || "mobilní dashboard";
@@ -1200,6 +1222,25 @@ function showReadOnlyRedirectMobile(customMessage) {
   `;
   document.body.appendChild(div);
   setTimeout(() => { window.location.href = "tydenni_prehled_mobile.html"; }, 2500);
+}
+
+// ── Spoluřešitelé ve formulářích (2026-09-21) — sdílený picker z
+// ft_loader.js. Překreslí se při změně hlavního řešitele, ať se nový
+// hlavní ze seznamu vyřadí. Bez picker funkce (stará ft_loader.js z HTTP
+// cache) zůstane prázdný a uložení coOwners nezmění. ──
+function setupCoOwnerPicker(assigneeId, boxId, selected, locked) {
+  const box = document.getElementById(boxId);
+  const sel = document.getElementById(assigneeId);
+  if (!box || !sel) return;
+  box.innerHTML = "";
+  box.dataset.ready = "0";
+  if (!FTLoader.renderCoOwnerPicker) return;
+  const render = (s) => FTLoader.renderCoOwnerPicker(box, { resitele: DATA.resitele || [], selected: s, primary: sel.value, locked });
+  render(selected);
+  sel.onchange = () => {
+    const current = FTLoader.readCoOwnerPicker(box);
+    if (current !== null) render(current);
+  };
 }
 
 // ── Nabídka řešitelů pro formuláře (nový úkol / úprava) ──────────────────

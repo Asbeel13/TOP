@@ -203,6 +203,85 @@ const FTLoader = (() => {
     return result;
   }
 
+  // Normalizovaný seznam spoluřešitelů úkolu (2026-09-21) — JEDINÉ místo
+  // s touhle logikou, používá ho rozpad na kopie v parseDatabase i detail
+  // úkolu na všech stránkách. Funguje pro originál i pro zobrazovací kopii
+  // (u kopie je hlavní řešitel v primaryOwner, ne v owner). Vynechá
+  // prázdné hodnoty, duplicity a hlavního řešitele; ne-pole = žádní.
+  function getCoOwners(task) {
+    if (!task || !Array.isArray(task.coOwners)) return [];
+    const primary = task.primaryOwner || task.owner || "";
+    const seen = new Set();
+    const result = [];
+    task.coOwners.forEach(c => {
+      const co = String(c || "").trim();
+      if (!co || co === primary || seen.has(co)) return;
+      seen.add(co);
+      result.push(co);
+    });
+    return result;
+  }
+
+  // Krátký štítek sdíleného úkolu pro kartu v kalendáři (2026-09-21):
+  // kopie u spoluřešitele → "s <hlavní>", originál se spoluřešiteli →
+  // "+ RS, LR", jinak "". Prostý text — volající ho musí escapovat.
+  function getCoOwnerLabel(task) {
+    if (!task) return "";
+    if (task.isCoOwnerCopy) return `s ${task.primaryOwner || "?"}`;
+    const co = getCoOwners(task);
+    return co.length ? `+ ${co.join(", ")}` : "";
+  }
+
+  function escapeHtmlLocal(str) {
+    return (str ?? "").toString()
+      .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  }
+
+  // ── Výběr spoluřešitelů ve formulářích (2026-09-21) ────────────────────
+  // JEDNO sdílené místo pro Správu úkolů, Dashboard i mobilní Dashboard.
+  // Zaškrtávací seznam řešitelů: bez hlavního řešitele, bez vyřazených —
+  // ale už vybraný vyřazený/neznámý spoluřešitel zůstane vidět zaškrtnutý
+  // s poznámkou (stejná zásada jako u výběru auta/řešitele: úprava úkolu
+  // nesmí nic tiše smazat). locked = úkol ze SPA syncu (*SPA…): topSync.js
+  // ho při každém běhu přepisuje, spoluřešitelé by se ztratili → jen text.
+  // Při změně hlavního řešitele zavolat znovu se selected z
+  // readCoOwnerPicker(), ať se nový hlavní ze seznamu vyřadí.
+  function renderCoOwnerPicker(container, { resitele = [], selected = [], primary = "", locked = false } = {}) {
+    if (!container) return;
+    if (locked) {
+      container.dataset.ready = "0";
+      container.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">U úkolů synchronizovaných ze SPA nelze spoluřešitele nastavit.</div>`;
+      return;
+    }
+    const sel = new Set((selected || []).map(s => String(s || "").trim()).filter(Boolean));
+    const items = [];
+    (resitele || []).forEach(r => {
+      if (!r || !r.zkratka || r.zkratka === primary) return;
+      if (r.vyrazen && !sel.has(r.zkratka)) return;
+      items.push({ value: r.zkratka, title: `${r.jmeno || ""} ${r.prijmeni || ""}`.trim(), note: r.vyrazen ? " (vyřazen)" : "" });
+    });
+    sel.forEach(s => {
+      if (s !== primary && !items.some(i => i.value === s)) items.push({ value: s, title: s, note: " (neznámý)" });
+    });
+    const labelStyle = "display:inline-flex;align-items:center;gap:5px;padding:6px 10px;min-height:36px;" +
+      "border:1px solid var(--line-medium);border-radius:6px;font-size:13px;font-weight:normal;" +
+      "text-transform:none;letter-spacing:normal;color:var(--text);cursor:pointer;margin:0;";
+    container.dataset.ready = "1";
+    container.innerHTML = items.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">` + items.map(i =>
+          `<label style="${labelStyle}" title="${escapeHtmlLocal(i.title)}"><input type="checkbox" value="${escapeHtmlLocal(i.value)}"${sel.has(i.value) ? " checked" : ""} style="width:auto;height:auto;min-height:0;margin:0;padding:0;"> ${escapeHtmlLocal(i.value)}${escapeHtmlLocal(i.note)}</label>`
+        ).join("") + `</div>`
+      : `<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">Žádní další řešitelé.</div>`;
+  }
+
+  // Vybraní spoluřešitelé z pickeru, nebo null, když picker není
+  // vykreslený/je zamčený — volající pak coOwners NEMĚNÍ (nesmí je smazat).
+  function readCoOwnerPicker(container) {
+    if (!container || container.dataset.ready !== "1") return null;
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  }
+
   function parseDatabase(json) {
     const tasks = (json.tasks || []).map(t => ({
       ...t,
@@ -257,10 +336,34 @@ const FTLoader = (() => {
       return result;
     }
 
+    // Spoluřešitelé (coOwners, 2026-09-21): úkol se má v kalendáři ukázat i
+    // u každého spoluřešitele. Stejný princip jako expandMultiDayTasks —
+    // kopie existují JEN v zobrazovacích datech (DATA.tasks), nikdy se
+    // neukládají. Všechny pohledy seskupují podle t.owner, proto kopie nese
+    // owner = spoluřešitel; skutečný hlavní řešitel je v primaryOwner.
+    // Kdo z kopie zapisuje zpět do surových dat, NESMÍ brát task.owner
+    // (přepsal by hlavního řešitele) — číst task.primaryOwner || task.owner.
+    // Originál se nemění. Jen úkoly s plannedDate (kalendář) — nenaplánované
+    // by se jinak zdvojovaly v Backlogu Dashboardu.
+    function expandCoOwnerCopies(taskList) {
+      const result = [];
+      taskList.forEach(t => {
+        if (!t.plannedDate) return;
+        const primary = t.owner || "";
+        getCoOwners(t).forEach(co => {
+          result.push({ ...t, owner: co, primaryOwner: primary, isCoOwnerCopy: true });
+        });
+      });
+      return result;
+    }
+
     const activeTasks = tasks.filter(t => !t.cancelled);
     const expandedTasks = expandMultiDayTasks(activeTasks);
+    const coOwnerCopies = expandCoOwnerCopies(expandedTasks);
+    // generateRecurring dostává záměrně jen expandedTasks (bez kopií) — její
+    // index id|datum by se kopiemi stejně nezměnil (stejné id i datum).
     const recurringTasks = generateRecurring(json.opakovaci, json.vyjimky, expandedTasks, json.dokonceni);
-    const allTasks = [...expandedTasks, ...recurringTasks];
+    const allTasks = [...expandedTasks, ...coOwnerCopies, ...recurringTasks];
     const owners = [...new Set(allTasks.map(t => t.owner))].filter(Boolean).sort((a,b) => a.localeCompare(b,"cs"));
 
     return {
@@ -719,6 +822,10 @@ const FTLoader = (() => {
     isMultiDayTaskFullyComplete,
     generateNextTaskId,
     findRawTaskForOccurrence,
+    getCoOwners,
+    getCoOwnerLabel,
+    renderCoOwnerPicker,
+    readCoOwnerPicker,
   };
 
 })();
