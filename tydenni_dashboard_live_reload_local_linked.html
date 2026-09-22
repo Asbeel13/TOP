@@ -1043,7 +1043,7 @@
           <input id="m2_auto_manual" placeholder="nebo napište SPZ ručně..." style="flex:1;" autocomplete="off" />
           <button type="button" onclick="useManualAutoNew()" style="padding:8px 12px;font-size:12px;border-radius:10px;border:1px solid #d1d5db;background:#f8fbff;cursor:pointer;white-space:nowrap;">Použít</button>
         </div>
-        <div id="m2_auto_warning" style="color:#cc1f1a;font-size:12px;margin-top:4px;display:none;"></div>
+        <div id="m2_auto_warning" style="color:var(--auto-kolize);font-size:12px;margin-top:4px;display:none;white-space:pre-line;"></div>
       </div>
       <div class="grid two">
         <div class="field field-readonly">
@@ -2167,30 +2167,52 @@ function useManualAutoNew() {
   checkAutoWarningNew(manual, datum);
 }
 
-function checkAutoWarningNew(spz, datum) {
-  const warn = document.getElementById("m2_auto_warning");
-  if (!warn) return;
-  if (!spz || !datum) { warn.style.display = "none"; return; }
-  const rez = (DATA.autaRezervace || []).find(r => r.spz === spz && r.datum === datum);
-  if (rez) {
-    warn.textContent = `⚠ Auto ${spz} je na ${datum} označeno jako: ${rez.stav}${rez.poznamka ? " — " + rez.poznamka : ""}`;
-    warn.style.display = "block";
-    return;
-  }
-  const conflict = (DATA.tasks || []).find(t => t.auto === spz && t.plannedDate === datum);
-  if (conflict) {
-    warn.textContent = `⚠ Auto ${spz} je na ${datum} již přiřazeno k úkolu: ${conflict.id} ${conflict.title}`;
-    warn.style.display = "block";
-    return;
-  }
-  const autoInfo = (DATA.auta || []).find(a => a.spz === spz);
-  if (autoInfo && autoInfo.dostupnost !== "volné") {
-    warn.textContent = `ℹ Auto ${spz} má trvalý stav: ${autoInfo.dostupnost}`;
-    warn.style.display = "block";
-    return;
-  }
-  warn.style.display = "none";
+// Kolize auta u nového úkolu (přepracováno 2026-09-22). Dřív se kontrola
+// spouštěla JEN po tlačítku "Použít" u ručně psané SPZ — výběr auta ze
+// seznamu ani změna data ji nikdy nevyvolaly (od vzniku funkce 2026-07-17),
+// a porovnávala jen začátek úkolu. Teď: sdílená logika z ft_loader.js
+// (všechny dny obou úkolů), značka ⚠ + barva z theme.css přímo v
+// rozbalovacím seznamu, podrobná hláška pod polem. Parametry zůstaly jen
+// kvůli volání z useManualAutoNew() — stav se čte z formuláře.
+function newTaskDatesNew() {
+  const plannedDate = document.getElementById("m2_planned")?.value || "";
+  if (!plannedDate) return [];
+  const checked = [];
+  for (let i = 1; i <= 7; i++) { if (document.getElementById(`m2_day_${i}`)?.checked) checked.push(i); }
+  return FTLoader.getMultiDayOccurrenceDates({
+    plannedDate,
+    durationDays: parseInt(document.getElementById("m2_duration")?.value, 10) || 1,
+    activeDays: (checked.length > 0 && checked.length < 7) ? checked : undefined,
+  });
 }
+
+function checkAutoWarningNew() {
+  const warn = document.getElementById("m2_auto_warning");
+  const sel = document.getElementById("m2_auto");
+  if (!warn || !sel) return;
+  // Pojistka: stará ft_loader.js z HTTP cache (10 min po nahrání) funkce
+  // nemá — pak se nic neoznačí, chování jako dřív, žádný pád formuláře.
+  if (!FTLoader.getAutoConflicts || !FTLoader.markAutoOptions) { warn.style.display = "none"; return; }
+  const dates = newTaskDatesNew();
+  const ctx = { tasks: (FTLoader.getRawJson() || {}).tasks || [], auta: DATA.auta || [], autaRezervace: DATA.autaRezervace || [] };
+  FTLoader.markAutoOptions(sel, dates, ctx);
+  const spz = (sel.value || "").trim();
+  const conflicts = spz ? FTLoader.getAutoConflicts(spz, dates, ctx) : [];
+  const level = FTLoader.autoConflictLevel(conflicts);
+  if (!level) { warn.style.display = "none"; return; }
+  warn.textContent = FTLoader.describeAutoConflicts(spz, conflicts);
+  warn.style.color = level === "kolize" ? "var(--auto-kolize)" : "var(--auto-kolize-stav)";
+  warn.style.display = "block";
+}
+
+// Kontrola při každé změně auta, data, počtu dní nebo aktivních dnů.
+["m2_auto", "m2_planned", "m2_duration", "m2_day_1", "m2_day_2", "m2_day_3", "m2_day_4", "m2_day_5", "m2_day_6", "m2_day_7"]
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", checkAutoWarningNew);
+    if (el.tagName === "INPUT" && el.type !== "checkbox") el.addEventListener("input", checkAutoWarningNew);
+  });
 
 function openNewTaskModal(owner, dateISO) {
   buildResitelSelectNew();
@@ -2235,6 +2257,9 @@ function openNewTaskModal(owner, dateISO) {
   document.getElementById("m2_note_internal").value = "";
   document.getElementById("m2_auto").value = "";
   document.getElementById("m2_auto_warning").style.display = "none";
+  // Datum bývá předvyplněné (klik na "+" v buňce) — označit obsazená auta
+  // v seznamu hned při otevření, ne až po první změně.
+  checkAutoWarningNew();
 
   document.getElementById("newTaskModalTitle").textContent =
     `Nový úkol${owner ? " — " + owner : ""}${dateISO ? " — " + dateISO : ""}`;

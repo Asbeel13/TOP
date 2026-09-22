@@ -759,7 +759,7 @@ initDarkMode();
             <input id="m_auto_manual" placeholder="nebo napište SPZ ručně..." style="flex:1;" autocomplete="off" />
             <button type="button" onclick="useManualAuto()" style="padding:8px 12px;font-size:12px;border-radius:10px;border:1px solid var(--line-medium);background:var(--panel-gradient-from);cursor:pointer;white-space:nowrap;">Použít</button>
           </div>
-          <div id="m_auto_warning" style="color:var(--danger);font-size:12px;margin-top:4px;display:none;"></div>
+          <div id="m_auto_warning" style="color:var(--auto-kolize);font-size:12px;margin-top:4px;display:none;white-space:pre-line;"></div>
         </div>
         <div class="grid two">
           <div class="field field-readonly">
@@ -1503,9 +1503,10 @@ function openTaskModal(task=null){
     }
     autoSel.value = autoVal;
   }
-  // Skrýt warning při otevření
-  const warn = document.getElementById("m_auto_warning");
-  if (warn) warn.style.display = "none";
+  // Kolize auta hned při otevření (dřív se hláška jen skryla): u úpravy
+  // se tak ukáže i už existující kolize a seznam aut má značky ⚠ podle
+  // data úkolu. Bez data se nic neoznačí.
+  checkAutoWarning();
 
   els.taskModal.classList.add("open");
 }
@@ -1711,6 +1712,9 @@ function buildAutaDatalist() {
     sel.appendChild(opt);
   }
   if (current) sel.value = current;
+  // Přenačtení dat (polling, SPA sync) seznam přestaví a značky ⚠ by
+  // zmizely — u otevřeného modalu je hned obnovit.
+  if (els.taskModal && els.taskModal.classList.contains("open")) checkAutoWarning();
 }
 
 function useManualAuto() {
@@ -1732,11 +1736,15 @@ function useManualAuto() {
   checkAutoWarning(manual, datum, currentEditIndex);
 }
 
+// "Dostupnost dnes" v Přehledu aut. Od 2026-09-22 přes sdílenou
+// FTLoader.getAutoDostupnost (→ getAutoConflicts): dřív porovnávala jen
+// začátek úkolu, auto obsazené 2.+ dnem vícedenního úkolu se jevilo
+// "volné". Záloha (stará ft_loader.js z HTTP cache) = původní logika.
 function getAutoDostupnostDen(spz, datum) {
   if (!spz || !datum) return "volné";
+  if (FTLoader.getAutoConflicts) return FTLoader.getAutoDostupnost(spz, datum, auta, autaRezervace, tasks);
   const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
   if (rez) return rez.stav;
-  // Kontrola přes úkoly, které mají toto auto přiřazené na daný den
   const conflict = tasks.find(t => !t.cancelled && t.auto === spz && t.plannedDate === datum);
   if (conflict) return "používané";
   const auto = auta.find(a => a.spz === spz);
@@ -1744,37 +1752,42 @@ function getAutoDostupnostDen(spz, datum) {
   return "volné";
 }
 
-function checkAutoWarning(spz, datum, currentTaskRowIndex) {
+// Všechny dny úkolu podle formuláře (datum + počet dní + aktivní dny).
+function modalTaskDates() {
+  const plannedDate = document.getElementById("m_planned")?.value || "";
+  if (!plannedDate || !FTLoader.getMultiDayOccurrenceDates) return plannedDate ? [plannedDate] : [];
+  const checked = [];
+  for (let i = 1; i <= 7; i++) { if (document.getElementById(`m_day_${i}`)?.checked) checked.push(i); }
+  return FTLoader.getMultiDayOccurrenceDates({
+    plannedDate,
+    durationDays: parseInt(document.getElementById("m_duration")?.value, 10) || 1,
+    activeDays: (checked.length > 0 && checked.length < 7) ? checked : undefined,
+  });
+}
+
+// Kolize auta v modalu úkolu (přepracováno 2026-09-22): sdílená logika z
+// ft_loader.js — všechny dny zadávaného i existujících úkolů (dřív jen
+// začátek), značka ⚠ + barva z theme.css v rozbalovacím seznamu, podrobná
+// hláška pod polem. Upravovaný úkol se vylučuje podle rowIndex; zrušené
+// úkoly vylučuje getAutoConflicts (oprava 2026-09-17, nález č. 12, zůstává).
+// Parametry ignorované — stav se čte z formuláře (volání zůstala kvůli
+// zpětné kompatibilitě).
+function checkAutoWarning() {
   const warn = document.getElementById("m_auto_warning");
-  if (!warn || !spz || !datum) { if (warn) warn.style.display = "none"; return; }
-  // Kontrola přes rezervace
-  const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
-  if (rez) {
-    warn.textContent = `⚠ Auto ${spz} je na ${datum} označeno jako: ${rez.stav}${rez.poznamka ? " — " + rez.poznamka : ""}`;
-    warn.style.display = "block";
-    return;
-  }
-  // Kontrola přes ostatní úkoly — vyloučit zrušené (oprava 2026-09-17,
-  // nález č. 12): getAutoDostupnostDen() zrušené úkoly už vylučovala,
-  // tahle sesterská funkce ne, takže varování mohlo strašit i kvůli
-  // autu přiřazenému úkolu, který byl mezitím zrušen.
-  const conflict = tasks.find(t =>
-    !t.cancelled &&
-    t.rowIndex !== currentTaskRowIndex &&
-    t.auto === spz && t.plannedDate === datum
-  );
-  if (conflict) {
-    warn.textContent = `⚠ Auto ${spz} je na ${datum} již přiřazeno k úkolu: ${conflict.id} ${conflict.task}`;
-    warn.style.display = "block";
-    return;
-  }
-  const autoInfo = auta.find(a => a.spz === spz);
-  if (autoInfo && autoInfo.dostupnost !== "volné") {
-    warn.textContent = `ℹ Auto ${spz} má trvalý stav: ${autoInfo.dostupnost}`;
-    warn.style.display = "block";
-    return;
-  }
-  warn.style.display = "none";
+  const sel = document.getElementById("m_auto");
+  if (!warn || !sel) return;
+  if (!FTLoader.getAutoConflicts || !FTLoader.markAutoOptions) { warn.style.display = "none"; return; }
+  const dates = modalTaskDates();
+  const editIdx = currentEditIndex;
+  const ctx = { tasks, auta, autaRezervace, exclude: t => editIdx != null && t.rowIndex === editIdx };
+  FTLoader.markAutoOptions(sel, dates, ctx);
+  const spz = (sel.value || "").trim();
+  const conflicts = spz ? FTLoader.getAutoConflicts(spz, dates, ctx) : [];
+  const level = FTLoader.autoConflictLevel(conflicts);
+  if (!level) { warn.style.display = "none"; return; }
+  warn.textContent = FTLoader.describeAutoConflicts(spz, conflicts);
+  warn.style.color = level === "kolize" ? "var(--auto-kolize)" : "var(--auto-kolize-stav)";
+  warn.style.display = "block";
 }
 
 // ── Tabulka aut a rezervací ───────────────────────────────────────────
@@ -2629,21 +2642,12 @@ window.addEventListener("click", (e) => {
   if(e.target === els.taskModal) closeTaskModal();
 });
 
-// ── Kontrola dostupnosti auta při změně SPZ nebo data v modalu ──
-document.addEventListener("input", (e) => {
-  if (e.target.id === "m_planned") {
-    const spz = (document.getElementById("m_auto")?.value || "").trim();
-    const datum = e.target.value || "";
-    checkAutoWarning(spz, datum, currentEditIndex);
-  }
-});
-document.addEventListener("change", (e) => {
-  if (e.target.id === "m_auto") {
-    const spz = (e.target.value || "").trim();
-    const datum = document.getElementById("m_planned")?.value || "";
-    checkAutoWarning(spz, datum, currentEditIndex);
-  }
-});
+// ── Kontrola dostupnosti auta při změně auta, data, počtu dní nebo
+// aktivních dnů v modalu (počet/aktivní dny doplněny 2026-09-22 —
+// vícedenní úkol obsazuje auto každý aktivní den) ──
+const AUTO_CHECK_IDS = new Set(["m_auto", "m_planned", "m_duration", "m_day_1", "m_day_2", "m_day_3", "m_day_4", "m_day_5", "m_day_6", "m_day_7"]);
+document.addEventListener("input", (e) => { if (AUTO_CHECK_IDS.has(e.target.id)) checkAutoWarning(); });
+document.addEventListener("change", (e) => { if (AUTO_CHECK_IDS.has(e.target.id)) checkAutoWarning(); });
 
 async function debugGitHub() {
   const lines = [];

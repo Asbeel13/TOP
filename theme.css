@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílený design systém (theme.css) — TOP + SPA
-   verze 1.4.0 — 2026-09-15
+   verze 1.4.1 — 2026-09-22
    ==========================================================================
    Jediný zdroj barevné palety pro TOP (Dashboard, Přehled desktop i mobil,
    Správa úkolů, Dashboard mobil) I SPA (Správa Pracovních Absencí).
@@ -199,6 +199,16 @@
      v novém `components.css`, který tenhle soubor jen doplňuje o
      hodnoty. TOP zatím jediný odběratel, SPA se může připojit později,
      nezávazně.
+
+   **v1.4.1 (2026-09-22, TOP — kolize aut při zadávání úkolu):** dvě nové
+   proměnné v sekci "Dostupnost vozidel" (jen TOP) pro zvýraznění auta
+   v rozbalovacím seznamu (a hlášku pod polem) v Dashboardu a Správě
+   úkolů: `--auto-kolize` (auto už je ten den přiřazené jinému úkolu,
+   červená) a `--auto-kolize-stav` (rezervace nebo trvalý stav auta,
+   oranžová). Obě s vlastní tmavou hodnotou (sytá červená/oranžová má na
+   tmavém pozadí rozbalovacího seznamu slabý kontrast). Pravidlo JK:
+   všechny barvy jen přes proměnné tady, ať jdou měnit na jednom místě.
+   SPA tyhle tokeny nepoužívá.
    ========================================================================== */
 
 :root {
@@ -412,6 +422,10 @@
   --auto-pouzivane-border: var(--accent-soft-border);
   --auto-tfm-bg: #dbeafe;
   --auto-tfm-border: #93c5fd;
+  /* NOVÉ v1.4.1 — kolize auta při zadávání úkolu (rozbalovací seznam
+     + hláška pod polem, Dashboard a Správa úkolů) */
+  --auto-kolize: var(--danger);          /* auto ten den už má jiný úkol */
+  --auto-kolize-stav: var(--warn);       /* rezervace / trvalý stav auta */
 
   /* ── Hlavičky sloupců kalendáře podle dne v týdnu (jen TOP) ── */
   --day-mon: var(--accent-pale-dark);
@@ -568,6 +582,8 @@ html.dark {
   --auto-rezervovane-bg: var(--warn-soft);
   --auto-tfm-bg: #17305c;
   --auto-tfm-border: #3b82f6;
+  --auto-kolize: #f87171;                /* NOVÉ v1.4.1 — čitelná červená na tmavém */
+  --auto-kolize-stav: #fbbf24;           /* NOVÉ v1.4.1 — čitelná oranžová na tmavém */
 
   --day-wed: #6b4a2f;
   --day-thu: #6b5b1f;

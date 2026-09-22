@@ -573,16 +573,100 @@ const FTLoader = (() => {
 
   // ── Getters/setters pro správu úkolů ──────────────────────────────────
   function getAutoDostupnost(spz, datum, auta, autaRezervace, tasks) {
-    const rez = autaRezervace.find(r => r.spz === spz && r.datum === datum);
+    const c = getAutoConflicts(spz, [datum], { tasks: tasks || [], auta, autaRezervace });
+    const rez = c.find(x => x.typ === "rezervace");
     if (rez) return rez.stav;
-    // Kontrola přes úkoly, které mají toto auto přiřazené na daný den
-    if (tasks) {
-      const conflict = tasks.find(t => !t.cancelled && t.auto === spz && t.plannedDate === datum);
-      if (conflict) return "používané";
-    }
-    const auto = auta.find(a => a.spz === spz);
-    if (auto && auto.dostupnost !== "volné") return auto.dostupnost;
-    return "volné";
+    if (c.some(x => x.typ === "ukol")) return "používané";
+    const stav = c.find(x => x.typ === "stav");
+    return stav ? stav.stav : "volné";
+  }
+
+  // ── Kolize auta pro zadávaný úkol (2026-09-22) ─────────────────────────
+  // JEDINÉ místo téhle logiky — dřív 3 mírně odlišné kopie (výš
+  // getAutoDostupnost, Správa getAutoDostupnostDen/checkAutoWarning,
+  // Dashboard checkAutoWarningNew) a všechny porovnávaly jen plannedDate
+  // = ZAČÁTEK úkolu, takže vícedenní úkoly unikaly (auto obsazené 2. dnem
+  // vícedenního úkolu se jevilo volné; u nového vícedenního úkolu se
+  // kontroloval jen 1. den).
+  //   dates   = VŠECHNY dny zadávaného úkolu (getMultiDayOccurrenceDates)
+  //   tasks   = SUROVÉ úkoly (raw.tasks nebo pole Správy úkolů), NE
+  //             zobrazovací DATA.tasks — ty obsahují kopie spoluřešitelů a
+  //             opakující se výskyty (dvojí hlášení / chybějící vícedenní dny)
+  //   exclude = funkce, true pro právě upravovaný úkol (nesmí kolidovat
+  //             sám se sebou)
+  // Vrací [{ datum, typ: "ukol"|"rezervace"|"stav", task?, stav?, poznamka? }]
+  // seřazené podle data. Přidělit auto víc lidem je DOVOLENÉ (JK) — tohle
+  // jen upozorňuje, nic neblokuje.
+  function getAutoConflicts(spz, dates, { tasks = [], auta = [], autaRezervace = [], exclude = null } = {}) {
+    const want = new Set((dates || []).filter(Boolean));
+    if (!spz || want.size === 0) return [];
+    const out = [];
+    (autaRezervace || []).forEach(r => {
+      if (r && r.spz === spz && want.has(r.datum)) out.push({ datum: r.datum, typ: "rezervace", stav: r.stav || "", poznamka: r.poznamka || "" });
+    });
+    (tasks || []).forEach(t => {
+      if (!t || t.cancelled || t.auto !== spz || (exclude && exclude(t))) return;
+      getMultiDayOccurrenceDates(t).forEach(d => { if (want.has(d)) out.push({ datum: d, typ: "ukol", task: t }); });
+    });
+    const a = (auta || []).find(x => x && x.spz === spz);
+    if (a && a.dostupnost && a.dostupnost !== "volné") out.push({ datum: null, typ: "stav", stav: a.dostupnost });
+    return out.sort((x, y) => String(x.datum || "").localeCompare(String(y.datum || "")));
+  }
+
+  // Úroveň pro barvu: "kolize" (jiný úkol, --auto-kolize), "stav"
+  // (rezervace/trvalý stav, --auto-kolize-stav), "" = volné.
+  function autoConflictLevel(conflicts) {
+    if (!conflicts || !conflicts.length) return "";
+    return conflicts.some(c => c.typ === "ukol") ? "kolize" : "stav";
+  }
+
+  // Text hlášky pod polem Auto (prostý text, volající nastaví textContent).
+  function describeAutoConflicts(spz, conflicts) {
+    if (!conflicts || !conflicts.length) return "";
+    const den = iso => { const [y, m, d] = String(iso).split("-").map(Number); return `${d}. ${m}.`; };
+    const lines = [];
+    const ukoly = conflicts.filter(c => c.typ === "ukol");
+    ukoly.slice(0, 4).forEach(c => {
+      const t = c.task;
+      const kdo = t.owner || t.assignee || "?";
+      lines.push(`⚠ Auto ${spz} je ${den(c.datum)} už přiřazené: ${t.id || ""} ${t.title || t.task || ""} (${kdo})`.replace(/\s+/g, " "));
+    });
+    if (ukoly.length > 4) lines.push(`… a další ${ukoly.length - 4}×`);
+    conflicts.filter(c => c.typ === "rezervace").forEach(c => {
+      lines.push(`⚠ Auto ${spz} je ${den(c.datum)} označené jako: ${c.stav}${c.poznamka ? " — " + c.poznamka : ""}`);
+    });
+    const stav = conflicts.find(c => c.typ === "stav");
+    if (stav) lines.push(`⚠ Auto ${spz} má trvalý stav: ${stav.stav}`);
+    return lines.join("\n");
+  }
+
+  // Označí položky rozbalovacího seznamu aut: obsazené auto dostane
+  // symbol ⚠ a barvu z theme.css (--auto-kolize / --auto-kolize-stav).
+  // Bez vyplněného data (dates prázdné) vrátí seznam do původní podoby.
+  // Barvu <option> respektuje Chrome/Edge/Firefox na desktopu; Safari a
+  // Android ji ignorují — proto i symbol ⚠, ten je vidět všude. Obarví i
+  // samotný <select> podle zrovna vybraného auta. Původní text položky
+  // drží data-label, takže jde volat opakovaně.
+  function markAutoOptions(select, dates, ctx) {
+    if (!select) return;
+    const color = lvl => lvl === "kolize" ? "var(--auto-kolize)" : lvl === "stav" ? "var(--auto-kolize-stav)" : "";
+    const opts = Array.from(select.options);
+    opts.forEach(opt => {
+      if (!opt.value) { opt.dataset.level = ""; return; }
+      if (opt.dataset.label === undefined) opt.dataset.label = opt.textContent;
+      const c = (dates && dates.length) ? getAutoConflicts(opt.value, dates, ctx) : [];
+      const lvl = autoConflictLevel(c);
+      opt.textContent = lvl ? `⚠ ${opt.dataset.label}` : opt.dataset.label;
+      opt.title = lvl ? describeAutoConflicts(opt.value, c) : "";
+      opt.dataset.level = lvl;
+    });
+    const selOpt = select.options[select.selectedIndex];
+    const selColor = selOpt && selOpt.value ? color(selOpt.dataset.level) : "";
+    select.style.color = selColor;
+    // Položky jinak barvu dědí ze <select> — když je <select> obarvený,
+    // volné položky dostanou výslovně běžnou barvu textu, ať nevypadají
+    // taky obsazené.
+    opts.forEach(opt => { opt.style.color = color(opt.dataset.level) || (selColor ? "var(--text)" : ""); });
   }
 
   // ── Init ───────────────────────────────────────────────────────────────
@@ -850,6 +934,10 @@ const FTLoader = (() => {
     getCoOwnerLabel,
     renderCoOwnerPicker,
     readCoOwnerPicker,
+    getAutoConflicts,
+    autoConflictLevel,
+    describeAutoConflicts,
+    markAutoOptions,
   };
 
 })();
