@@ -5,6 +5,80 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## ✅ Kolize aut při zadávání úkolu (2026-09-22, NASAZENO a ověřeno — commit `007b552`)
+
+**✅ Nahráno JK a ověřeno (2026-09-22 15:34, `007b552`, 4 soubory):**
+`git fetch` + `cmp` — `theme.css`, `ft_loader.js`, Dashboard, Správa
+bajtově shodné s ověřenou verzí. GitHub Pages: SHA-256 všech 4 sedí;
+nasazený `ft_loader.js` spuštěný samostatně správně hlásí 2. den
+vícedenního úkolu a ignoruje zrušený; nasazený `theme.css` rozparsován
+celý (obě pravidla `:root` i `html.dark`, žádné utnutí komentářem jako
+v1.3.1), `--auto-kolize`/`--auto-kolize-stav` v obou režimech.
+`Esperanto/theme.css` (kanonická, `3c48890`) bajtově shodná.
+**✅ JK otestoval v appce s reálnými daty (2026-09-22): zobrazení v
+Dashboardu i ve Správě úkolů v pořádku. Hotovo.**
+
+**Nahlásil JK:** při zakládání úkolu se neukazuje upozornění, že auto
+je ten den už zapsané u jiného člověka. (Přidělit auto víc lidem je
+ŽÁDOUCÍ — jen má systém upozornit, nic neblokovat.)
+
+**Zjištěno:**
+- **Dashboard:** `checkAutoWarningNew()` existovala, ale od vzniku
+  (2026-07-17, ověřeno `git log -S`) se volala JEN z tlačítka "Použít" u
+  ručně psané SPZ — výběr auta ze seznamu ani změna data ji nikdy
+  nespustily. Nebyla to regrese.
+- **Správa úkolů:** napojeno bylo (změna auta/data), ale všechny 3 kopie
+  logiky (`getAutoDostupnost` v `ft_loader.js` — nikým nevolaná,
+  `getAutoDostupnostDen`/`checkAutoWarning` ve Správě,
+  `checkAutoWarningNew` v Dashboardu) porovnávaly jen `plannedDate` =
+  ZAČÁTEK úkolu → auto obsazené 2.+ dnem vícedenního úkolu se jevilo
+  volné (i v "dostupnost dnes" v Přehledu aut) a u nového vícedenního
+  úkolu se kontroloval jen 1. den.
+
+**Opraveno (JK schválil; pravidlo JK: všechny barvy jen přes proměnné
+v `theme.css`; v rozbalovacím seznamu jen symbol ⚠, žádný text):**
+- `theme.css` **v1.4.1**: `--auto-kolize` (červená, jiný úkol) a
+  `--auto-kolize-stav` (oranžová, rezervace/trvalý stav), obě s tmavou
+  hodnotou. Kanonicky i v `Esperanto/theme.css`.
+- `ft_loader.js`: JEDINÉ místo logiky — `getAutoConflicts(spz, dates,
+  {tasks, auta, autaRezervace, exclude})` (všechny dny zadávaného i
+  existujících úkolů přes `getMultiDayOccurrenceDates`, bez zrušených,
+  bez upravovaného úkolu; pracuje nad SUROVÝMI úkoly, ne nad
+  `DATA.tasks` s kopiemi spoluřešitelů), `autoConflictLevel`,
+  `describeAutoConflicts` (text hlášky: den, ID, název, řešitel),
+  `markAutoOptions(select, dates, ctx)` (⚠ + barva položky, obarví i
+  `<select>` podle vybraného auta; volné položky pak výslovně
+  `var(--text)`, jinak by barvu zdědily). `getAutoDostupnost` volá novou
+  logiku.
+- Dashboard: kontrola na změnu auta, data, počtu dní i aktivních dnů +
+  hned při otevření (datum bývá předvyplněné z "+").
+- Správa úkolů: totéž + při otevření modalu (u úpravy se ukáže i už
+  existující kolize) + po přestavění seznamu aut při přenačtení dat;
+  `getAutoDostupnostDen` (Přehled aut) přes sdílenou logiku.
+- Hláška pod polem: `white-space:pre-line` (víc řádků), barva z tokenu;
+  natvrdo zapsané `#cc1f1a` v Dashboardu odstraněno.
+- Barvu `<option>` respektuje Chrome/Edge/Firefox na desktopu; Safari a
+  Android ji ignorují → symbol ⚠ je vidět všude.
+- Mobilní Dashboard pole Auto nemá — beze změny.
+
+**Ověřeno:** mock GitHub API + kopie živé DB + testovací scénář (vícedenní
+úkol s autem X 5.–7. 10., rezervace Y 6. 10., zrušený úkol se Z):
+Dashboard — bez data nic, 6. 10. (den 2) X kolize/Y stav, hláška s ID a
+řešitelem, zrušený se nehlásí, 2.–4. 10. bez kolize, 2.–6. 10. kolize,
+jen pá+so bez kolize; barvy z tokenů ve světlém (`rgb(204,31,26)`/
+`rgb(217,119,6)`) i tmavém (`#f87171`/`#fbbf24`) režimu, screenshoty.
+Správa — úprava úkolu nekoliduje sama se sebou (rezervace uprostřed
+jeho trvání se hlásí), nový úkol hlásí, značky přežijí přestavění
+seznamu, dostupnost X 5./6./7. 10. "používané" (dřív jen 5.), 8. volné,
+Y "servis", zrušený Z volné. Žádné JS chyby. Statika: `{}`/`()`/`/* */`
+vyvážené (theme.css +5 komentářů = nové), CRLF, bez BOM, žádný hex v
+nových řádcích HTML.
+
+**K nahrání:** `theme.css`, `ft_loader.js`,
+`tydenni_dashboard_live_reload_local_linked.html`,
+`sprava_ukolu_linked.html`. Stránky jsou jištěné proti staré
+`ft_loader.js` z HTTP cache (bez funkcí se jen nic neoznačí).
+
 ## ⏸️ NEDOŘEŠENO: Historie úprav úkolů (2026-09-22, návrh hotový, odloženo)
 
 JK chce u úkolu vidět kdo založil / změnil / dal hotovo / smazal.
