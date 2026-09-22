@@ -5,7 +5,90 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
-## 🟡 Spoluřešitelé úkolu (2026-09-21, IMPLEMENTOVÁNO lokálně, kroky 1–4 — čeká na nahrání JK)
+## ⏸️ NEDOŘEŠENO: Historie úprav úkolů (2026-09-22, návrh hotový, odloženo)
+
+JK chce u úkolu vidět kdo založil / změnil / dal hotovo / smazal.
+Návrh, měření četnosti úprav, odhad velikosti, rozhodnutí JK a kroky
+implementace jsou v **`TOP/HISTORIE_UPRAV_navrh.md`** — nic zatím
+neimplementováno, JK: „teď to řešit nebudeme“. Klíčové: historie do
+samostatných měsíčních souborů `top-data/history/YYYY-MM.json` (NE do
+`database.json`), zápis jediným místem v `saveToGitHub()` přes diff
+před/po, zobrazení jen ve Správě úkolů, zpětné doplnění z commitů.
+
+## ✅ Svátky ze SPA jako jeden sdílený úkol (2026-09-22, NASAZENO na obou stranách, JK vizuálně potvrdil — HOTOVO)
+
+**✅ Nahráno JK a ověřeno (2026-09-22, commit `77a549e`, 2 soubory):**
+první pokus o nahrání se na GitHubu neprojevil (žádný commit) — odhaleno
+`git fetch`, JK nahrál znovu. `git fetch` + `cmp`: všechny soubory appky
+bajtově shodné s lokální verzí. GitHub Pages: sestavení doběhlo ~1 min
+po commitu (první kontrola ještě ukázala starý obsah); pak SHA-256 obou
+souborů (`cache:"no-store"`) sedí a nasazený `ft_loader.js` spuštěný
+samostatně: svátek bez štítku i bez spoluřešitelů v detailu, běžný
+sdílený úkol "+ RS" / kopie "s JK" beze změny. Vestavěný prohlížeč
+ještě chvíli držel starý `ft_loader.js` v HTTP cache (`transferSize 0`,
+`max-age=600`) — zpoždění prohlížeče, ne nasazení; stránky jsou proti
+tomu jištěné. **SPA restartována** (konzole `31 dovolené + 26 svátků`),
+živá `database.json` ověřena (jen čtení): 26 svátků v novém formátu, 0
+ve starém, 713 kB. První nahrání ve 14:33 omylem skončilo v `top-data`
+(`ft_loader.js` + `tydenni_dashboard_mobile.html`), JK je ve 14:39
+smazal — ověřeno, že `top-data` je čistý. **Zbývá jen vizuální kontrola
+svátků v TOP (JK).**
+
+Změna kontraktu SPA→TOP (odsouhlasil JK): svátek = JEDEN úkol
+`*SPA-HOL-<datum>*`, `owner` = první zkratka abecedně, `coOwners` =
+ostatní (místo úkolu na každého člověka, ~442 → ~26 úkolů,
+`database.json` ~832 → ~683 kB). **Plný popis je v
+`Esperanto/INTEGRACE.md`, sekce 5, záznam 2026-09-22** (rozhodující) —
+tady jen TOP-side shrnutí.
+
+- `ft_loader.js` (upravila SPA-side session): `isSpaHoliday()`,
+  `getCoOwners()`/`getCoOwnerLabel()` pro svátek prázdné (žádné štítky,
+  žádné "Spoluřešitelé" v detailu), rozpad přes interní `listCoOwners()`.
+- **TOP-side kontrola (2026-09-22) našla 1 vadu:** kopie svátku nesla
+  `primaryOwner` → detail u DH ukazoval řešitele "AMa". **Opraveno:**
+  kopie svátku BEZ `primaryOwner` i `isCoOwnerCopy`. Aby to nešlo zneužít
+  (primaryOwner jinak chrání mobilní úpravu z kopie před přepsáním
+  hlavního řešitele), `tydenni_dashboard_mobile.html` `openModal()` u
+  **všech `*SPA` úkolů skrývá "Upravit" i "Zrušit"** (sdílený svátek by
+  zrušení schovalo všem najednou; úpravu SPA úkolu stejně přepíše sync).
+- **Ověřeno:** kopie živé DB, 12/12 (regrese bajtově shodná s GitHub
+  verzí; převod svátků → každý vidí přesně stejné svátky, 442 dvojic;
+  bez štítků/rámečku; ostatní úkoly beze změny) + skutečná mobilní
+  stránka s mockem (svátek u všech 17, detail u DH ukazuje DH, u svátku i
+  dovolené Upravit/Zrušit skryté, Hotovo zůstává, běžný úkol má obě
+  tlačítka, žádné JS chyby). Statika: `{}`/`()`/`/* */` vyvážené, CRLF,
+  bez BOM.
+- **K nahrání:** `ft_loader.js` + `tydenni_dashboard_mobile.html`. Pak
+  restart SPA serveru s novým `topSync.js` (obrácené pořadí nic nerozbije).
+
+## ✅ Spoluřešitelé úkolu (2026-09-21, kroky 1–4 NASAZENO a ověřeno — čeká na zpětnou vazbu JK z provozu)
+
+**✅ Nahráno JK a ověřeno (2026-09-21, commit `7fd1219`):** `git fetch` +
+`diff` — všech 6 souborů appky (`ft_loader.js`, `sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`,
+`tydenni_dashboard_mobile.html`, `tydenni_prehled.html`,
+`tydenni_prehled_mobile.html`) bajtově shodných s lokální verzí. Živě na
+GitHub Pages: SHA-256 všech 6 souborů staženích s `cache:"no-store"`
+sedí, načtená stránka má `FTLoader.getCoOwners`/`getCoOwnerLabel`/
+`renderCoOwnerPicker`/`readCoOwnerPicker`, žádné chyby v konzoli.
+Stejným commitem nahrán i `CLAUDE.md` — obsah shodný, jen GitHub ho teď
+drží s CRLF (dřív LF); `git diff` ho kvůli `core.autocrlf=true` ukazuje
+jako změněný celý, hash souboru je ale stejný. Skutečná data (karty,
+picker s reálnými řešiteli) ověří JK v appce — token se nezadává.
+
+**Navazující změna 2026-09-22 — svátky ze SPA jako jeden sdílený úkol
+(✅ NAHRÁNO JK 2026-09-22, SPA sync potvrdil `+ 26 svátků`):** SPA posílá svátek jako JEDEN úkol
+`*SPA-HOL-<datum>*` s `coOwners` = všichni SPA-propojení lidé (místo úkolu
+na každého, 442 → 26 úkolů v `database.json`). Změna jen v `ft_loader.js`:
+interní `isSpaHoliday(task)`; veřejná `getCoOwners()` pro svátek vrací
+`[]` a `getCoOwnerLabel()` `""` (žádné "s JK"/"+ …"/"Spoluřešitelé" v
+kartách a detailu); `expandCoOwnerCopies()` čte novou interní
+`listCoOwners()` a kopiím svátku dává `isCoOwnerCopy: false` → bez
+čárkovaného rámečku, počítadla jako dřív. Stránky ani Správa úkolů se
+nemění (ve Správě je svátek jeden řádek "AMa + JK, LR, …"). Ověřeno
+headless Edge testem (9/9 + end-to-end se SPA 7/7). Nahrát jen
+`ft_loader.js`, PŘED restartem SPA. Změna kontraktu — plný popis v
+`Esperanto/INTEGRACE.md` (sekce 2 + sekce 5, 2026-09-22).
 
 **Zadání JK:** u každého úkolu zůstává hlavní řešitel (= dnešní pole
 Řešitel/`owner`), navíc jde doplnit další řešitele. Úkol se v kalendáři
