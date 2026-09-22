@@ -841,7 +841,13 @@ function openModal(task) {
   // případy zůstává jen Hotovo, plnou editaci nechat na počítači.
   const editBtn = document.getElementById("modalEditBtn");
   const cancelBtn = document.getElementById("modalCancelBtn");
-  const isSimpleTask = task.id && !task.recurring && !task.isMultiDay && !task.cancelled;
+  // Úkoly ze SPA syncu (*SPA… — dovolená, svátky) taky ne: zdroj pravdy je
+  // SPA, úpravu by příští sync stejně přepsal. U svátku (jeden sdílený úkol
+  // pro všechny, 2026-09-22) by navíc úprava z kopie zapsala owner = tenhle
+  // člověk a hlavní řešitel by svátek ve svém řádku ztratil; zrušení by ho
+  // schovalo všem najednou.
+  const isSpaTask = /^\*?SPA/.test(String(task.id || ""));
+  const isSimpleTask = task.id && !task.recurring && !task.isMultiDay && !task.cancelled && !isSpaTask;
   editBtn.style.display = (_canWrite && isSimpleTask) ? "inline-block" : "none";
   cancelBtn.style.display = (_canWrite && isSimpleTask) ? "inline-block" : "none";
 

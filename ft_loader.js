@@ -208,7 +208,22 @@ const FTLoader = (() => {
   // úkolu na všech stránkách. Funguje pro originál i pro zobrazovací kopii
   // (u kopie je hlavní řešitel v primaryOwner, ne v owner). Vynechá
   // prázdné hodnoty, duplicity a hlavního řešitele; ne-pole = žádní.
+  // Státní svátek ze SPA syncu (*SPA-HOL-…, 2026-09-22): SPA ho posílá jako
+  // JEDEN úkol s coOwners = všichni (místo úkolu na každého člověka — kvůli
+  // velikosti database.json). Pro zobrazení se ale chová, jako by měl každý
+  // vlastní úkol: bez štítků "s JK"/"+ RS, LR…", bez čárkovaného označení
+  // kopie a v počítadlech jako dřív. Kopie v kalendáři se vyrábějí dál
+  // (listCoOwners), jen je navenek nevidět.
+  function isSpaHoliday(task) {
+    return String((task && task.id) || "").startsWith("*SPA-HOL-");
+  }
+
   function getCoOwners(task) {
+    if (isSpaHoliday(task)) return [];
+    return listCoOwners(task);
+  }
+
+  function listCoOwners(task) {
     if (!task || !Array.isArray(task.coOwners)) return [];
     const primary = task.primaryOwner || task.owner || "";
     const seen = new Set();
@@ -226,7 +241,7 @@ const FTLoader = (() => {
   // kopie u spoluřešitele → "s <hlavní>", originál se spoluřešiteli →
   // "+ RS, LR", jinak "". Prostý text — volající ho musí escapovat.
   function getCoOwnerLabel(task) {
-    if (!task) return "";
+    if (!task || isSpaHoliday(task)) return "";
     if (task.isCoOwnerCopy) return `s ${task.primaryOwner || "?"}`;
     const co = getCoOwners(task);
     return co.length ? `+ ${co.join(", ")}` : "";
@@ -350,8 +365,17 @@ const FTLoader = (() => {
       taskList.forEach(t => {
         if (!t.plannedDate) return;
         const primary = t.owner || "";
-        getCoOwners(t).forEach(co => {
-          result.push({ ...t, owner: co, primaryOwner: primary, isCoOwnerCopy: true });
+        // Svátek: kopie BEZ primaryOwner i isCoOwnerCopy — zobrazí se, počítá
+        // i v detailu ukáže jako vlastní úkol daného člověka (viz isSpaHoliday
+        // výš; s primaryOwner by detail u DH ukazoval řešitele "AMa").
+        // Bezpečné jen proto, že úprava/zrušení *SPA úkolů je na mobilu
+        // zakázaná (tydenni_dashboard_mobile.html, openModal) — jinak by
+        // úprava z kopie zapsala do svátku owner = tenhle člověk.
+        const svatek = isSpaHoliday(t);
+        listCoOwners(t).forEach(co => {
+          result.push(svatek
+            ? { ...t, owner: co }
+            : { ...t, owner: co, primaryOwner: primary, isCoOwnerCopy: true });
         });
       });
       return result;
