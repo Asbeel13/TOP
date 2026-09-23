@@ -117,6 +117,11 @@ const FTLoader = (() => {
   let _pollTimer = null;
   let _lastSha = "";
   let _lastEtag = "";
+  // Přesný text database.json, ke kterému patří SHA v _base.sha — výchozí
+  // stav pro historii úprav (viz "Historie úprav úkolů" níž). Drží se
+  // v paměti spolu se SHA, ne z localStorage cache: ta se při plné kvótě
+  // tiše neuloží a historie by pak porovnávala se zastaralými daty.
+  let _base = null; // { sha, str }
 
   function status(msg, err) { if (_onStatus) _onStatus(msg, !!err); }
 
@@ -439,6 +444,7 @@ const FTLoader = (() => {
         if (!rawResp.ok) throw new Error(`GitHub API (raw, soubor nad 1MB) ${rawResp.status}`);
         jsonStr = await rawResp.text();
       }
+      _base = { sha, str: jsonStr };
       const json = JSON.parse(jsonStr);
       const parsed = parseDatabase(json);
 
@@ -486,6 +492,11 @@ const FTLoader = (() => {
     json.updatedAt = new Date().toISOString();
     json.updatedBy = user;
 
+    // Stav PŘED uložením pro historii úprav — jen když přesně odpovídá SHA,
+    // proti kterému se ukládá (GitHub zápis přijme jen při shodě SHA, takže
+    // rozdíl pak ukazuje přesně to, co TOHLE uložení změnilo).
+    const historyBase = _base && _base.sha === _lastSha ? _base.str : null;
+
     // Enkóduj JSON → UTF-8 → Base64 (po částech, aby nedošlo k přetečení zásobníku u velkých souborů)
     // Kompaktní zápis (bez odsazení), ne JSON.stringify(json, null, 2) jako
     // dřív — KRITICKÁ OPRAVA (2026-09-18, viz fetchFromGitHub() výš). Bez
@@ -493,7 +504,8 @@ const FTLoader = (() => {
     // Správa úkolů) zase nafouklo soubor zpátky nad ~1MB, i po SPA-side
     // opravě v topSync.js. Nikdo tenhle soubor needituje ručně, odsazení
     // nemá funkční přínos.
-    const jsonBytes = new TextEncoder().encode(JSON.stringify(json));
+    const jsonStr = JSON.stringify(json);
+    const jsonBytes = new TextEncoder().encode(jsonStr);
     let binary = "";
     const CHUNK = 8192;
     for (let i = 0; i < jsonBytes.length; i += CHUNK) {
@@ -545,7 +557,218 @@ const FTLoader = (() => {
       }));
     } catch(e) {}
 
+    _base = { sha: _lastSha, str: jsonStr };
+    // Historie AŽ PO úspěšném uložení úkolu, zápis běží na pozadí — její
+    // chyba nikdy nesmí shodit ani zdržet uložení (rozhodnutí JK
+    // 2026-09-22: "nejdřív úkol, pak historie").
+    try { recordHistory(historyBase, json, user); }
+    catch (e) { console.warn("ft_loader historie:", e); }
+
     return data;
+  }
+
+  // ── Historie úprav úkolů (2026-09-23, viz HISTORIE_UPRAV_navrh.md) ─────
+  // Kdo úkol založil / změnil / dal hotovo / zrušil / smazal. Zapisuje se
+  // JEN odsud (všechny zápisy TOP jdou přes saveToGitHub) — rozdíl stavu
+  // před a po uložení, takže stránky nic volat nemusí a zachytí se i
+  // hromadné "Uloženo uživatelem X" ze Správy úkolů.
+  // Ukládá se MIMO database.json do měsíčních souborů
+  // top-data/history/YYYY-MM.json = { version: 1, events: [ … ] }:
+  //   { t: čas UTC, u: kdo, id, d: plannedDate, a: akce, f: změněná pole,
+  //     ch: { pole: [staré, nové] } jen u HISTORY_KEY_FIELDS (u zalozen /
+  //     smazan jejich výchozí / poslední hodnoty), dny / dnyZpet: přidané /
+  //     odebrané hotové dny vícedenního úkolu, n: název (jen u zalozen /
+  //     smazan — smazaný úkol jinak nejde dohledat) }
+  // Akce: zalozen, zmena, hotovo, den_hotovo, zrusen, obnoven, smazan,
+  // opak_hotovo / opak_hotovo_zruseno (dokonceni opakujícího se pravidla,
+  // id = ID pravidla). Úkoly ze SPA (*SPA… dovolené, svátky) se nezapisují.
+  const HISTORY_DIR = "history";
+  const HISTORY_KEY_FIELDS = ["state", "owner", "coOwners", "plannedDate", "priority", "auto"];
+  const HISTORY_IGNORED_FIELDS = new Set(["lastUpdated"]);
+  // Pojistka proti zahlcení souboru (např. kdyby se změnil formát všech
+  // úkolů najednou) — místo stovek záznamů jen jeden souhrnný.
+  const HISTORY_MAX_EVENTS = 200;
+  let _historyQueue = Promise.resolve();
+
+  // Prázdné hodnoty se berou jako shodné — Správa úkolů při uložení
+  // přeformátuje VŠECHNY úkoly (chybějící pole → "" / false / []), to
+  // nesmí vypadat jako změna.
+  function historyEmpty(v) {
+    return v === undefined || v === null || v === "" || v === false || (Array.isArray(v) && v.length === 0);
+  }
+  function historySame(a, b) {
+    if (historyEmpty(a) && historyEmpty(b)) return true;
+    if (typeof a !== "object" && typeof b !== "object") return String(a) === String(b);
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+  function historyChangedFields(o, n) {
+    return [...new Set([...Object.keys(o), ...Object.keys(n)])]
+      .filter(k => !HISTORY_IGNORED_FIELDS.has(k) && !historySame(o[k], n[k]));
+  }
+
+  // Páruje úkoly před/po podle id. Změna plannedDate u unikátního ID je
+  // tedy "zmena", ne smazání + založení. Víc úkolů se stejným id (zástupy
+  // za opakující se pravidlo, ale v živých datech i staré duplicity se
+  // stejným id I datem — např. *0463* zrušený + nezrušený) se páruje
+  // nejdřív na úplnou shodu obsahu, pak podle plannedDate, zbytek v pořadí.
+  // Bez kroku "úplná shoda" se duplicity zkřížily a uložení bez jediné
+  // změny zapsalo falešné zrusen/obnoven (zjištěno testem 2026-09-23).
+  function historyPairTasks(before, after) {
+    const group = list => {
+      const m = new Map();
+      (list || []).forEach(t => {
+        if (!t || !t.id) return;
+        if (!m.has(t.id)) m.set(t.id, []);
+        m.get(t.id).push(t);
+      });
+      return m;
+    };
+    const b = group(before), a = group(after);
+    const pairs = [];
+    new Set([...b.keys(), ...a.keys()]).forEach(id => {
+      const bl = [...(b.get(id) || [])], al = [...(a.get(id) || [])];
+      if (bl.length > 1 || al.length > 1) {
+        const matchBy = same => {
+          for (let i = 0; i < bl.length; ) {
+            const j = al.findIndex(t => same(bl[i], t));
+            if (j >= 0) { pairs.push([bl[i], al[j]]); bl.splice(i, 1); al.splice(j, 1); }
+            else i++;
+          }
+        };
+        matchBy((x, y) => historyChangedFields(x, y).length === 0);
+        matchBy((x, y) => x.plannedDate === y.plannedDate);
+      }
+      while (bl.length && al.length) pairs.push([bl.shift(), al.shift()]);
+      bl.forEach(t => pairs.push([t, null]));
+      al.forEach(t => pairs.push([null, t]));
+    });
+    return pairs;
+  }
+
+  function buildHistoryEvents(before, after, user, t) {
+    const events = [];
+    const isSpa = x => /^\*?SPA/.test(String((x && x.id) || ""));
+    const push = (a, task, extra) => events.push({ t, u: user, id: task.id, d: task.plannedDate || "", a, ...extra });
+
+    const val = v => historyEmpty(v) ? null : v;
+    // Výchozí hodnoty klíčových polí u založení/smazání ("založen pro RS
+    // na 7. 10., P1").
+    const snapshot = (task, created) => {
+      const ch = {};
+      HISTORY_KEY_FIELDS.forEach(k => {
+        if (!historyEmpty(task[k])) ch[k] = created ? [null, task[k]] : [task[k], null];
+      });
+      return ch;
+    };
+
+    historyPairTasks(before.tasks, after.tasks).forEach(([o, n]) => {
+      if (isSpa(n || o)) return;
+      if (!o) { push("zalozen", n, { n: n.title || "", ch: snapshot(n, true) }); return; }
+      if (!n) { push("smazan", o, { n: o.title || "", ch: snapshot(o, false) }); return; }
+      const f = historyChangedFields(o, n), ch = {};
+      if (!f.length) return;
+      f.filter(k => HISTORY_KEY_FIELDS.includes(k)).forEach(k => { ch[k] = [val(o[k]), val(n[k])]; });
+      const extra = { f };
+      if (Object.keys(ch).length) extra.ch = ch;
+      // completedDays (hotové dny vícedenního úkolu) — jen přidané /
+      // odebrané dny, ne celý seznam dvakrát.
+      if (f.includes("completedDays")) {
+        const od = o.completedDays || [], nd = n.completedDays || [];
+        const plus = nd.filter(x => !od.includes(x)), minus = od.filter(x => !nd.includes(x));
+        if (plus.length) extra.dny = plus;
+        if (minus.length) extra.dnyZpet = minus;
+      }
+      let a = "zmena";
+      if (!o.cancelled && n.cancelled) a = "zrusen";
+      else if (o.cancelled && !n.cancelled) a = "obnoven";
+      else if (o.state !== "Dokončeno" && n.state === "Dokončeno") a = "hotovo";
+      else if (extra.dny) a = "den_hotovo";
+      push(a, n, extra);
+    });
+
+    const key = x => `${x.id}|${x.datum}`;
+    const bD = new Set((before.dokonceni || []).map(key));
+    const aD = new Set((after.dokonceni || []).map(key));
+    (after.dokonceni || []).forEach(x => {
+      if (!bD.has(key(x))) events.push({ t, u: user, id: x.id, d: x.datum, a: "opak_hotovo" });
+    });
+    (before.dokonceni || []).forEach(x => {
+      if (!aD.has(key(x))) events.push({ t, u: user, id: x.id, d: x.datum, a: "opak_hotovo_zruseno" });
+    });
+    return events;
+  }
+
+  function recordHistory(baseStr, json, user) {
+    if (!baseStr) { console.warn("ft_loader historie: chybí výchozí stav, uložení se do historie nezapíše"); return; }
+    const t = new Date().toISOString().slice(0, 19) + "Z";
+    let events = buildHistoryEvents(JSON.parse(baseStr), json, user, t);
+    if (!events.length) return;
+    if (events.length > HISTORY_MAX_EVENTS) {
+      console.warn(`ft_loader historie: ${events.length} záznamů najednou, zapisuji jen souhrn`);
+      events = [{ t, u: user, a: "hromadna_zmena", pocet: events.length }];
+    }
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    // Fronta = zápisy jdou postupně (dvě rychlá uložení po sobě by jinak
+    // soupeřila o SHA stejného souboru).
+    _historyQueue = _historyQueue
+      .then(() => appendHistory(month, events, user))
+      .catch(e => console.warn("ft_loader historie: zápis selhal", e));
+  }
+
+  function historyUrl(month) {
+    return `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${HISTORY_DIR}/${month}.json`;
+  }
+
+  function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return btoa(binary);
+  }
+
+  // Načte měsíční soubor historie; neexistuje → { sha: null, doc: prázdný }.
+  async function readHistoryMonth(month) {
+    const resp = await fetch(historyUrl(month), { headers: headers(), cache: "no-store" });
+    if (resp.status === 404) return { sha: null, doc: { version: 1, events: [] } };
+    if (!resp.ok) throw new Error(`historie ${month} GET ${resp.status}`);
+    const data = await resp.json();
+    let str;
+    if (data.content) {
+      const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+      str = new TextDecoder("utf-8").decode(bytes);
+    } else {
+      // nad ~1MB Contents API "content" nevrací (viz fetchFromGitHub)
+      const raw = await fetch(historyUrl(month), { headers: headers({ "Accept": "application/vnd.github.v3.raw" }), cache: "no-store" });
+      if (!raw.ok) throw new Error(`historie ${month} (raw) ${raw.status}`);
+      str = await raw.text();
+    }
+    const doc = JSON.parse(str); // poškozený soubor → chyba, NIKDY ho nepřepsat
+    if (!Array.isArray(doc.events)) doc.events = [];
+    return { sha: data.sha, doc };
+  }
+
+  async function appendHistory(month, events, user) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { sha, doc } = await readHistoryMonth(month);
+      doc.events.push(...events);
+      const body = {
+        message: `Historie: ${events.length} záznam(ů) od ${user}`,
+        content: utf8ToBase64(JSON.stringify(doc)),
+        committer: { name: user, email: `${user}@filtration.cz` }
+      };
+      if (sha) body.sha = sha;
+      const resp = await fetch(historyUrl(month), {
+        method: "PUT",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body)
+      });
+      if (resp.ok) return;
+      // 409 = někdo mezitím zapsal, 422 = soubor mezitím někdo založil →
+      // načíst znovu a zkusit to znovu
+      if (resp.status !== 409 && resp.status !== 422) throw new Error(`historie ${month} PUT ${resp.status}`);
+    }
+    throw new Error(`historie ${month}: 3× konflikt, záznam se nezapsal`);
   }
 
   // ── Pomocné funkce pro správu dat ─────────────────────────────────────
@@ -562,9 +785,10 @@ const FTLoader = (() => {
     window.addEventListener("storage", e => {
       if (e.key !== DATA_KEY || !e.newValue) return;
       try {
-        const { parsedData, sha } = JSON.parse(e.newValue);
+        const { parsedData, sha, rawJson } = JSON.parse(e.newValue);
         if (parsedData && sha !== _lastSha) {
           _lastSha = sha;
+          _base = rawJson ? { sha, str: JSON.stringify(rawJson) } : null;
           if (_onData) _onData(parsedData);
         }
       } catch(_) {}
@@ -938,6 +1162,8 @@ const FTLoader = (() => {
     autoConflictLevel,
     describeAutoConflicts,
     markAutoOptions,
+    buildHistoryEvents,
+    readHistoryMonth,
   };
 
 })();
