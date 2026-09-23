@@ -1260,6 +1260,80 @@ pro budoucí práci níže), jen opraveno na všech třech místech stejně.
   nejdou udělat spolehlivě).
 - **Push notifikace bez serveru** — nejdou udělat spolehlivě (appka musí
   běžet na popředí/pozadí, žádné notifikace při zavřené appce).
+- **Čitelnost malého textu v kartách Přehledu/Dashboardu (2026-09-23,
+  podnět JaM) — analyzováno, JK s LJ rozhodli NIC NEMĚNIT:** ořezávání
+  ani rolování nechtějí; místo toho psát krátké názvy úkolů, detaily do
+  poznámky. Detail níže, ať se měření nemusí opakovat.
+
+### Malé písmo v kartách úkolů — analýza 2026-09-23 (beze změny)
+
+**Podnět:** přišel 2026-09-23 od **JaM** (předal JK) — v Přehledu
+(desktop) jsou některé texty příliš malé na čtení (příklad: PL, pátek
+18. 9. 2026, dva dlouhé úkoly v buňce).
+
+**Rozhodnutí (JK po domluvě s LJ, 2026-09-23): NIC NEMĚNIT.** Analýza
+ukázala, že čitelné písmo jde jen za cenu ořezávání textu, nebo rolování
+obrazovky — **obě varianty nechtějí.** Místo toho platí **pravidlo pro
+zadávání:** název úkolu psát **krátce**, všechno ostatní patří do
+**poznámky**. Detaily se každý snadno dozví rozkliknutím úkolu (detail
+na počítači i na mobilu); **mobilní verze text nezkresluje vůbec**
+(karty pod sebou, nic se nezmenšuje). Pokud se k tématu někdo vrátí,
+nejdřív připomenout tohle rozhodnutí — ne znovu navrhovat B/C.
+
+**Jak se velikost skládá (`tydenni_prehled.html`):**
+1. Základ podle počtu úkolů v buňce: 1 úkol `clamp(12px, 1.6vw, 20px)`,
+   2 úkoly `clamp(12px, 1.2vw, 15px)`, 3+ `clamp(12px, 0.85vw, 13px)`.
+2. × posuvník „velikost textu“ v topbaru (`--task-scale`, 50–150 %,
+   localStorage `ftPrehledTaskFontScale`, jen Přehled).
+3. `fitTaskText()` pak po 0,5 px zmenšuje, dokud se karta vejde do
+   buňky — **dno 6 px**. Řádky jsou pevné (`grid-auto-rows: 1fr`,
+   `height: 100%`) = celý týden vždy na jedné obrazovce, jediný způsob,
+   jak přeplněnou buňku „vejít“, je zmenšit písmo. Posuvník to nespraví
+   (po změně se zmenšování spustí znovu). Projekt/SPZ `0.9em`, štítky
+   🔁/📅/👥 pevně 9 px. Dashboard má stejnou funkci se dnem 6 px
+   (základ pevně 10 px, řádky už dnes podle obsahu, bez posuvníku).
+- Změřeno: PL pátek 18. 9. = **6 px** (základ 15 px, text potřeboval
+  148 px na 29 px místa; ani na 6 px se nevešel → navíc uříznutý).
+
+**Zvažovaná varianta B** (řádky rostou podle obsahu
+`grid-auto-rows: minmax(64px, auto)`, název max. 4 řádky + řádek s autem,
+projekt 1 řádek, dno písma 9 px, celý název v `title` bublině) —
+naprogramována lokálně, změřena na kopii živé DB (mock GitHub API),
+**pak na přání JK zahozena, nic nenahráno**. Výsledky (Přehled, týdny
+10.–30. 8. 2026, 283 karet):
+
+| Okno | | Dnes | Varianta B |
+|---|---|---|---|
+| 1920×1080 | písmo | 6–20 px, 12 karet pod 9 px | 13–20 px, nic pod 9 px |
+| | oříznutý název | 3 karty nevejdou ani při 6 px | 25 karet (21 úkolů, 9 %) |
+| | výška týdne | vejde se (~103 %) | **až 2,2× okna → rolování** |
+| 1366×768 | písmo | **114 karet pod 9 px (40 %)** | nic pod 9 px |
+| | oříznutý název | 32 karet nevejde ani při 6 px | 18 % karet |
+| | výška týdne | vejde se | až 4× okna |
+
+- Oříznuté názvy by potřebovaly typicky 5–7 řádků. Velkou část tvořily
+  svátky s dlouhým názvem („Státní svátek – Den obnovy samostatného
+  českého státu / Nový rok“) opakované u každého člověka.
+- Menší základní písmo (11 px) s rostoucími řádky pomohlo málo (2,2× →
+  1,9× okna, 25 → 18 oříznutých).
+- **Podstata:** buď se týden vejde na obrazovku a přeplněné buňky mají
+  malé písmo, nebo je písmo čitelné a týden se roluje (B), případně se
+  text ořezává (C) — všechno zároveň nejde. JK a LJ nechtějí ani
+  rolování, ani ořez → zůstává dnešní stav + pravidlo krátkých názvů.
+  (Kdyby se někdy přece jen vracelo: variantu „C“ — pevné řádky + dno
+  9 px + ořez — je potřeba teprve správně změřit; první pokus měl chybu:
+  ořez na 4 řádky proběhl dřív než zmenšení písma, takže zmenšování
+  vůbec nenastalo.)
+- Nevyzkoušeno: B pro Dashboard samotný (řádky tam rostou už dnes, B by
+  jen zvedla dno na 9 px a omezila název na 4 řádky — nejspíš bez
+  negativního dopadu).
+
+**Poučení k měření v Browser panelu:** `fitAllTaskText()` běží přes
+`requestAnimationFrame` — ve skrytém panelu / neaktivní kartě se
+nespustí a měření pak ukazuje nezmenšená písma (první pokus proto
+vycházel „původní verze nikdy pod 12 px“). V testu volat `fitTaskText`
+ručně. Zmenšování po 0,5 px je pomalé (každý krok přepočítá layout) —
+měřit po ~3–5 týdnech, jinak `javascript_tool` překročí 45 s.
 
 ### Otevřená teoretická diskuze: vlastní server
 
