@@ -5,6 +5,52 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## ✅ Duplicity v databázi (2026-09-23, VYŘEŠENO a ověřeno)
+
+**✅ JK spustil úklidový skript 2026-09-23 18:37:36** (commit "Úklid
+duplicitních ID: smazány 4 zrušené kopie …"). Ověřeno na čerstvé
+kopii: 1 618 úkolů, 0 duplicitních ID, 0 duplicit obsahu, ostatní
+seznamy čisté; `*0463*` = platný „Hanon - prázdné“, `*0464*` = platný
+„Hanon - plné“, `*0701*` = 1 zrušený, `*TMTJXVNFJ*` = platný s autem
+7Z3 2432. Zároveň **první ostrý zápis historie úprav**:
+`history/2026-09.json` založen (18:37:37, 4× `smazan` s názvem a
+posledními hodnotami).
+
+Kontrola celé `database.json` (1 622 úkolů): auta, rezervace, řešitelé,
+opakovací pravidla, výjimky, dokončení, spoluřešitelé a completedDays
+jsou BEZ duplicit. Nálezy jen v `tasks[]`:
+- **A) stejné ID i datum (4 dvojice):** `*0463*`, `*0464*` (23. 7.,
+  JN, zrušená kopie jednoho ID nesla název platné kopie druhého),
+  `*0701*` (28. 8., 2 identické zrušené), `*TMTJXVNFJ*` (4. 9., zrušený
+  bez auta + platný s autem). Příčina = chyba s `rowIndex` ve Správě
+  opravená 2026-09-17; od 4. 9. žádná nová duplicita. **JK: smazat
+  zrušené kopie.** Správa umí jen rušit → připraven jednorázový skript do
+  konzole Správy (hledá kopii podle id + title + `cancelled`, když stav
+  nesedí, zastaví se bez uložení; ukládá přes `saveToGitHub`, takže se
+  smazání zapíše i do historie). Otestováno mockem: 1622 → 1618, 0
+  duplicitních ID, 4× `smazan` v historii, druhé spuštění nic neuloží.
+- **B) stejný obsah pod různým ID:** „H9 - teče horní ventil“
+  `*0044*`/`*0137*`, „HMFiT 46“ `*0324*`/`*0338*` — **JK zrušil `*0137*`
+  a `*0338*` ručně** (ověřeno v datech).
+- **Pojistky navržené a ZAMÍTNUTÉ JK ("nedělat"):** odmítnutí uložení,
+  které by vytvořilo nové duplicitní ID; Hotovo nikdy na zrušený úkol
+  (`findRawTaskForOccurrence`). Neotvírat znovu bez nového důvodu.
+
+## ✅ Úklid tlačítek (2026-09-23, NASAZENO a ověřeno — commit `01c05a6`)
+
+**✅ Nahráno JK a ověřeno (2026-09-23 06:20, `01c05a6`, 2 soubory):**
+`git fetch` + `cmp` — oba soubory shodné s lokální verzí; GitHub Pages
+(stažení bez cache) servíruje novou verzi obou souborů.
+
+Na žádost JK ("teď už ani jedno tlačítko není aktuálně potřeba"):
+- **`tydenni_prehled_mobile.html`** — ODSTRANĚN odkaz 🖥️ "Přepnout na
+  desktopovou verzi" z horní lišty (zůstaly ⚙️, 🌙, 📋).
+- **`sprava_ukolu_linked.html`** — tlačítko `#debugBtn` (🔍 Debug) jen
+  SKRYTO atributem `hidden`, funkce `debugGitHub()` zůstává (jde zavolat
+  z konzole prohlížeče, je to čistě diagnostický GET bez zápisu).
+  Ověřeno, že žádné CSS pravidlo pro `button` nenastavuje `display`, takže
+  `hidden` nic nepřebíjí.
+
 ## ✅ Kolize aut při zadávání úkolu (2026-09-22, NASAZENO a ověřeno — commit `007b552`)
 
 **✅ Nahráno JK a ověřeno (2026-09-22 15:34, `007b552`, 4 soubory):**
@@ -79,12 +125,18 @@ nových řádcích HTML.
 `sprava_ukolu_linked.html`. Stránky jsou jištěné proti staré
 `ft_loader.js` z HTTP cache (bez funkcí se jen nic neoznačí).
 
-## ⏸️ NEDOŘEŠENO: Historie úprav úkolů (2026-09-22, návrh hotový, odloženo)
+## 🚧 ROZPRACOVÁNO: Historie úprav úkolů (2026-09-23 obnoveno — krok 1 hotový lokálně, NENAHRÁNO)
+
+**Stav 2026-09-23:** JK práci obnovil. Krok 1 (zápis historie v
+`ft_loader.js`) hotový a otestovaný mockem na kopii živé DB, čeká se na
+krok 2 (zobrazení ve Správě) — nahrává se společně. Detail, doplněná
+rozhodnutí (auto ANO, pravidla/výjimky zatím NE), průběh testu a
+vedlejší nález (`findRawTaskForOccurrence` nevynechává zrušené) v
+**`TOP/HISTORIE_UPRAV_navrh.md`**, sekce nahoře.
 
 JK chce u úkolu vidět kdo založil / změnil / dal hotovo / smazal.
 Návrh, měření četnosti úprav, odhad velikosti, rozhodnutí JK a kroky
-implementace jsou v **`TOP/HISTORIE_UPRAV_navrh.md`** — nic zatím
-neimplementováno, JK: „teď to řešit nebudeme“. Klíčové: historie do
+implementace jsou v **`TOP/HISTORIE_UPRAV_navrh.md`**. Klíčové: historie do
 samostatných měsíčních souborů `top-data/history/YYYY-MM.json` (NE do
 `database.json`), zápis jediným místem v `saveToGitHub()` přes diff
 před/po, zobrazení jen ve Správě úkolů, zpětné doplnění z commitů.
@@ -135,7 +187,11 @@ tady jen TOP-side shrnutí.
 - **K nahrání:** `ft_loader.js` + `tydenni_dashboard_mobile.html`. Pak
   restart SPA serveru s novým `topSync.js` (obrácené pořadí nic nerozbije).
 
-## ✅ Spoluřešitelé úkolu (2026-09-21, kroky 1–4 NASAZENO a ověřeno — čeká na zpětnou vazbu JK z provozu)
+## ✅ Spoluřešitelé úkolu (2026-09-21, kroky 1–4 NASAZENO a ověřeno — HOTOVO)
+
+**✅ JK potvrdil z provozu (2026-09-23): "Spoluřešitelé obecně fungují
+jak mají."** Spoluřešitelé u OPAKOVANÝCH úkolů zůstávají jen jako bod do
+budoucna ("ber v patrnost, teď to dělat nebudeme") — nezačínat bez JK.
 
 **✅ Nahráno JK a ověřeno (2026-09-21, commit `7fd1219`):** `git fetch` +
 `diff` — všech 6 souborů appky (`ft_loader.js`, `sprava_ukolu_linked.html`,
