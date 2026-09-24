@@ -1,8 +1,147 @@
-# Historie úprav úkolů — návrh (NEDOŘEŠENO, odloženo)
+# Historie úprav úkolů — návrh a průběh implementace
 
-**Stav:** návrh hotový, části rozhodnutí potvrdil JK 2026-09-22,
-**implementace odložena** („teď to řešit nebudeme“). Nic se zatím
-neimplementovalo, v kódu ani v `top-data` není žádná změna.
+**Stav (2026-09-23):** JK obnovil práci. **Krok 1 (zápis) NASAZEN** —
+JK nahrál `ft_loader.js` sám dřív, než byl hotový krok 2 (commit
+`490d173`, 18:21; GitHub i Pages bajtově shodné s ověřenou verzí).
+Historie se tedy už sbírá, prohlížet ji půjde až po kroku 2.
+**První ostrý zápis ověřen:** `top-data/history/2026-09.json` vznikl
+18:37:37 (úklid duplicit, 4× `smazan`), commit historie 1 s po commitu
+databáze. Dvě uložení 18:28/18:29 do historie NEpřišla — stránka Správy
+byla otevřená od 17:57, tedy se starým loaderem v paměti (po Ctrl+F5 už
+OK). Pozn.: `t` bere čas z PC uživatele (u JK ~20 s za časem GitHubu).
+**Krok 2 (zobrazení) HOTOVÝ lokálně 2026-09-23, NENAHRANÝ — čeká na JK**
+(JK: "pokračuj krokem 2" po ukázaném náhledu). Jen
+`sprava_ukolu_linked.html`:
+- Tlačítko `#modalHistoryBtn` "🕘 Historie" v hlavičce modalu (jen u
+  existujícího úkolu s ID a jen když loader má `readHistoryMonth` —
+  stará verze z HTTP cache → tlačítko skryté). Panel `#m_history` na
+  konci formuláře, druhé kliknutí zavře, otevření jiného úkolu resetuje.
+- Měsíce od `createdDate` (nejdřív `HISTORY_START_MONTH = "2026-09"`)
+  po aktuální, od nejnovějšího; na začátku 3 měsíce, pak "Zobrazit
+  starší (měsíc)". Uzavřené měsíce v paměti, aktuální se stahuje vždy
+  znovu. Výsledek, který dorazí po přepnutí na jiný úkol, se zahodí.
+- Filtr: `e.id === task.id`; `opak_*` se nezobrazují; u sdíleného ID
+  (zástupy za pravidlo) jen záznamy k `plannedDate` úkolu (i přes
+  `ch.plannedDate`).
+- Štítky: Založen / Změna / Hotovo / Hotový den / Zrušen / Obnoven /
+  Smazán, barvy jen z existujících proměnných theme.css
+  (`--accent-soft`, `--chip-bg`, `--success-soft`, `--danger-soft`,
+  `--warn-soft` + text), nic nového v theme.
+- Test mockem (kopie živé DB + skutečný `history/2026-09.json` jako
+  výchozí stav): úprava/spoluřešitel+auto/Hotovo → 3 řádky se správnými
+  starými → novými hodnotami; nový úkol → "Založen řešitel RS, na
+  2. 10., P1"; úkol bez historie → "Zatím žádné záznamy…"; nový
+  úkol/stará verze loaderu → tlačítko skryté; GET 500 → chybová hláška
+  v panelu; rychlé přepnutí úkolu → nic se nevykreslí; simulovaný
+  prosinec → 3 měsíce + "Zobrazit starší (září)" → doplní září;
+  zástupy → správně jen své datum. Světlý i tmavý režim zkontrolován
+  snímkem.
+**Krok 2 NASAZEN** (`2e9b1cd`, 18:50, GitHub i Pages bajtově shodné).
+
+### Rozšíření: historie i v Dashboardu (JK 2026-09-23) — NASAZENO 2026-09-24 (`2d7434d`)
+JK k omezení níže (sloupec "Zrušil / kdy" u výjimek ve Správě): **zatím ne.**
+JK: "jen Dashboard na počítači" (mobilní dashboard ani Přehledy NE);
+"u opakovaných úkolů nemusí být podrobná historie, jen kdo dal Hotovo,
+smazat, zástup".
+- **Zobrazení přesunuto do `ft_loader.js`** (`toggleTaskHistory(panel,
+  task, ctx)`, `resetTaskHistory(panel)`, `ctx = { tasks, ruleIds }`) —
+  jedna kopie pro Správu i Dashboard (poučení z 3 rozcházejících se
+  kopií kontroly aut). Správa má už jen tenké napojení; tlačítko se
+  ukáže jen když loader funkci má (stará verze z cache → skryté).
+- **Styly do `components.css` v1.1.0** (kopie v Esperantu synchronní,
+  INTEGRACE.md sekce 5 záznam 2026-09-23). `.history-btn` má
+  `width:auto` — Dashboard dává všem `<button>` 100 %.
+- **Zápis rozšířen o výjimky:** `opak_zrusen` (+ `duvod`) /
+  `opak_obnoven` — "Zrušit dnes" = přidání výjimky. Úpravy pravidel
+  pořád NE.
+- **Dashboard:** tlačítko `#modalHistoryBtn` v detailu, panel
+  `#modalHistory` pod poznámkami, `#modal .modal-card` dostal
+  `max-height:90vh; overflow:auto`. Zobrazovací kopie (den vícedenního,
+  kopie spoluřešitele) → historie původního záznamu přes
+  `findRawTaskForOccurrence`. Opakovaný výskyt → "Historie výskytu":
+  jen `opak_*` + založení/zrušení zástupu k datu; úkol se stejným ID
+  jako pravidlo má štítek "Zástup". SPA úkoly → bez tlačítka (i ve
+  Správě).
+- **Omezení:** zrušený den opakovaného úkolu z kalendáře zmizí → jeho
+  detail (a tím "kdo zrušil") v Dashboardu nejde otevřít. Záznam se
+  zapisuje, panel ho umí ukázat — nahlášeno JK.
+- Test mockem (kopie živé DB + živý `history/2026-09.json`): Hotovo
+  běžného, kopie spoluřešitele i originálu, den vícedenního (i z jiného
+  dne téhož úkolu), opakovaný Hotovo, zrušený den s důvodem, zástup
+  ("Zástup řešitel RS, na 19. 10., P0"), jiný den pravidla prázdný,
+  stará verze loaderu / SPA úkol → bez tlačítka; Správa po přesunu beze
+  změny chování (vč. živých záznamů `*0408*`); `components.css` celý
+  rozparsován (52 pravidel), `/* */` v pořádku; světlý i tmavý režim
+  snímkem.
+
+Další: krok 3 (zpětné doplnění z commitů `history/import-git.json`).
+
+### Doplněná rozhodnutí JK (2026-09-23)
+- **Auto (SPZ)** — sledovat i starou → novou hodnotu: ANO.
+- **Změny opakujících se pravidel a výjimek** — ZATÍM NE, jen úkoly
+  (dokončení opakujícího se úkolu `opak_hotovo` ano, to je zadání).
+
+### Krok 1 — co je v `ft_loader.js` (sekce "Historie úprav úkolů")
+- Výchozí stav pro rozdíl = **`_base = { sha, str }` v paměti loaderu**
+  (ne localStorage cache jak bylo v návrhu níž — ta se při plné kvótě
+  tiše neuloží). Nastavuje se ve `fetchFromGitHub`, po úspěšném
+  `saveToGitHub` a v synchronizaci záložek (`storage` event). Použije se,
+  jen když `_base.sha === _lastSha` → rozdíl je přesně to, co dané
+  uložení změnilo (GitHub přijme zápis jen při shodě SHA).
+- Formát oproti návrhu upraven: `ch` jen u state/owner/coOwners/
+  plannedDate/priority/auto; hotové dny vícedenního úkolu jako
+  `dny` / `dnyZpet` (jen přidané/odebrané dny, ne celý seznam 2×);
+  `zalozen`/`smazan` nesou `n` (název) a `ch` s výchozími hodnotami;
+  navíc akce `opak_hotovo_zruseno` (Správa → smazání dokončení).
+- Prázdné hodnoty (`undefined`/`null`/`""`/`false`/`[]`) = shodné,
+  `lastUpdated` se ignoruje.
+- Párování duplicitních ID: nejdřív úplná shoda obsahu, pak
+  `plannedDate`, pak pořadí. **Bez kroku "úplná shoda" dalo uložení
+  Správy BEZ jediné změny 6 falešných záznamů** (živá data mají
+  `*0463*`/`*0464*` 2× se stejným ID i datem, jeden zrušený).
+- Pojistka: > 200 záznamů z jednoho uložení → jeden `hromadna_zmena`
+  s `pocet`.
+- Zápis: fronta (sekvenčně), GET měsíce (404 → nový soubor), PUT se
+  `sha`, při 409/422 znovu, max 3×; chyba jen `console.warn`.
+- Exportováno: `buildHistoryEvents` (testy), `readHistoryMonth` (pro
+  krok 2 — zobrazení).
+
+### Test kroku 1 (2026-09-23, mock GitHub API + kopie živé DB, 1 612 úkolů)
+Přes skutečné funkce stránek, ne zkratky:
+- Správa: uložení bez změn → **0 záznamů** (DB zápis proběhl); úprava
+  v modalu, Kanban, Hotovo, zrušit, obnovit, hromadně Hotovo (2
+  záznamy), nový úkol, řešitel + spoluřešitel + auto, zrušení dokončení
+  opakovaného — vše správná akce, pole i staré → nové hodnoty.
+- Dashboard: Hotovo, Hotovo dne vícedenního (už hotový den → 0
+  záznamů, správně; poslední den → `hotovo`), opakovaný, zástup, nový
+  úkol se spoluřešitelem. Mobilní dashboard: úprava, úprava přes kopii
+  spoluřešitele (hlavní řešitel se nezměnil), zrušení, nový úkol.
+  Přehled: Hotovo u duplicitního ID, den vícedenního. Mobilní přehled:
+  opakovaný.
+- Odolnost: výpadek historie (500) → úkol uložen, žádný alert, jen
+  warn; 2× 409 → zapsáno 3. pokusem; 3× 409 → vzdá to, úkol uložen;
+  2 rychlá uložení → oba záznamy; cizí změna načtená pollingem se do
+  mé historie NEpřipíše; cizí změna nenačtená → 409, historie nic;
+  změna z jiné záložky (storage event) → zapsána jen moje změna;
+  250 změn → 1 souhrnný záznam.
+- Výkon: rozdíl 1 612 úkolů ~9 ms.
+- **Vedlejší nález (mimo historii, neopraveno):**
+  `findRawTaskForOccurrence` nevynechává zrušené úkoly — Hotovo u
+  `*0463*` (2× stejné ID i datum, jeden zrušený) označilo ZRUŠENOU
+  kopii. V živých datech jen 3 takové úkoly (`*0463*`, `*0464*`
+  2026-07-23, `*TMTJXVNFJ*` 2026-09-04) → nahlášeno JK.
+- **Omezení mocku (ne chyba appky):** po založení úkolu ve Správě mock
+  nevyvolá překreslení (stejné SHA), takže další uložení Správy úkol v
+  testu "smazalo". Ověřeno v git historii `top-data`: od 2026-09-03
+  desítky případů "Nový úkol X" → do minuty "Uloženo" stejným
+  uživatelem a úkol vždy přežil → reálný GitHub se chová jinak.
+  (Jediná ztráta 2026-09-02 `*TMTJKZWG2*` je ze stejné doby jako chyba
+  s `rowIndex` opravená 2026-09-17.)
+
+---
+
+## Původní návrh (2026-09-22)
+
 Až se k tomu bude vracet: přečíst celý soubor, ověřit, že čísla řádků
 a měření jsou pořád aktuální, a začít krokem 1 (viz konec).
 

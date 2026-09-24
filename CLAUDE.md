@@ -125,11 +125,26 @@ nových řádcích HTML.
 `sprava_ukolu_linked.html`. Stránky jsou jištěné proti staré
 `ft_loader.js` z HTTP cache (bez funkcí se jen nic neoznačí).
 
-## 🚧 ROZPRACOVÁNO: Historie úprav úkolů (2026-09-23 obnoveno — krok 1 hotový lokálně, NENAHRÁNO)
+## 🚧 ROZPRACOVÁNO: Historie úprav úkolů (kroky 1+2 + Dashboard NASAZENY, krok 3 rozpracován)
 
-**Stav 2026-09-23:** JK práci obnovil. Krok 1 (zápis historie v
-`ft_loader.js`) hotový a otestovaný mockem na kopii živé DB, čeká se na
-krok 2 (zobrazení ve Správě) — nahrává se společně. Detail, doplněná
+**✅ Rozšíření o Dashboard nahráno JK a ověřeno (2026-09-24 05:32,
+`2d7434d`, 4 soubory, GitHub i Pages bajtově shodné).** Živě: 8 uložení
+od nasazení → 7 zápisů historie; chybějící = uložení 23. 9. 18:52 beze
+změny (jen `updatedAt`) → správně 0 záznamů. **JK k "kdo zrušil den
+opakovaného úkolu" (sloupec u výjimek ve Správě): zatím NE.**
+
+**Stav 2026-09-23:** Krok 1 (zápis, `490d173`) a krok 2 (tlačítko
+"🕘 Historie" ve Správě, `2e9b1cd`) NASAZENY a ověřeny. **Rozšíření
+(JK): historie i v Dashboardu na počítači** — zobrazení přesunuto do
+`ft_loader.js` (`toggleTaskHistory`/`resetTaskHistory`, JEDINÁ kopie
+pro obě stránky), styly do `components.css` v1.1.0 (`.history-*`,
+`.history-btn`), zápis rozšířen o výjimky (`opak_zrusen`/
+`opak_obnoven` — "Zrušit dnes" u opakovaného úkolu). U opakovaného
+výskytu v Dashboardu jen Hotovo / zrušení dne / zástup k datu (JK: "nemusí
+být podrobná historie"). Mobilní dashboard ani Přehledy NE (JK). Čeká na
+nahrání 4 souborů: `ft_loader.js`, `components.css`,
+`sprava_ukolu_linked.html`, Dashboard. Zbývá krok 3 (zpětné doplnění z
+commitů). Detail, doplněná
 rozhodnutí (auto ANO, pravidla/výjimky zatím NE), průběh testu a
 vedlejší nález (`findRawTaskForOccurrence` nevynechává zrušené) v
 **`TOP/HISTORIE_UPRAV_navrh.md`**, sekce nahoře.
