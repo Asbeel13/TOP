@@ -581,7 +581,11 @@ const FTLoader = (() => {
   //     smazan — smazaný úkol jinak nejde dohledat) }
   // Akce: zalozen, zmena, hotovo, den_hotovo, zrusen, obnoven, smazan,
   // opak_hotovo / opak_hotovo_zruseno (dokonceni opakujícího se pravidla,
-  // id = ID pravidla). Úkoly ze SPA (*SPA… dovolené, svátky) se nezapisují.
+  // id = ID pravidla), opak_zrusen / opak_obnoven (výjimka = "tenhle den
+  // se negeneruje", Dashboard "Zrušit dnes"; + duvod) — přidáno
+  // 2026-09-23, JK chce u opakovaného úkolu vidět, kdo ho smazal. Úpravy
+  // samotných pravidel se nezapisují (JK: zatím ne). Úkoly ze SPA (*SPA…
+  // dovolené, svátky) se nezapisují.
   const HISTORY_DIR = "history";
   const HISTORY_KEY_FIELDS = ["state", "owner", "coOwners", "plannedDate", "priority", "auto"];
   const HISTORY_IGNORED_FIELDS = new Set(["lastUpdated"]);
@@ -695,6 +699,14 @@ const FTLoader = (() => {
     (before.dokonceni || []).forEach(x => {
       if (!aD.has(key(x))) events.push({ t, u: user, id: x.id, d: x.datum, a: "opak_hotovo_zruseno" });
     });
+    const bV = new Set((before.vyjimky || []).map(key));
+    const aV = new Set((after.vyjimky || []).map(key));
+    (after.vyjimky || []).forEach(x => {
+      if (!bV.has(key(x))) events.push({ t, u: user, id: x.id, d: x.datum, a: "opak_zrusen", ...(x.duvod ? { duvod: x.duvod } : {}) });
+    });
+    (before.vyjimky || []).forEach(x => {
+      if (!aV.has(key(x))) events.push({ t, u: user, id: x.id, d: x.datum, a: "opak_obnoven" });
+    });
     return events;
   }
 
@@ -769,6 +781,191 @@ const FTLoader = (() => {
       if (resp.status !== 409 && resp.status !== 422) throw new Error(`historie ${month} PUT ${resp.status}`);
     }
     throw new Error(`historie ${month}: 3× konflikt, záznam se nezapsal`);
+  }
+
+  // ── Zobrazení historie (Správa úkolů + Dashboard, 2026-09-23) ──────────
+  // JEDINÉ místo — stránky jen vloží prázdný <div class="history-panel"
+  // hidden> a volají toggleTaskHistory(panel, task, ctx) / resetTaskHistory
+  // (panel). Vzhled v components.css (.history-*).
+  //   task = úkol z modalu (id, plannedDate, createdDate, recurring)
+  //   ctx  = { tasks: úkoly stránky (kvůli sdílenému ID zástupů),
+  //            ruleIds: ID opakujících se pravidel }
+  // Opakovaný výskyt (task.recurring, JEN Dashboard): žádná podrobná
+  // historie, jen kdo dal Hotovo / zrušil den / zapsal zástup — k datu
+  // výskytu (JK 2026-09-23).
+  const HISTORY_START_MONTH = "2026-09"; // zápis nasazen 2026-09-23
+  const HISTORY_SINCE_TEXT = "Historie se zapisuje od 23. 9. 2026.";
+  const HISTORY_PAGE_MONTHS = 3;
+  const _historyMonthCache = new Map(); // uzavřené měsíce se už nemění
+
+  const HISTORY_ACTIONS = {
+    zalozen: ["Založen", "h-new"], zmena: ["Změna", "h-change"],
+    hotovo: ["Hotovo", "h-done"], den_hotovo: ["Hotový den", "h-done"],
+    zrusen: ["Zrušen", "h-cancel"], obnoven: ["Obnoven", "h-restore"],
+    smazan: ["Smazán", "h-cancel"],
+    opak_hotovo: ["Hotovo", "h-done"], opak_hotovo_zruseno: ["Hotovo vráceno", "h-restore"],
+    opak_zrusen: ["Zrušen den", "h-cancel"], opak_obnoven: ["Den obnoven", "h-restore"],
+  };
+  const HISTORY_FIELD_LABELS = {
+    title: "název", note: "poznámka", internalNote: "interní poznámka", state: "stav",
+    owner: "řešitel", coOwners: "spoluřešitelé", plannedDate: "datum", priority: "priorita",
+    auto: "auto", dueDate: "požadované ukončení", doneDate: "datum dokončení",
+    durationDays: "počet dní", activeDays: "aktivní dny", project: "projekt",
+    internalProject: "dodatečné označení projektu", sales: "obchodní zástupce",
+    subtask: "podúkol", createdDate: "datum zapsání", waiting: "čeká se",
+  };
+
+  function historyMonthKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+  function historyMonthLabel(month) {
+    const [y, m] = month.split("-").map(Number);
+    const name = new Date(y, m - 1, 1).toLocaleString("cs-CZ", { month: "long" });
+    return y === new Date().getFullYear() ? name : `${name} ${y}`;
+  }
+  // Měsíce od založení úkolu (nejdřív HISTORY_START_MONTH) po aktuální, od nejnovějšího.
+  function historyMonthsFor(task) {
+    const now = new Date();
+    let from = String((task && task.createdDate) || "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(from) || from < HISTORY_START_MONTH) from = HISTORY_START_MONTH;
+    const list = [];
+    for (const d = new Date(now.getFullYear(), now.getMonth(), 1); historyMonthKey(d) >= from; d.setMonth(d.getMonth() - 1)) {
+      list.push(historyMonthKey(d));
+    }
+    return list.length ? list : [historyMonthKey(now)];
+  }
+  function loadHistoryMonthCached(month) {
+    const isCurrent = month === historyMonthKey(new Date());
+    if (!isCurrent && _historyMonthCache.has(month)) return _historyMonthCache.get(month);
+    const p = readHistoryMonth(month).then(r => r.doc.events || []);
+    if (!isCurrent) {
+      _historyMonthCache.set(month, p);
+      p.catch(() => _historyMonthCache.delete(month));
+    }
+    return p;
+  }
+
+  function historyEventMatches(e, task, ctx) {
+    if (!e || !task || e.id !== task.id) return false;
+    const a = String(e.a || "");
+    const pd = e.ch && e.ch.plannedDate;
+    const onDate = e.d === task.plannedDate || (Array.isArray(pd) && pd.includes(task.plannedDate));
+    if (task.recurring) {
+      // Opakovaný výskyt: Hotovo / zrušení dne k tomuto datu + zástup na
+      // tento den (úkol se stejným ID jako pravidlo).
+      return onDate && (a.startsWith("opak_") || a === "zalozen" || a === "zrusen" || a === "smazan");
+    }
+    // Dokončení/výjimky pravidla nepatří k zástupu se stejným ID.
+    if (a.startsWith("opak_")) return false;
+    // Stejné ID má víc úkolů (zástupy za pravidlo) → jen záznamy k tomuto datu.
+    const tasks = (ctx && ctx.tasks) || [];
+    const ruleIds = (ctx && ctx.ruleIds) || [];
+    const shared = tasks.filter(t => t && t.id === task.id).length > 1 || ruleIds.includes(task.id);
+    return shared ? onDate : true;
+  }
+
+  function historyFmtDate(iso) {
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return String(iso);
+    return `${+m[3]}. ${+m[2]}.` + (+m[1] === new Date().getFullYear() ? "" : ` ${m[1]}`);
+  }
+  function historyFmtValue(v) {
+    if (v === null || v === undefined || v === "" || v === false) return "—";
+    if (v === true) return "ano";
+    if (Array.isArray(v)) return v.length ? v.map(historyFmtValue).join(", ") : "—";
+    return /^\d{4}-\d{2}-\d{2}$/.test(v) ? historyFmtDate(v) : String(v);
+  }
+  function historyFmtTime(t) {
+    const d = new Date(t);
+    if (isNaN(d)) return String(t || "");
+    const year = d.getFullYear() === new Date().getFullYear() ? "" : ` ${d.getFullYear()}`;
+    return `${d.getDate()}. ${d.getMonth() + 1}.${year} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  function historyDetail(e) {
+    const ch = e.ch || {};
+    if (e.a === "opak_zrusen") return e.duvod ? `důvod: ${e.duvod}` : "";
+    if (e.a === "zalozen" || e.a === "smazan") {
+      const i = e.a === "zalozen" ? 1 : 0;
+      const bits = [];
+      if (ch.owner) bits.push(`řešitel ${historyFmtValue(ch.owner[i])}`);
+      if (ch.coOwners) bits.push(`spoluřešitelé ${historyFmtValue(ch.coOwners[i])}`);
+      if (ch.plannedDate) bits.push(`na ${historyFmtValue(ch.plannedDate[i])}`);
+      if (ch.priority) bits.push(historyFmtValue(ch.priority[i]));
+      if (ch.auto) bits.push(`auto ${historyFmtValue(ch.auto[i])}`);
+      return bits.join(", ");
+    }
+    const parts = [];
+    Object.keys(ch).forEach(k => {
+      if (k === "state" && e.a === "hotovo") return; // "Nový → Dokončeno" říká už štítek
+      parts.push(`${HISTORY_FIELD_LABELS[k] || k} ${historyFmtValue(ch[k][0])} → ${historyFmtValue(ch[k][1])}`);
+    });
+    if (e.dny) parts.push(`hotové dny: ${e.dny.map(historyFmtDate).join(", ")}`);
+    if (e.dnyZpet) parts.push(`vrácené dny: ${e.dnyZpet.map(historyFmtDate).join(", ")}`);
+    const skip = new Set(["completedDays", "cancelled", ...(e.a === "hotovo" ? ["doneDate"] : [])]);
+    const other = (e.f || []).filter(k => !(k in ch) && !skip.has(k));
+    if (other.length) parts.push(`upraveno: ${other.map(k => HISTORY_FIELD_LABELS[k] || k).join(", ")}`);
+    return parts.join(" · ");
+  }
+  function historyRowHtml(e, ctx) {
+    let [label, cls] = HISTORY_ACTIONS[e.a] || [e.a, "h-change"];
+    // Úkol se stejným ID jako opakující se pravidlo = zástup
+    if (e.a === "zalozen" && ((ctx && ctx.ruleIds) || []).includes(e.id)) label = "Zástup";
+    return `<div class="history-row">` +
+      `<span class="history-time">${escapeHtmlLocal(historyFmtTime(e.t))}</span>` +
+      `<span class="history-user">${escapeHtmlLocal(e.u || "?")}</span>` +
+      `<span class="history-detail"><span class="history-badge ${cls}">${escapeHtmlLocal(label)}</span>${escapeHtmlLocal(historyDetail(e))}</span>` +
+      `</div>`;
+  }
+
+  function resetTaskHistory(panel) {
+    if (!panel) return;
+    panel._history = null;
+    panel.hidden = true;
+    panel.innerHTML = "";
+  }
+
+  // Otevře/zavře historii úkolu v panelu. Druhé kliknutí zavře.
+  async function toggleTaskHistory(panel, task, ctx) {
+    if (!panel || !task || !task.id) return;
+    if (!panel.hidden) { resetTaskHistory(panel); return; }
+    const st = { task, ctx: ctx || {}, months: historyMonthsFor(task), shown: 0 };
+    panel._history = st;
+    panel.hidden = false;
+    panel.innerHTML = `<div class="history-title">${task.recurring ? "Historie výskytu" : "Historie úkolu"}</div>` +
+      `<div class="history-list"></div><div class="history-foot"></div>`;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    await showMoreTaskHistory(panel, st);
+  }
+
+  async function showMoreTaskHistory(panel, st) {
+    if (panel._history !== st) return;
+    const list = panel.querySelector(".history-list");
+    const foot = panel.querySelector(".history-foot");
+    const months = st.months.slice(st.shown, st.shown + HISTORY_PAGE_MONTHS);
+    foot.textContent = "Načítám…";
+    let events;
+    try {
+      events = (await Promise.all(months.map(loadHistoryMonthCached))).flat();
+    } catch (e) {
+      if (panel._history === st) {
+        foot.innerHTML = `<span class="history-error">Historii se nepodařilo načíst: ${escapeHtmlLocal(e.message)}</span>`;
+      }
+      return;
+    }
+    // Mezitím zavřeno nebo otevřen jiný úkol → nevykreslovat.
+    if (panel._history !== st) return;
+    st.shown += months.length;
+    const rows = events.filter(e => historyEventMatches(e, st.task, st.ctx))
+      .sort((a, b) => String(b.t || "").localeCompare(String(a.t || "")));
+    list.insertAdjacentHTML("beforeend", rows.map(e => historyRowHtml(e, st.ctx)).join(""));
+
+    const rest = st.months.slice(st.shown);
+    if (rest.length) {
+      foot.innerHTML = `<button type="button" class="history-btn" style="padding:6px 12px;font-size:12px;">Zobrazit starší (${escapeHtmlLocal(historyMonthLabel(rest[0]))})</button>`;
+      foot.querySelector("button").addEventListener("click", () => showMoreTaskHistory(panel, st));
+    } else {
+      foot.textContent = list.children.length ? HISTORY_SINCE_TEXT : `Zatím žádné záznamy. ${HISTORY_SINCE_TEXT}`;
+    }
   }
 
   // ── Pomocné funkce pro správu dat ─────────────────────────────────────
@@ -1164,6 +1361,8 @@ const FTLoader = (() => {
     markAutoOptions,
     buildHistoryEvents,
     readHistoryMonth,
+    toggleTaskHistory,
+    resetTaskHistory,
   };
 
 })();

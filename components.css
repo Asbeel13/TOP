@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílené komponenty (components.css) — TOP
-   verze 1.0.1 — 2026-09-15
+   verze 1.1.0 — 2026-09-23
    ==========================================================================
    Sesterský soubor k theme.css. Zatímco theme.css obsahuje JEN proměnné
    (pravidlo dohodnuté při review se SPA stranou, viz theme.css hlavička),
@@ -39,6 +39,12 @@
    genuinní mezera zjištěná stejně jako u předchozích souborů při
    zapojování theme.css (gap objevený AŽ při skutečném použití, ne
    předem odhadem).
+
+   v1.1.0 (2026-09-23): historie úprav úkolu — `.history-panel`,
+   `.history-row`, `.history-badge` (+ `.h-new`/`.h-change`/`.h-done`/
+   `.h-cancel`/`.h-restore`) a tlačítko `.history-btn`. Přesunuto sem ze
+   Správy úkolů, protože historii teď zobrazuje i Dashboard (JK) — obsah
+   panelu vykresluje společný kód ve ft_loader.js. Barvy jen z theme.css.
    ========================================================================== */
 
 /* ── Tlačítka ── */
@@ -227,4 +233,60 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+
+/* ── Historie úprav úkolu (v1.1.0) — Správa úkolů + Dashboard ── */
+.history-btn {
+  width: auto; /* Dashboard dává všem <button> šířku 100 % */
+  font-family: inherit;
+  padding: 10px 16px;
+  border: 1px solid var(--line-medium);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.history-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+}
+.history-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.history-row {
+  display: grid;
+  grid-template-columns: 120px 44px minmax(0, 1fr);
+  gap: 2px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 5px 0;
+  border-top: 1px solid var(--line-softer);
+}
+.history-row:first-child { border-top: none; }
+.history-time { color: var(--text-muted); white-space: nowrap; }
+.history-user { font-weight: 700; }
+.history-badge {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 4px;
+}
+.history-badge.h-new { background: var(--accent-soft); color: var(--accent-strong); }
+.history-badge.h-change { background: var(--chip-bg); color: var(--chip-text); }
+.history-badge.h-done { background: var(--success-soft); color: var(--success); }
+.history-badge.h-cancel { background: var(--danger-soft); color: var(--danger-strong); }
+.history-badge.h-restore { background: var(--warn-soft); color: var(--warn-strong); }
+.history-foot { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+.history-error { color: var(--danger); }
+@media (max-width: 600px) {
+  .history-row { grid-template-columns: auto auto; }
+  .history-detail { grid-column: 1 / -1; }
 }

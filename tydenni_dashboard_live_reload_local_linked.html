@@ -700,6 +700,10 @@
     html.dark .move-btn, html.dark .hide-btn { background: var(--line-soft); color: var(--text-on-navy-muted); border-color: var(--border-on-navy); }
     html.dark .fab-nav { background: var(--navy-700); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
 
+    /* Detail úkolu — s rozbalenou historií úprav (2026-09-23) může být
+       delší než okno, proto posuvník jako u ostatních modalů. */
+    #modal .modal-card { max-height: 90vh; overflow: auto; }
+
     /* ── Formulář rychlého přidání úkolu (#newTaskModal) ── */
     #newTaskModal .modal-card { width: min(720px, 100%); max-height: 90vh; overflow: auto; }
     #newTaskModal .modal-head {
@@ -951,12 +955,14 @@
         <a id="modalEditBtn" href="#" target="top_edit_window" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
         <a id="modalCancelRecurBtn" href="#" target="top_edit_window" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">🚫 Zrušit dnes</a>
         <button id="modalDeleteBtn" style="display:none;padding:10px 16px;background:#fff1f2;border:1px solid #fecdd3;color:#dc2626;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Smazat</button>
+        <button id="modalHistoryBtn" type="button" class="history-btn" style="display:none;">🕘 Historie</button>
         <button class="secondary" id="closeModal" style="width:auto;color:#111827;background:white">Zavřít</button>
       </div>
     </header>
     <main>
       <div><strong>Upřesnění:</strong><div id="modalNote" class="muted" style="margin-top:6px"></div></div>
       <div><strong>Poznámka interní:</strong><div id="modalInternal" class="muted" style="margin-top:6px; white-space:pre-wrap"></div></div>
+      <div id="modalHistory" class="history-panel" hidden style="margin-top:0;"></div>
     </main>
   </div>
 </div>
@@ -1678,8 +1684,44 @@ function openModal(task) {
   } else {
     els.modalSubstituteBtn.style.display = "none";
   }
+  setupModalHistory(task);
   els.modal.classList.add("open");
 }
+
+// ── Historie úprav v detailu úkolu (2026-09-23) ──
+// Zobrazení je sdílené se Správou úkolů ve ft_loader.js (toggleTaskHistory),
+// vzhled v components.css. Stará verze ft_loader.js z HTTP cache funkci
+// nemá → tlačítko se neukáže.
+let _modalHistoryTask = null;
+function setupModalHistory(task) {
+  const btn = document.getElementById("modalHistoryBtn");
+  const panel = document.getElementById("modalHistory");
+  if (FTLoader.resetTaskHistory) FTLoader.resetTaskHistory(panel);
+  _modalHistoryTask = null;
+  // Úkoly ze SPA (dovolené, svátky) se do historie nezapisují → bez tlačítka.
+  if (task && /^\*?SPA/.test(String(task.id || ""))) {
+    // nic
+  } else if (task && task.id && !task.recurring) {
+    // Zobrazovací kopie (vícedenní den, kopie spoluřešitele) → původní
+    // záznam, ať sedí plannedDate/createdDate (sdílené ID zástupů se
+    // filtruje podle data).
+    const raw = FTLoader.getRawJson();
+    const orig = raw && FTLoader.findRawTaskForOccurrence ? FTLoader.findRawTaskForOccurrence(raw.tasks, task.id, task.plannedDate) : null;
+    _modalHistoryTask = orig || task;
+  } else if (task && task.id && task.recurring) {
+    // Opakovaný výskyt: jen Hotovo / zrušení dne / zástup k tomuto datu.
+    _modalHistoryTask = { id: task.id, plannedDate: task.plannedDate, recurring: true };
+  }
+  if (btn) btn.style.display = (_modalHistoryTask && FTLoader.toggleTaskHistory) ? "inline-block" : "none";
+}
+document.getElementById("modalHistoryBtn").addEventListener("click", () => {
+  if (!_modalHistoryTask || !FTLoader.toggleTaskHistory) return;
+  const raw = FTLoader.getRawJson();
+  FTLoader.toggleTaskHistory(document.getElementById("modalHistory"), _modalHistoryTask, {
+    tasks: (raw && raw.tasks) || [],
+    ruleIds: (DATA.opakovaci || []).map(o => o.id),
+  });
+});
 
 function renderScheduleForSide(targetEl, side) {
   const dates = weekDates();
