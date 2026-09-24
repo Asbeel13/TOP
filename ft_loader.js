@@ -795,6 +795,13 @@ const FTLoader = (() => {
   // výskytu (JK 2026-09-23).
   const HISTORY_START_MONTH = "2026-09"; // zápis nasazen 2026-09-23
   const HISTORY_SINCE_TEXT = "Historie se zapisuje od 23. 9. 2026.";
+  // Krok 3: záznamy PŘED zavedením historie zpětně vytěžené ze zpráv
+  // commitů top-data (jen založení, Hotovo, úpravy/zrušení z mobilu) —
+  // jeden soubor history/import-git.json, načte se jako "nejstarší
+  // stránka" za měsíci. Úkoly založené až po zavedení ho nepotřebují.
+  const HISTORY_IMPORT = "import-git";
+  const HISTORY_IMPORT_UNTIL = "2026-09-24"; // createdDate < → může mít zpětné záznamy
+  const HISTORY_IMPORT_TEXT = "Záznamy před 23. 9. 2026 jsou doplněné zpětně z historie ukládání — jen založení a Hotovo, ne úpravy ve Správě úkolů.";
   const HISTORY_PAGE_MONTHS = 3;
   const _historyMonthCache = new Map(); // uzavřené měsíce se už nemění
 
@@ -819,6 +826,7 @@ const FTLoader = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }
   function historyMonthLabel(month) {
+    if (month === HISTORY_IMPORT) return "před 23. 9. 2026";
     const [y, m] = month.split("-").map(Number);
     const name = new Date(y, m - 1, 1).toLocaleString("cs-CZ", { month: "long" });
     return y === new Date().getFullYear() ? name : `${name} ${y}`;
@@ -832,7 +840,10 @@ const FTLoader = (() => {
     for (const d = new Date(now.getFullYear(), now.getMonth(), 1); historyMonthKey(d) >= from; d.setMonth(d.getMonth() - 1)) {
       list.push(historyMonthKey(d));
     }
-    return list.length ? list : [historyMonthKey(now)];
+    if (!list.length) list.push(historyMonthKey(now));
+    const created = String((task && task.createdDate) || "");
+    if (!created || created < HISTORY_IMPORT_UNTIL) list.push(HISTORY_IMPORT);
+    return list;
   }
   function loadHistoryMonthCached(month) {
     const isCurrent = month === historyMonthKey(new Date());
@@ -964,7 +975,8 @@ const FTLoader = (() => {
       foot.innerHTML = `<button type="button" class="history-btn" style="padding:6px 12px;font-size:12px;">Zobrazit starší (${escapeHtmlLocal(historyMonthLabel(rest[0]))})</button>`;
       foot.querySelector("button").addEventListener("click", () => showMoreTaskHistory(panel, st));
     } else {
-      foot.textContent = list.children.length ? HISTORY_SINCE_TEXT : `Zatím žádné záznamy. ${HISTORY_SINCE_TEXT}`;
+      const text = st.months.includes(HISTORY_IMPORT) ? `${HISTORY_SINCE_TEXT} ${HISTORY_IMPORT_TEXT}` : HISTORY_SINCE_TEXT;
+      foot.textContent = list.children.length ? text : `Zatím žádné záznamy. ${text}`;
     }
   }
 
