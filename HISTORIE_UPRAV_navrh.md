@@ -74,7 +74,98 @@ smazat, zástup".
   rozparsován (52 pravidel), `/* */` v pořádku; světlý i tmavý režim
   snímkem.
 
-Další: krok 3 (zpětné doplnění z commitů `history/import-git.json`).
+### Krok 3 — zpětné doplnění ze zpráv commitů (2026-09-24) — NASAZENO
+**✅ Ověřeno 2026-09-24:** `ft_loader.js` v TOP `b2bdba4` (05:52, GitHub
+i Pages shodné), `history/import-git.json` v top-data `81e4e01` (14:11,
+JK napoprvé nahrál nedokončeně — soubor chyběl, podruhé OK), bajtově
+shodný s ověřenou verzí.
+
+**Audit živého zápisu (2026-09-24 14:14):** všech 37 uložení z TOP od
+nasazení kroku 1 (bez SPA sync) → diff přes `buildHistoryEvents` vs.
+`history/2026-09.json`: 4 uložení beze změny (správně 0 záznamů), 30
+zapsáno kompletně, chybí 3: JK 23. 9. 18:28 + 18:29 (stránka ještě se
+starým loaderem — známé) a **JaM 24. 9. 06:29:54 `zmena *TMUF0FWW5*`
+(title) — nevysvětleno**: JaM měl nový loader (jeho uložení 06:07–06:08
+i o 12 s pozdější 06:30:06 zapsána). Příčina bez konzole prohlížeče
+nezjistitelná (kandidáti: chyba sítě/409 při zápisu historie = 3 pokusy
+bez prodlevy, nebo chybějící výchozí stav). = odhadovaná ztráta u
+"best effort" (rozhodnutí JK), ale 1 z 31 je víc než "vzácně" →
+navrženo JK zlepšení (viz CLAUDE.md).
+
+### Spolehlivější zápis (JK "proveď navrhované změny", 2026-09-25) — NASAZENO
+**✅ Ověřeno 2026-09-25:** `ft_loader.js` `9e3fbd8` (05:37, GitHub i
+Pages shodné). Skript s doplněním JK spustil hned po nahrání, kdy měl
+prohlížeč ještě starý loader z HTTP cache → dávka čekala ve frontě a
+zapsal ji nový loader po znovunačtení stránky v 05:46:37 ("Historie: 3
+záznam(ů) od JK") — fronta tak prošla i ostrou zkouškou. Všechny 3
+záznamy v `2026-09.json` s původními časy, 0 duplicit (63 záznamů);
+následná uložení LJ 05:52–05:54 zapsána do 1–2 s, žádné `pozde` ani
+diagnostické záznamy.
+Jen `ft_loader.js`:
+- **Fronta nezapsaných záznamů** `localStorage.ftHistoryPending`: každá
+  dávka se nejdřív uloží, smaže se až po úspěšném zápisu. Co nevyjde, se
+  zkusí znovu při dalším uložení, při otevření stránky (po ověření
+  uživatele) a při pollingu (nejdřív po 60 s). Pozdě zapsané záznamy mají
+  `pozde: n`. Když localStorage nejde zapsat → náhrada v paměti stránky.
+  Dávky starší 14 dní / nad 200 se zahodí. Mezi záložkami Web Locks
+  (`ftHistoryFlush`).
+- **Idempotentní zápis:** `appendHistory` přeskočí záznamy, které už v
+  souboru jsou (klíč t|u|id|a|d|zprava) → opakování po zápisu, který
+  doběhl, ale ohlásil chybu, ani dvě záložky nic nezdvojí.
+- **3 pokusy s prodlevou 1 s a 3 s** (dřív okamžitě po sobě), opakuje se
+  i při chybě sítě a 5xx.
+- **Diagnostika** (záznamy bez id, u úkolu se nezobrazují):
+  `bez_vychoziho_stavu` (`duvod` "zadny"/"jine_sha", `zprava` = zpráva
+  commitu) a `chyba_historie` (`chyba`). Příští podobný případ jako JaM
+  06:29 půjde dohledat v `history/YYYY-MM.json`.
+- Test mockem (kopie živé DB + živá historie): běžný zápis; 1× 500 →
+  zapsáno 2. pokusem po ~1 s; 3× 500 → fronta, úkol uložen, prodlevy
+  ~1 s/3 s, žádný alert; další uložení → nejdřív `pozde=1`, pak nový;
+  3× chyba sítě → fronta → znovuotevření stránky → zapsáno; zápis
+  přijat, ale klient dostal 502 → 1 záznam, žádná duplicita; chybějící
+  výchozí stav → `bez_vychoziho_stavu` + zpráva; plná localStorage →
+  zapsáno přes paměť; uložení beze změny → 0 zápisů. **Netestováno:**
+  dohnání fronty z pollingu (ve skrytém panelu testovacího prohlížeče
+  intervaly neběží) — stejná funkce jako u otevření stránky, jen jiná
+  podmínka volání.
+- **Doplnění 3 chybějících záznamů** (JK 18:28 `zrusen *0338*`, 18:29
+  `zrusen *0137*`, JaM 06:29 `zmena *TMUF0FWW5*` title), dohledané z
+  rozdílu commitů: jednorázový skript do konzole (vloží dávku do fronty,
+  `doplneno: "2026-09-25"`, klíč `doplneni-2026-09-25` — druhé spuštění
+  nic nepřidá), zapíše ho nový loader. Otestováno mockem.
+
+- Zdroj: `git log` top-data (klon `--filter=blob:none`, jen zprávy,
+  6 247 commitů), aktuální `database.json` (název, datum), živá
+  `history/2026-09.json` (odstranění duplicit ±180 s — žádné nenalezeny).
+  Skript v Perlu (`JSON::PP`, Node/Python na stroji nejsou) — ve
+  scratchpadu session, postup níž je zopakovatelný.
+- Vytěžené zprávy: "Nový úkol X přidán (z mobilu) uživatelem U" →
+  `zalozen` (+ `n` název z DB); "Zástup za … (RFT) zapsán" → `zalozen`;
+  "Úkol X označen jako hotový" → `hotovo`; "Den D úkolu X …" →
+  `den_hotovo` + `dny`; "Dokončení RFT (D) zaznamenáno" → `opak_hotovo`;
+  "Úkol X upraven/zrušen z mobilu" → `zmena`/`zrusen`. "Uloženo
+  uživatelem X" (1 703×) zpětně NEJDE. Čas = čas commitu, `src:"git"`.
+- **Vynecháno 127:** 30 starých číselných ID založených víckrát (kolize
+  ID před časovými ID, přečíslování 2026-07-23 a 07-27 — nejde poznat,
+  ke kterému úkolu záznam patří, nikomu se nesmí připsat cizí) + úkoly,
+  které už v DB nejsou.
+- **Výsledek: 1 705 záznamů, 198 kB** (826 založení, 575 Hotovo, 194
+  hotových dnů, 108 Hotovo opakovaných, 2 úpravy z mobilu), 21. 7. –
+  23. 9. 17:53. **Nezávislá kontrola proti DB:** všech 108 `opak_hotovo`
+  = `dokonceni.zaznamenoKym`, všech 826 `zalozen` = `createdDate`.
+  Hotový den se u některých červencových úkolů opakuje (stejný den
+  odkliknutý víckrát — odpovídá commitům, období chyby `completedDays`).
+- **`ft_loader.js`:** `history/import-git.json` se načítá jako
+  "nejstarší stránka" za měsíci (`HISTORY_IMPORT`, jen u úkolů s
+  `createdDate` < 2026-09-24), popisek "Zobrazit starší (před 23. 9.
+  2026)", patička vysvětluje, že starší záznamy jsou jen založení a
+  Hotovo. Chybějící soubor (404) = prázdný, nic nespadne.
+- Test mockem (import + živá historie jako výchozí stav): Správa —
+  založení + Hotovo, vícedenní úkol s hotovými dny, kombinace živých a
+  zpětných, nejednoznačné ID → jen patička; Dashboard — opakovaný
+  výskyt 21. 9. → "Hotovo LJ 13:04", budoucí výskyt prázdný.
+- K nahrání: `history/import-git.json` do **top-data** (JK) +
+  `ft_loader.js` do TOP.
 
 ### Doplněná rozhodnutí JK (2026-09-23)
 - **Auto (SPZ)** — sledovat i starou → novou hodnotu: ANO.

@@ -125,13 +125,25 @@ nových řádcích HTML.
 `sprava_ukolu_linked.html`. Stránky jsou jištěné proti staré
 `ft_loader.js` z HTTP cache (bez funkcí se jen nic neoznačí).
 
-## 🚧 ROZPRACOVÁNO: Historie úprav úkolů (kroky 1+2 + Dashboard NASAZENY, krok 3 rozpracován)
+## ✅ Historie úprav úkolů (kroky 1–3 + Dashboard + spolehlivý zápis NASAZENY, 2026-09-25)
 
 **✅ Rozšíření o Dashboard nahráno JK a ověřeno (2026-09-24 05:32,
 `2d7434d`, 4 soubory, GitHub i Pages bajtově shodné).** Živě: 8 uložení
 od nasazení → 7 zápisů historie; chybějící = uložení 23. 9. 18:52 beze
 změny (jen `updatedAt`) → správně 0 záznamů. **JK k "kdo zrušil den
 opakovaného úkolu" (sloupec u výjimek ve Správě): zatím NE.**
+**✅ Krok 3 NASAZEN 2026-09-24:** `history/import-git.json` (1 705
+zpětných záznamů ze zpráv commitů, 198 kB, ověřeno proti DB) v top-data
+`81e4e01`, `ft_loader.js` (načítání importu) v TOP `b2bdba4`. **Audit
+živého zápisu:** z 31 uložení s novým loaderem chybí záznam u 1 (JaM
+24. 9. 06:29:54, příčina nezjištěna) — návrh zlepšení (trvalá fronta
+nezapsaných záznamů v localStorage + opakování s prodlevou + diagnostický
+záznam při chybějícím výchozím stavu) — **JK schválil 2026-09-25,
+✅ NASAZENO (`9e3fbd8`) a ověřeno**, 3 chybějící záznamy doplněny přes
+frontu (05:46:37). Historie úprav je tím kompletní (kroky 1–3 +
+Dashboard + spolehlivý zápis); otevřené zůstává jen "kdo zrušil den" u
+výjimek (JK: zatím ne).
+Detail v `HISTORIE_UPRAV_navrh.md`.
 
 **Stav 2026-09-23:** Krok 1 (zápis, `490d173`) a krok 2 (tlačítko
 "🕘 Historie" ve Správě, `2e9b1cd`) NASAZENY a ověřeny. **Rozšíření
