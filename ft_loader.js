@@ -1426,6 +1426,96 @@ const FTLoader = (() => {
     return (rawTasks || []).find(t => t && t.id === id && getMultiDayOccurrenceDates(t).includes(plannedDate)) || null;
   }
 
+  // ── Označit hotovo (2026-09-25) — JEDINÉ místo té logiky ──────────────
+  // Dřív 4 nezávislé kopie markTaskAsDoneFromModal (Dashboard, mobilní
+  // Dashboard, Přehled, mobilní Přehled) — viz Nástraha č. 10 v CLAUDE.md
+  // (oprava 2026-08-05 se musela dělat na každém místě zvlášť). Chování
+  // beze změny oproti kopiím:
+  //   - čistě generovaný výskyt opakujícího se pravidla → záznam do
+  //     `dokonceni` (NE do výjimek — výjimka = "negenerovat vůbec"),
+  //   - vícedenní úkol → jen klikaný den do `completedDays`, stav
+  //     "Dokončeno" až když jsou hotové všechny dny,
+  //   - běžný úkol → stav "Dokončeno" + doneDate.
+  // Úkol se hledá přes findRawTaskForOccurrence (id + skutečný rozsah dní),
+  // ne jen podle id — zástupy mají stejné id jako pravidlo.
+  function localTodayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  // Datová část — upraví a uloží database.json. Vrací druh akce
+  // ("opakovany" / "den" / "ukol"). Chyby (vč. CONFLICT) propadnou volajícímu.
+  async function markTaskDone({ id, plannedDate, recurring, multiDay, userFallback }) {
+    const raw = getRawJson();
+    if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+    const user = getCurrentUserFromConfig() || userFallback || "unknown";
+    const today = localTodayISO();
+    const task = findRawTaskForOccurrence(raw.tasks, id, plannedDate);
+
+    if (recurring && !task) {
+      raw.dokonceni = raw.dokonceni || [];
+      const already = raw.dokonceni.find(d => d.id === id && d.datum === plannedDate);
+      if (!already) {
+        raw.dokonceni.push({ id, datum: plannedDate, zaznamenoKym: user, zaznamenoKdy: today });
+      }
+      await saveToGitHub(raw, `Dokončení ${id} (${plannedDate}) zaznamenáno uživatelem ${user}`);
+      return "opakovany";
+    }
+    if (task && multiDay) {
+      task.completedDays = Array.isArray(task.completedDays) ? task.completedDays : [];
+      if (plannedDate && !task.completedDays.includes(plannedDate)) task.completedDays.push(plannedDate);
+      if (isMultiDayTaskFullyComplete(task)) {
+        task.state = "Dokončeno";
+        if (!task.doneDate) task.doneDate = today;
+      }
+      task.lastUpdated = today;
+      await saveToGitHub(raw, `Den ${plannedDate} úkolu ${id} označen jako hotový uživatelem ${user}`);
+      return "den";
+    }
+    if (task) {
+      task.state = "Dokončeno";
+      if (!task.doneDate) task.doneDate = today;
+      task.lastUpdated = today;
+      await saveToGitHub(raw, `Úkol ${id} označen jako hotový uživatelem ${user}`);
+      return "ukol";
+    }
+    throw new Error(`Úkol ${id} nebyl v databázi nalezen.`);
+  }
+
+  // UI část — tlačítko "✓ Hotovo" v modalu (data-task-id / data-planned-date
+  // / data-recurring / data-multi-day, nastavuje ho každá stránka při
+  // otevření modalu). Kontrolu oprávnění dělá stránka PŘED voláním.
+  async function markDoneFromButton(btn, { modal, userFallback } = {}) {
+    const id = btn && btn.dataset.taskId;
+    if (!id) return;
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Ukládám…";
+    try {
+      await markTaskDone({
+        id,
+        plannedDate: btn.dataset.plannedDate,
+        recurring: btn.dataset.recurring === "1",
+        multiDay: btn.dataset.multiDay === "1",
+        userFallback,
+      });
+      if (modal) modal.classList.remove("open");
+      await reload();
+    } catch (e) {
+      if (e.message && e.message.includes("CONFLICT")) {
+        if (confirm(`⚠ ${e.message}\n\nKliknout OK pro přenačtení dat.`)) {
+          await reload();
+        }
+      } else {
+        alert(`Uložení se nepodařilo: ${e.message}`);
+        console.error(e);
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
   // ── Generování ID nových úkolů ──────────────────────────────────────────
   // DŘÍVE: "nejvyšší číslo v datech + 1", počítáno NEZÁVISLE v Dashboardu
   // (generateNextIdNew) i ve Správě úkolů (generateNextId) — dvě oddělené
@@ -1489,6 +1579,8 @@ const FTLoader = (() => {
     readHistoryMonth,
     toggleTaskHistory,
     resetTaskHistory,
+    markTaskDone,
+    markDoneFromButton,
   };
 
 })();

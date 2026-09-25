@@ -268,6 +268,13 @@ initDarkMode();
     .state-wait{background:var(--prio-p2-bg);color:var(--prio-p2-text)}
     .state-new{background:var(--prio-p0-bg);color:var(--prio-p0-text)}
 
+    /* ── Upozornění na aktivní filtr (2026-09-25) — barvy jen z theme.css ── */
+    .active-filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:8px 12px;border:1px solid var(--warn-border);border-radius:var(--radius-sm);background:var(--warn-soft);color:var(--warn-strong);font-size:13px;font-weight:600}
+    .active-filter-bar[hidden]{display:none}
+    .active-filter-bar .small-btn{margin-left:auto}
+    .filter-active{border-color:var(--warn-border) !important;box-shadow:0 0 0 2px var(--warn-soft) !important}
+    label.filter-active{border:1px solid var(--warn-border);border-radius:var(--radius-sm);padding:2px 6px;background:var(--warn-soft);color:var(--warn-strong)}
+
     /* ── Kanban ── */
     .kanban-board {
       display: grid;
@@ -601,6 +608,7 @@ initDarkMode();
         <div class="muted" id="resultInfo" style="display:none;">0 záznamů</div>
       </div>
       <div class="panel-body">
+        <div id="activeFilterBar" class="active-filter-bar" hidden></div>
         <div class="filters">
           <input id="quickProject" placeholder="Projekt" />
           <input id="quickInternalProject" placeholder="Dodatečné označení projektu" />
@@ -1091,6 +1099,59 @@ function applyFilters(){
 
   renderStats();
   renderCurrentView();
+  updateActiveFilterBar();
+}
+
+// ── Upozornění na aktivní filtr (2026-09-25) ──
+// Filtry se pamatují přes znovunačtení stránky (saveSpravaFilterState), a
+// zapomenutý filtr pak vypadal jako "zmizelý úkol" (stalo se). Žlutý pruh
+// nad tabulkou/Kanbanem vyjmenuje, co je aktivní, a aktivní pole zvýrazní.
+// "Zobrazit zrušené" je taky filtr — ukáže JEN zrušené, platné skryje.
+function describeActiveFilters() {
+  const parts = [];
+  const val = el => (el && el.value || "").trim();
+  const selText = el => (el.options[el.selectedIndex] && el.options[el.selectedIndex].textContent || el.value).trim();
+  const fmt = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? `${+m[3]}. ${+m[2]}. ${m[1]}` : iso; };
+  const mark = (el, on) => { if (el) el.classList.toggle("filter-active", !!on); };
+
+  mark(els.searchInput, val(els.searchInput));
+  if (val(els.searchInput)) parts.push(`hledání „${val(els.searchInput)}“`);
+  mark(els.filterAssignee, val(els.filterAssignee));
+  if (val(els.filterAssignee)) parts.push(`řešitel ${selText(els.filterAssignee)}`);
+  mark(els.filterState, val(els.filterState));
+  if (val(els.filterState)) parts.push(`stav ${selText(els.filterState)}`);
+  mark(els.filterPriority, val(els.filterPriority));
+  if (val(els.filterPriority)) parts.push(`priorita ${selText(els.filterPriority)}`);
+  const doneOn = val(els.filterDoneMode) && val(els.filterDoneMode) !== "all";
+  mark(els.filterDoneMode, doneOn);
+  if (doneOn) parts.push(selText(els.filterDoneMode).toLowerCase());
+  mark(els.quickProject, val(els.quickProject));
+  if (val(els.quickProject)) parts.push(`projekt „${val(els.quickProject)}“`);
+  mark(els.quickInternalProject, val(els.quickInternalProject));
+  if (val(els.quickInternalProject)) parts.push(`dodatečné označení „${val(els.quickInternalProject)}“`);
+  const from = val(els.quickFromDate), to = val(els.quickToDate);
+  mark(els.quickFromDate, from);
+  mark(els.quickToDate, to);
+  if (from && to) parts.push(`plán ${fmt(from)} – ${fmt(to)}`);
+  else if (from) parts.push(`plán od ${fmt(from)}`);
+  else if (to) parts.push(`plán do ${fmt(to)}`);
+  if (overdueFilterActive) parts.push("po termínu");
+  const cancelledOn = !!(els.showCancelled && els.showCancelled.checked);
+  mark(els.showCancelled && els.showCancelled.closest("label"), cancelledOn);
+  if (cancelledOn) parts.push("jen zrušené");
+  return parts;
+}
+
+function updateActiveFilterBar() {
+  const bar = document.getElementById("activeFilterBar");
+  if (!bar) return;
+  const parts = describeActiveFilters();
+  if (!parts.length) { bar.hidden = true; bar.innerHTML = ""; return; }
+  const n = filteredTasks.length;
+  const word = n === 1 ? "úkol" : (n >= 2 && n <= 4 ? "úkoly" : "úkolů");
+  bar.hidden = false;
+  bar.innerHTML = `<span>🔍 Aktivní filtr: ${escapeHtml(parts.join(" · "))} — zobrazeno ${n} ${word}</span>` +
+    `<button type="button" class="small-btn" onclick="resetFilters()">✕ Zrušit filtry</button>`;
 }
 
 let kanbanViewActive = false;
@@ -1334,6 +1395,8 @@ function resetFilters(){
   els.quickInternalProject.value = "";
   els.quickFromDate.value = "";
   els.quickToDate.value = "";
+  // "Zobrazit zrušené" skrývá všechny platné úkoly → taky filtr (2026-09-25)
+  if (els.showCancelled) els.showCancelled.checked = false;
   overdueFilterActive = false;
   updateOverdueBtnStyle();
   applyFilters();
