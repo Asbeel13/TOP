@@ -496,6 +496,7 @@ const FTLoader = (() => {
     // proti kterému se ukládá (GitHub zápis přijme jen při shodě SHA, takže
     // rozdíl pak ukazuje přesně to, co TOHLE uložení změnilo).
     const historyBase = _base && _base.sha === _lastSha ? _base.str : null;
+    const _baseAtStart = !!_base; // jen pro diagnostiku, když historyBase chybí
 
     // Enkóduj JSON → UTF-8 → Base64 (po částech, aby nedošlo k přetečení zásobníku u velkých souborů)
     // Kompaktní zápis (bez odsazení), ne JSON.stringify(json, null, 2) jako
@@ -561,7 +562,12 @@ const FTLoader = (() => {
     // Historie AŽ PO úspěšném uložení úkolu, zápis běží na pozadí — její
     // chyba nikdy nesmí shodit ani zdržet uložení (rozhodnutí JK
     // 2026-09-22: "nejdřív úkol, pak historie").
-    try { recordHistory(historyBase, json, user); }
+    try {
+      recordHistory(historyBase, json, user, {
+        message: commitMessage || "",
+        reason: historyBase ? "" : (_baseAtStart ? "jine_sha" : "zadny"),
+      });
+    }
     catch (e) { console.warn("ft_loader historie:", e); }
 
     return data;
@@ -586,6 +592,10 @@ const FTLoader = (() => {
   // 2026-09-23, JK chce u opakovaného úkolu vidět, kdo ho smazal. Úpravy
   // samotných pravidel se nezapisují (JK: zatím ne). Úkoly ze SPA (*SPA…
   // dovolené, svátky) se nezapisují.
+  // Diagnostika (2026-09-25, bez id → u úkolu se nezobrazuje):
+  // bez_vychoziho_stavu (+ duvod "zadny"/"jine_sha", zprava = zpráva
+  // commitu), chyba_historie (+ chyba, zprava); hromadna_zmena (+ pocet).
+  // pozde: n = záznam zapsaný až z fronty po n neúspěšných pokusech.
   const HISTORY_DIR = "history";
   const HISTORY_KEY_FIELDS = ["state", "owner", "coOwners", "plannedDate", "priority", "auto"];
   const HISTORY_IGNORED_FIELDS = new Set(["lastUpdated"]);
@@ -710,10 +720,24 @@ const FTLoader = (() => {
     return events;
   }
 
-  function recordHistory(baseStr, json, user) {
-    if (!baseStr) { console.warn("ft_loader historie: chybí výchozí stav, uložení se do historie nezapíše"); return; }
+  // info = { message: zpráva commitu uložení, reason: proč chybí výchozí stav }
+  function recordHistory(baseStr, json, user, info) {
     const t = new Date().toISOString().slice(0, 19) + "Z";
-    let events = buildHistoryEvents(JSON.parse(baseStr), json, user, t);
+    const msg = String((info && info.message) || "").slice(0, 150);
+    let events;
+    if (!baseStr) {
+      // Diagnostika (2026-09-25): dřív se takové uložení jen tiše
+      // nezapsalo (console.warn) a zpětně nešlo zjistit proč (případ JaM
+      // 2026-09-24 06:29). Záznam bez id se u úkolu nezobrazuje, je jen
+      // pro dohledání v souboru historie.
+      events = [{ t, u: user, a: "bez_vychoziho_stavu", duvod: (info && info.reason) || "", zprava: msg }];
+    } else {
+      try {
+        events = buildHistoryEvents(JSON.parse(baseStr), json, user, t);
+      } catch (e) {
+        events = [{ t, u: user, a: "chyba_historie", chyba: String(e && e.message || e).slice(0, 200), zprava: msg }];
+      }
+    }
     if (!events.length) return;
     if (events.length > HISTORY_MAX_EVENTS) {
       console.warn(`ft_loader historie: ${events.length} záznamů najednou, zapisuji jen souhrn`);
@@ -721,11 +745,85 @@ const FTLoader = (() => {
     }
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    // Fronta = zápisy jdou postupně (dvě rychlá uložení po sobě by jinak
-    // soupeřila o SHA stejného souboru).
+    enqueueHistory(month, events, user);
+  }
+
+  // ── Fronta nezapsaných záznamů (2026-09-25) ──────────────────────────
+  // Dřív: zápis historie selhal (síť, souběh) → 3 okamžité pokusy → záznam
+  // ztracen (JaM 2026-09-24 06:29, 1 z 31 uložení). Teď se každá dávka
+  // nejdřív uloží do localStorage (ftHistoryPending) a smaže se až po
+  // úspěšném zápisu; co nevyjde, zkusí se znovu při dalším uložení, při
+  // otevření stránky a při pollingu (nejdřív po HISTORY_RETRY_MS).
+  // Zápis je idempotentní (appendHistory přeskočí záznamy, které už v
+  // souboru jsou), takže opakování ani dvě záložky nic nezdvojí; mezi
+  // záložkami navíc Web Locks, kde je prohlížeč má.
+  const HISTORY_PENDING_KEY = "ftHistoryPending";
+  const HISTORY_RETRY_MS = 60000;
+  const HISTORY_PENDING_MAX = 200;                  // dávek
+  const HISTORY_PENDING_MAX_AGE = 14 * 86400000;    // pak se dávka zahodí
+  let _historyMem = null;   // náhrada, když localStorage nejde zapsat
+  let _historyLastTry = 0;
+
+  function readPendingHistory() {
+    if (_historyMem) return _historyMem.slice();
+    try {
+      const a = JSON.parse(localStorage.getItem(HISTORY_PENDING_KEY) || "[]");
+      return Array.isArray(a) ? a : [];
+    } catch (e) { return []; }
+  }
+  function writePendingHistory(list) {
+    if (_historyMem) { _historyMem = list.slice(); return; }
+    try {
+      if (list.length) localStorage.setItem(HISTORY_PENDING_KEY, JSON.stringify(list));
+      else localStorage.removeItem(HISTORY_PENDING_KEY);
+    } catch (e) {
+      _historyMem = list.slice(); // plná kvóta apod. — aspoň do zavření stránky
+    }
+  }
+  function hasPendingHistory() { return readPendingHistory().length > 0; }
+
+  function enqueueHistory(month, events, user) {
+    const list = readPendingHistory();
+    list.push({ k: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, month, events, user, at: Date.now(), tries: 0 });
+    while (list.length > HISTORY_PENDING_MAX) list.shift();
+    writePendingHistory(list);
+    flushHistory();
+  }
+
+  // Fronta = zápisy jdou postupně (dvě rychlá uložení po sobě by jinak
+  // soupeřila o SHA stejného souboru).
+  function flushHistory() {
     _historyQueue = _historyQueue
-      .then(() => appendHistory(month, events, user))
-      .catch(e => console.warn("ft_loader historie: zápis selhal", e));
+      .then(() => (navigator.locks && navigator.locks.request)
+        ? navigator.locks.request("ftHistoryFlush", flushPendingHistory)
+        : flushPendingHistory())
+      .catch(e => console.warn("ft_loader historie:", e));
+    return _historyQueue;
+  }
+
+  async function flushPendingHistory() {
+    _historyLastTry = Date.now();
+    for (let guard = 0; guard < HISTORY_PENDING_MAX; guard++) {
+      const list = readPendingHistory().filter(x => Date.now() - (x.at || 0) < HISTORY_PENDING_MAX_AGE);
+      if (!list.length) { writePendingHistory([]); return; }
+      const entry = list[0];
+      try {
+        // Pozdě zapsaný záznam nese počet neúspěšných pokusů (diagnostika).
+        const events = entry.tries ? entry.events.map(e => ({ ...e, pozde: entry.tries })) : entry.events;
+        await appendHistory(entry.month, events, entry.user || getCurrentUserFromConfig());
+        writePendingHistory(readPendingHistory().filter(x => x.k !== entry.k));
+      } catch (e) {
+        console.warn("ft_loader historie: zápis se nepovedl, zkusím později", e);
+        writePendingHistory(readPendingHistory().map(x => x.k === entry.k
+          ? { ...x, tries: (x.tries || 0) + 1, err: String(e && e.message || e).slice(0, 120) } : x));
+        return;
+      }
+    }
+  }
+
+  // Klíč záznamu pro kontrolu "už je v souboru" (pole pozde se ignoruje).
+  function historyEventKey(e) {
+    return [e.t, e.u, e.id || "", e.a, e.d || "", e.zprava || ""].join("|");
   }
 
   function historyUrl(month) {
@@ -760,27 +858,41 @@ const FTLoader = (() => {
     return { sha: data.sha, doc };
   }
 
+  // 3 pokusy s prodlevou 1 s a 3 s (dřív hned po sobě — krátký výpadek
+  // nebo souběh je všechny "spálil"). Při chybě i po 3 pokusech zůstává
+  // dávka ve frontě (flushPendingHistory) a zkusí se později.
   async function appendHistory(month, events, user) {
+    let lastErr = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
-      const { sha, doc } = await readHistoryMonth(month);
-      doc.events.push(...events);
-      const body = {
-        message: `Historie: ${events.length} záznam(ů) od ${user}`,
-        content: utf8ToBase64(JSON.stringify(doc)),
-        committer: { name: user, email: `${user}@filtration.cz` }
-      };
-      if (sha) body.sha = sha;
-      const resp = await fetch(historyUrl(month), {
-        method: "PUT",
-        headers: headers({ "Content-Type": "application/json" }),
-        body: JSON.stringify(body)
-      });
-      if (resp.ok) return;
-      // 409 = někdo mezitím zapsal, 422 = soubor mezitím někdo založil →
-      // načíst znovu a zkusit to znovu
-      if (resp.status !== 409 && resp.status !== 422) throw new Error(`historie ${month} PUT ${resp.status}`);
+      if (attempt > 1) await new Promise(r => setTimeout(r, attempt === 2 ? 1000 : 3000));
+      try {
+        const { sha, doc } = await readHistoryMonth(month);
+        // Idempotence: co už v souboru je (opakovaný pokus po chybě, která
+        // ve skutečnosti proběhla; druhá záložka), se znovu nepřidá.
+        const have = new Set(doc.events.map(historyEventKey));
+        const add = events.filter(e => !have.has(historyEventKey(e)));
+        if (!add.length) return;
+        doc.events.push(...add);
+        const body = {
+          message: `Historie: ${add.length} záznam(ů) od ${user}`,
+          content: utf8ToBase64(JSON.stringify(doc)),
+          committer: { name: user, email: `${user}@filtration.cz` }
+        };
+        if (sha) body.sha = sha;
+        const resp = await fetch(historyUrl(month), {
+          method: "PUT",
+          headers: headers({ "Content-Type": "application/json" }),
+          body: JSON.stringify(body)
+        });
+        if (resp.ok) return;
+        // 409 = někdo mezitím zapsal, 422 = soubor mezitím někdo založil,
+        // 5xx = výpadek GitHubu → načíst znovu a zkusit to znovu
+        lastErr = new Error(`historie ${month} PUT ${resp.status}`);
+      } catch (e) {
+        lastErr = e; // síť, poškozený soubor (ten se nikdy nepřepíše) …
+      }
     }
-    throw new Error(`historie ${month}: 3× konflikt, záznam se nezapsal`);
+    throw lastErr || new Error(`historie ${month}: zápis se nepovedl`);
   }
 
   // ── Zobrazení historie (Správa úkolů + Dashboard, 2026-09-23) ──────────
@@ -1141,9 +1253,9 @@ const FTLoader = (() => {
     if (existingToken) {
       resolveUserFromWhitelist(existingToken)
         .catch(() => {})
-        .then(() => { _verifyDone = true; fetchFromGitHub(false); });
+        .then(() => { _verifyDone = true; fetchFromGitHub(false); if (hasPendingHistory()) flushHistory(); });
     } else {
-      showTokenDialog(() => { _verifyDone = true; fetchFromGitHub(false); });
+      showTokenDialog(() => { _verifyDone = true; fetchFromGitHub(false); if (hasPendingHistory()) flushHistory(); });
     }
 
     // 3. Polling — data i indikátor aktivity (až po dokončení ověření výše,
@@ -1152,6 +1264,8 @@ const FTLoader = (() => {
     _pollTimer = setInterval(() => {
       if (!_verifyDone) return;
       fetchFromGitHub(true);
+      // Nezapsané záznamy historie (viz flushPendingHistory) — nejdřív po minutě.
+      if (Date.now() - _historyLastTry > HISTORY_RETRY_MS && hasPendingHistory()) flushHistory();
       if (_onActivity && getToken()) {
         checkActivity().then(info => _onActivity(info));
       }
