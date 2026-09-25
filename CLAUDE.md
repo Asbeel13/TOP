@@ -5,6 +5,57 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## ✅ Společná funkce Hotovo + upozornění na aktivní filtr (2026-09-25, NASAZENO a ověřeno)
+
+**✅ Nahráno JK 2026-09-25:** `197f25e` (08:51, ft_loader.js + Správa) a
+`13fc8fe` (08:52, 4 stránky s Hotovo) — všech 6 souborů na GitHubu i
+Pages bajtově shodných s otestovanou verzí. Ostré Hotovo po nasazení
+zatím neproběhlo (ověřeno 08:53) — při příští kontrole historie ověřit,
+že uložení "Úkol X označen jako hotový" dál chodí i se záznamem historie.
+
+JK: "udělej bod 4 a 5" (z "Doporučení pro budoucí práci" níž).
+
+**Bod 5 — "Označit hotovo" jen na jednom místě** (řeší Nástrahu č. 10):
+- `ft_loader.js`: `markTaskDone({id, plannedDate, recurring, multiDay,
+  userFallback})` (datová část: dokonceni / completedDays / Dokončeno,
+  commit zprávy beze změny) + `markDoneFromButton(btn, {modal,
+  userFallback})` (UI: "Ukládám…", zavření modalu, reload, CONFLICT →
+  confirm, jiná chyba → alert, obnovení popisku). Chování 1:1 podle
+  původních kopií — vědomě BEZ změny výběru úkolu (JK zamítl "Hotovo
+  nikdy na zrušený" 2026-09-23).
+- 4 stránky (Dashboard, mobilní Dashboard, Přehled, mobilní Přehled):
+  `markTaskAsDoneFromModal` je teď jen kontrola oprávnění (Dashboard
+  `can-write`, mobilní Dashboard `_canWrite`, Přehledy beze změny — tam
+  rozhoduje viditelnost tlačítka) + volání. Stará verze ft_loader.js z
+  HTTP cache → hláška "Aplikace byla právě aktualizována. Obnov prosím
+  stránku (Ctrl+F5)…" místo pádu. −236/+175 řádků.
+- Test mockem na kopii živé DB, **na všech 4 stránkách stejný skript**:
+  běžný úkol (stav, doneDate, lastUpdated, zpráva commitu), vícedenní
+  (1 den → jen completedDays; všechny dny → Dokončeno), opakovaný výskyt
+  (`dokonceni` s kým/kdy), neexistující úkol (hláška, tlačítko obnovené),
+  konflikt (confirm, 0 zápisů), stará verze loaderu (hláška); mobilní
+  Dashboard i bez oprávnění (hláška, 0 zápisů). Historie zapsala
+  správné akce.
+
+**Bod 4 — upozornění na aktivní filtr ve Správě úkolů:**
+- Žlutý pruh `#activeFilterBar` nad tabulkou/Kanbanem: "🔍 Aktivní filtr:
+  řešitel RS · plán 1. 9. – 30. 9. 2026 · po termínu — zobrazeno N úkolů
+  [✕ Zrušit filtry]"; aktivní pole dostanou `.filter-active` (žlutý
+  rámeček). Barvy jen `--warn-*` z theme.css. Aktualizuje se na konci
+  `applyFilters()`, takže i hned po načtení s uloženými filtry.
+- **"Zobrazit zrušené" je filtr** — ukazuje JEN zrušené a platné skryje →
+  hlášeno jako "jen zrušené" a `resetFilters()` ho teď taky vypíná (dřív
+  "Vyčistit filtry" nechávalo zaškrtnuté).
+- Test mockem: bez filtru skryto; řešitel; + datum; + po termínu; jen
+  zrušené; hledání + jen otevřené; tlačítko v pruhu vše vyčistí (i
+  zrušené); filtr uložený přes znovunačtení → pruh hned po načtení.
+  Světlý i tmavý režim snímkem.
+
+**K nahrání (6 souborů, JK):** `ft_loader.js`, `sprava_ukolu_linked.html`,
+`tydenni_dashboard_live_reload_local_linked.html`,
+`tydenni_dashboard_mobile.html`, `tydenni_prehled.html`,
+`tydenni_prehled_mobile.html`. Doporučené pořadí: ft_loader.js první.
+
 ## ✅ Duplicity v databázi (2026-09-23, VYŘEŠENO a ověřeno)
 
 **✅ JK spustil úklidový skript 2026-09-23 18:37:36** (commit "Úklid
@@ -1317,8 +1368,10 @@ míst v jednom souboru.
 **Poučení pro budoucí práci:** než zkopíruješ logiku z jednoho souboru do
 dalšího (zvlášť cokoliv, co čte/zapisuje `raw.tasks`), zvaž, jestli nepatří
 jako sdílená funkce do `ft_loader.js` — ušetří to budoucí "oprava na jednom
-místě, bug přežívá na zbylých". Zatím to nebylo přesunuto (viz Doporučení
-pro budoucí práci níže), jen opraveno na všech třech místech stejně.
+místě, bug přežívá na zbylých". **2026-09-25 přesunuto:**
+`FTLoader.markTaskDone` / `markDoneFromButton` — všechny 4 stránky
+(vč. mezitím přibylého mobilního Dashboardu) volají jen tohle, viz
+sekce nahoře "Společná funkce Hotovo".
 
 ## Zvážené a zamítnuté / odložené alternativy (neopakuj tuhle diskuzi zbytečně)
 
@@ -1462,7 +1515,8 @@ stávající, testování na kopii dat atd.) — stejně jako u Kanbanu výše.
 - **Vizuální upozornění na aktivní filtr** — když je ve Správě úkolů
   aktivní netriviální filtr (např. datum od-do), není to na první pohled
   vidět; uživatel na to jednou naletěl (myslel si, že úkol chybí, ve
-  skutečnosti ho skrýval zapomenutý filtr). Navrhováno, neimplementováno.
+  skutečnosti ho skrýval zapomenutý filtr). **✅ Implementováno
+  2026-09-25** (žlutý pruh `#activeFilterBar`, viz sekce nahoře).
 - Filtr pro opakující se úkoly podle typu (týdně/interval/měsíčně) — byl
   implementovaný jako součást širší úpravy záložek ve Správě úkolů.
 - Přeskládání dlaždic aut podle dostupnosti/abecedy/osoby — bylo zmíněno
@@ -1471,7 +1525,8 @@ stávající, testování na kopii dat atd.) — stejně jako u Kanbanu výše.
   č. 10. Aktuálně tři nezávislé kopie (Dashboard, Přehled desktop, Přehled
   mobil), opravené 2026-08-05 identicky na všech třech místech. Přesun do
   jedné sdílené funkce by tuhle třídu chyb do budoucna vyloučil, ale
-  vyžaduje opatrnou migraci (tři různé volající kontexty). Neimplementováno.
+  vyžaduje opatrnou migraci (tři různé volající kontexty). **✅
+  Implementováno 2026-09-25** (`FTLoader.markTaskDone`, 4 stránky).
 - **CSP hlavička** (`<meta http-equiv="Content-Security-Policy">`) jako
   druhá linie obrany proti XSS — appka je veřejná na GitHub Pages a token
   pro zápis leží v `localStorage`, viz Changelog 2026-08-05 (oprava XSS).
