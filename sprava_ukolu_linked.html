@@ -1356,6 +1356,7 @@ function kanbanDrop(e) {
   if (!task || task.cancelled) return;
   if (task.state === newState) return;
 
+  const wasDone = task.state === "Dokončeno";
   task.state = newState;
   task.lastUpdated = formatDateISO(new Date());
   if (newState === "Dokončeno") {
@@ -1370,7 +1371,10 @@ function kanbanDrop(e) {
     // dayDone přednostně před task.state, takže by TOP appka pořád
     // ukazovala všechny dny jako hotové, i když přetažení mimo sloupec
     // "Dokončeno" mělo úkol viditelně "znovuotevřít".
-    if (Array.isArray(task.completedDays) && task.completedDays.length > 0) {
+    // Oprava 2026-09-29: mazat JEN při odchodu Z "Dokončeno" — dřív se
+    // mazalo při každém přesunu mezi nedokončenými stavy (Probíhá → Čeká
+    // se) a rozpracovaný vícedenní úkol tím ztratil odškrtnuté dny.
+    if (wasDone && Array.isArray(task.completedDays) && task.completedDays.length > 0) {
       task.completedDays = [];
     }
   }
@@ -1676,11 +1680,16 @@ function saveTaskFromModal(){
       alert("Úkol se mezitím změnil nebo byl smazán jiným uživatelem a data se automaticky přenačetla. Zavři okno, otevři úkol znovu a zadej změnu ještě jednou.");
       return;
     }
+    const wasDone = existing.state === "Dokončeno";
     Object.assign(existing, taskData, { rowIndex: existing.rowIndex, selected: existing.selected });
     // Stejná reconciliace jako v kanbanDrop() výše (nález č. 13) — editace
     // stavu pryč z "Dokončeno" u vícedenního úkolu dřív dokončeného po
     // dnech by jinak nechala completedDays beze změny.
-    if (existing.state !== "Dokončeno" && Array.isArray(existing.completedDays) && existing.completedDays.length > 0) {
+    // Oprava 2026-09-29: rozhoduje PŮVODNÍ stav (wasDone). Dřív se
+    // kontroloval až nový stav po Object.assign, takže KAŽDÉ uložení
+    // rozpracovaného vícedenního úkolu (i jen změna poznámky) smazalo jeho
+    // odškrtnuté dny.
+    if (wasDone && existing.state !== "Dokončeno" && Array.isArray(existing.completedDays) && existing.completedDays.length > 0) {
       existing.completedDays = [];
     }
     applyFilters();
