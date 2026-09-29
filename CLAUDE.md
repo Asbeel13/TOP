@@ -5,13 +5,50 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapa 1 NASAZENA a uzavřena, `8531e16` + `761dec7`)
+
+JK zahájil návrh modulu pro plánování a řízení výroby (projekty =
+hlavní úkol + podúkoly, fáze, šablony, doklady PROFIT, Kanban, Gantt,
+kalendář) — navazuje na nápad č. 1 v "Nápady uživatele". Veškeré
+zadání, rozhodnutí, náčrt, technický koncept a průběh implementace
+jsou v samostatném **`TOP/RIZENI_VYROBY_navrh.md`** (JK: větší modul,
+držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
+
+- **Programuje se jen etapa, kterou JK výslovně schválí.** 2026-09-29:
+  „Koncept schválen, programuj etapu 1“ (datový základ ve stávajících
+  stránkách). Etapy 2–6 zatím NE.
+- **Etapa 1 NASAZENA a ověřena (2026-09-29 13:35, commit `8531e16`,
+  GitHub i Pages bajtově shodné s otestovanou verzí)** — 6 souborů:
+  `ft_loader.js`, `sprava_ukolu_linked.html`,
+  `tydenni_dashboard_live_reload_local_linked.html`, `tydenni_prehled.html`,
+  `tydenni_prehled_mobile.html`, `tydenni_dashboard_mobile.html`.
+  Klíčové: data modulu na úkolu v jediném objektu **`vyroba`** — je v
+  `taskToRawFormat()`/`loadFromRaw()` ve Správě (Nástraha č. 1); hlavní
+  úkoly (`vyroba.druh "projekt"`) a podúkoly bez data se v
+  `parseDatabase()` vyřazují ze zobrazení; štítek projektu u podúkolů;
+  UI popisky „Projekt“ → **„Označení“**, „Dodatečné označení projektu“
+  (v Dashboardu dokonce ještě „Interní číslo projektu“) → **„Dodatečné
+  označení“** (datová pole `project`/`internalProject` beze změny).
+  Detail testu v navrh.md sekce 12.
+- **Oprava `completedDays` (doplněk etapy 1, JK schválil) — ✅ NAHRÁNO
+  2026-09-29 13:45, commit `761dec7`, GitHub i Pages ověřeny:**
+  `saveTaskFromModal()` i `kanbanDrop()` mazaly odškrtnuté dny
+  rozpracovaného vícedenního úkolu při každém uložení okna / přetažení
+  mezi nedokončenými stavy (kontrolovaly nový stav místo původního;
+  pozůstatek opravy 2026-09-17, nález č. 13). Teď jen při odchodu Z
+  „Dokončeno“ (`wasDone`). Otestováno 6 scénáři proti `8531e16`, viz
+  navrh.md sekce 12.
+- Plán převodu celého TOP na PostgreSQL — viz „Otevřená teoretická
+  diskuze: vlastní server“ níž a navrh.md 6.15.
+
 ## ✅ Společná funkce Hotovo + upozornění na aktivní filtr (2026-09-25, NASAZENO a ověřeno)
 
 **✅ Nahráno JK 2026-09-25:** `197f25e` (08:51, ft_loader.js + Správa) a
 `13fc8fe` (08:52, 4 stránky s Hotovo) — všech 6 souborů na GitHubu i
-Pages bajtově shodných s otestovanou verzí. Ostré Hotovo po nasazení
-zatím neproběhlo (ověřeno 08:53) — při příští kontrole historie ověřit,
-že uložení "Úkol X označen jako hotový" dál chodí i se záznamem historie.
+Pages bajtově shodných s otestovanou verzí. **Ostré Hotovo ověřeno
+2026-09-25 08:56:01** (JK, `*TMUGLWD73*`): stav Nový → Dokončeno,
+doneDate 2026-09-25, zpráva commitu beze změny, záznam `hotovo` v
+historii o 1 s později.
 
 JK: "udělej bod 4 a 5" (z "Doporučení pro budoucí práci" níž).
 
@@ -1481,6 +1518,14 @@ odpověď: **kdo bude vyvíjet/dokončí migraci** (ne kdo bude server
 provozovat — to je vyřešeno). Doporučeno postupné nasazení (nejdřív
 backend+auth+notifikace, zbytek postupně), ne najednou.
 
+**Aktualizace 2026-09-29 (JK):** celý TOP bude v budoucnu převeden na
+databázi **PostgreSQL** — už při vývoji nových věcí s tím počítat
+(jedinečná ID, vazby přes ID, žádné odvozené/zdvojené údaje, logika
+oddělená od úložiště). Konkrétní zásady sepsané pro modul výroby v
+`RIZENI_VYROBY_navrh.md`, sekce 6.15 (včetně známých překážek převodu
+celého TOP: nejedinečná `id` u zástupů, pole uvnitř úkolu, SPA sync
+přímo do JSON). Termín ani postup převodu zatím nejsou určené.
+
 ## Nápady uživatele (JK) na budoucí rozvoj — jen zaznamenáno, neplánováno
 
 Tohle jsou JK vlastní myšlenky, zmíněné 2026-08-05 jako věci k budoucímu
@@ -1489,7 +1534,8 @@ implementace. Až se k tomu bude přistupovat, projít to jako novou
 funkci s vlastním návrhem/rozvahou (samostatná stránka vs. nástavba nad
 stávající, testování na kopii dat atd.) — stejně jako u Kanbanu výše.
 
-1. **Systém pro řízení výroby** — nástavba nad úkoly, umožňující řízení a
+1. **Systém pro řízení výroby** (**od 2026-09-25 v návrhu, viz
+   `RIZENI_VYROBY_navrh.md`**) — nástavba nad úkoly, umožňující řízení a
    sdružování úkolů a podúkolů do přehledných celků (JK to takhle
    popsal, bez dalších detailů zatím). Pole `subtask` na úkolu už
    existuje v datovém modelu (viz Changelog 2026-08-05, oprava č. 3),
