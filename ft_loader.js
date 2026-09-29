@@ -122,6 +122,36 @@ const FTLoader = (() => {
   // v paměti spolu se SHA, ne z localStorage cache: ta se při plné kvótě
   // tiše neuloží a historie by pak porovnávala se zastaralými daty.
   let _base = null; // { sha, str }
+  let _dataRevision = 0, _readSequence = 0;
+  let _saveInProgress = false;
+  const _rawSnapshots = new WeakMap();
+
+  // Publikovat data, jejich SHA i výchozí stav historie společně.
+  // localStorage je jen přenos/cache, nikdy zdroj pro následný zápis.
+  function acceptDatabase(json, sha, text, etag = "") {
+    const parsed = parseDatabase(json); // chyba parsování nesmí změnit platný snímek
+    _base = { sha, str: text };
+    _lastSha = sha;
+    _lastEtag = etag;
+    _dataRevision++;
+    try {
+      localStorage.setItem(DATA_KEY, JSON.stringify({
+        parsedData: parsed, rawJson: json, sha, savedAt: new Date().toISOString()
+      }));
+    } catch (e) { console.warn("ft_loader: cache se nepodařilo uložit", e); }
+    // Chyba vykreslení nesmí vydávat již uložený úkol za neuložený.
+    if (_onData) {
+      try { _onData(parsed); } catch (e) { console.error("ft_loader onData:", e); }
+    }
+  }
+
+  async function gitBlobSha(bytes) {
+    const head = new TextEncoder().encode("blob " + bytes.length + "\0");
+    const input = new Uint8Array(head.length + bytes.length);
+    input.set(head); input.set(bytes, head.length);
+    return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", input)))
+      .map(b => b.toString(16).padStart(2, "0")).join("");
+  }
 
   function status(msg, err) { if (_onStatus) _onStatus(msg, !!err); }
 
@@ -440,66 +470,51 @@ const FTLoader = (() => {
   }
 
   // ── Čtení z GitHub ─────────────────────────────────────────────────────
-  async function fetchFromGitHub(silent) {
+  async function fetchFromGitHub(silent, { force = false, strict = false } = {}) {
+    const sequence = ++_readSequence, revision = _dataRevision;
     try {
       const resp = await fetch(apiUrl(), {
-        headers: headers({ "If-None-Match": _lastEtag })
+        headers: headers(force ? {} : { "If-None-Match": _lastEtag }), cache: "no-store"
       });
-
-      if (resp.status === 304) return false; // Beze změny
-
-      if (!resp.ok) throw new Error(`GitHub API ${resp.status}: ${await resp.text().then(t => t.slice(0,200))}`);
-
-      _lastEtag = resp.headers.get("etag") || "";
+      if (resp.status === 304 && _base) return false;
+      if (!resp.ok) throw new Error("GitHub API " + resp.status + ": " + await resp.text().then(t => t.slice(0,200)));
+      const etag = resp.headers.get("etag") || "";
       const data = await resp.json();
       const sha = data.sha;
-
-      if (sha === _lastSha) return false;
-      _lastSha = sha;
-
-      // Dekóduj Base64 → UTF-8 správně. KRITICKÁ OPRAVA (2026-09-18) — nad
-      // ~1MB GitHub Contents API pole "content" v JSON odpovědi vůbec
-      // nevrací (jen sha/size/download_url), takže tenhle blok mlčky
-      // dostal undefined a appka spadla na "Chyba načtení: Unexpected end
-      // of JSON input" (nahlásil JK po syncu svátků ze SPA, database.json
-      // přerostl 1MB). Když content chybí, druhý dotaz na stejnou URL s
-      // "raw" Accept hlavičkou — funguje až do 100MB, stejná autentizace.
-      // Stejná oprava už byla nasazená v SPA `topSync.js` (nactiSoubor()).
+      if (!sha) throw new Error("Načtená data nemají označení verze.");
       let jsonStr;
       if (data.content) {
         const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
         jsonStr = new TextDecoder("utf-8").decode(bytes);
       } else {
-        const rawResp = await fetch(apiUrl(), { headers: headers({ "Accept": "application/vnd.github.v3.raw" }) });
-        if (!rawResp.ok) throw new Error(`GitHub API (raw, soubor nad 1MB) ${rawResp.status}`);
-        jsonStr = await rawResp.text();
+        const rawResp = await fetch(apiUrl(), {
+          headers: headers({ "Accept": "application/vnd.github.v3.raw" }), cache: "no-store"
+        });
+        if (!rawResp.ok) throw new Error("GitHub API (raw, soubor nad 1MB) " + rawResp.status);
+        const bytes = new Uint8Array(await rawResp.arrayBuffer());
+        // Dva požadavky mohou vrátit různé revize. Obsah MUSÍ patřit k SHA
+        // z prvního požadavku; jinak by šlo přepsat mezitím přidaná data.
+        if (await gitBlobSha(bytes) !== sha) throw new Error("CONFLICT: Data se během načítání změnila. Zkus to znovu.");
+        jsonStr = new TextDecoder("utf-8").decode(bytes);
       }
-      _base = { sha, str: jsonStr };
       const json = JSON.parse(jsonStr);
-      const parsed = parseDatabase(json);
-
-      // Ulož do localStorage pro sdílení mezi záložkami
-      try {
-        localStorage.setItem(DATA_KEY, JSON.stringify({
-          parsedData: parsed,
-          rawJson: json,
-          sha,
-          savedAt: new Date().toISOString()
-        }));
-      } catch(e) {}
-
-      if (_onData) _onData(parsed);
-      status(`Načteno · ${new Date(json.updatedAt || Date.now()).toLocaleString("cs-CZ")} · ${json.updatedBy || ""}`);
+      if (sequence !== _readSequence || revision !== _dataRevision || _saveInProgress) {
+        if (strict) throw new Error("CONFLICT: Během načítání proběhla další změna. Zkus to znovu.");
+        return false;
+      }
+      if (_base && sha === _base.sha) { _lastEtag = etag; return false; }
+      acceptDatabase(json, sha, jsonStr, etag);
+      status("Načteno · " + new Date(json.updatedAt || Date.now()).toLocaleString("cs-CZ") + " · " + (json.updatedBy || ""));
       return true;
     } catch(e) {
-      // Neplatný token — vymaž ho a nabídni zadání nového
+      if (strict) throw e; // přesun smí pokračovat jen po úspěšném čtení
       if (e.message.includes("401")) {
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         status("Token je neplatný — zadej nový", true);
         showTokenDialog(() => fetchFromGitHub(false));
         return false;
       }
-      if (!silent) status(`Chyba načtení: ${e.message}`, true);
+      if (!silent) status("Chyba načtení: " + e.message, true);
       console.error("ft_loader fetchFromGitHub:", e);
       return false;
     }
@@ -507,100 +522,92 @@ const FTLoader = (() => {
 
   // ── Zápis do GitHub ────────────────────────────────────────────────────
   async function saveToGitHub(json, commitMessage) {
-    if (!_lastSha) throw new Error("SHA neznámé — nejdřív načti data");
-
-    // Oprava 2026-09-17 (nález č. 9): dřív čteno přímo z localStorage
-    // (ftCurrentUser — cokoliv, co si uživatel napsal do dialogu při
-    // zadávání tokenu, nikdy neověřené proti whitelistu). Veřejné
-    // FTLoader.getCurrentUser() (používané všude jinde pro commit zprávy)
-    // přitom správně upřednostňuje ftResolvedUser (zkratku ověřenou v
-    // resolveUserFromWhitelist) — saveToGitHub() tenhle přesnější zdroj
-    // nikdy nepoužívalo, takže json.updatedBy/committer v historii commitů
-    // top-data mohly ukazovat jiné jméno, než jaké appka jinde hlásila
-    // jako "Načteno · ... · kdo".
-    const user = getCurrentUserFromConfig();
-    json.updatedAt = new Date().toISOString();
-    json.updatedBy = user;
-
-    // Stav PŘED uložením pro historii úprav — jen když přesně odpovídá SHA,
-    // proti kterému se ukládá (GitHub zápis přijme jen při shodě SHA, takže
-    // rozdíl pak ukazuje přesně to, co TOHLE uložení změnilo).
-    const historyBase = _base && _base.sha === _lastSha ? _base.str : null;
-    const _baseAtStart = !!_base; // jen pro diagnostiku, když historyBase chybí
-
-    // Enkóduj JSON → UTF-8 → Base64 (po částech, aby nedošlo k přetečení zásobníku u velkých souborů)
-    // Kompaktní zápis (bez odsazení), ne JSON.stringify(json, null, 2) jako
-    // dřív — KRITICKÁ OPRAVA (2026-09-18, viz fetchFromGitHub() výš). Bez
-    // tohohle by první další uložení z appky (odkudkoliv — Dashboard,
-    // Správa úkolů) zase nafouklo soubor zpátky nad ~1MB, i po SPA-side
-    // opravě v topSync.js. Nikdo tenhle soubor needituje ručně, odsazení
-    // nemá funkční přínos.
-    const jsonStr = JSON.stringify(json);
-    const jsonBytes = new TextEncoder().encode(jsonStr);
-    let binary = "";
-    const CHUNK = 8192;
-    for (let i = 0; i < jsonBytes.length; i += CHUNK) {
-      binary += String.fromCharCode(...jsonBytes.subarray(i, i + CHUNK));
-    }
-    const content = btoa(binary);
-
-    const resp = await fetch(apiUrl(), {
-      method: "PUT",
-      headers: headers({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        message: commitMessage || `Update by ${user}`,
-        content,
-        sha: _lastSha,
-        committer: { name: user, email: `${user}@filtration.cz` }
-      })
-    });
-
-    if (resp.status === 409) {
-      throw new Error("CONFLICT: Někdo jiný mezitím uložil změny. Přenačti data a zkus znovu.");
-    }
-    if (!resp.ok) {
-      throw new Error(`GitHub zápis ${resp.status}: ${await resp.text().then(t => t.slice(0,200))}`);
-    }
-
-    const data = await resp.json();
-    _lastSha = data.content.sha;
-    _lastEtag = ""; // Vynutí přenačtení při příštím pollingu
-
-    // KRITICKÁ OPRAVA (2026-08-21): ihned po úspěšném zápisu aktualizuj i
-    // lokální cache (DATA_KEY), ať přesně odpovídá tomu, co se právě
-    // uložilo. Dřív se cache aktualizovala JEN přes samostatný
-    // reload()/fetchFromGitHub() — asynchronní síťový požadavek navíc.
-    // To vytvářelo ČASOVOU MEZERU mezi okamžitou aktualizací _lastSha a
-    // opožděnou aktualizací cache. Pokud v tomhle okně proběhlo DALŠÍ
-    // volání saveToGitHub() (např. rychlé založení druhého úkolu hned po
-    // prvním), getRawJson() vrátil ZASTARALÁ data BEZ prvního úkolu — a
-    // protože _lastSha už byl aktuální, GitHub zápis přijal jako platný
-    // (žádný konflikt 409), čímž TICHĚ PŘEPSAL a ztratil první úkol.
-    // Přesně tohle způsobilo zmizení úkolu "Demontáž potrubí 102"
-    // 2026-08-21 — dva úkoly založené rychle po sobě, druhý přepsal první.
+    if (!_base) throw new Error("SHA neznámé — nejdřív načti data");
+    if (_saveInProgress) throw new Error("CONFLICT: Právě se ukládá jiná změna. Zkus to znovu.");
+    // getRawJson vrací kopii svázanou s původní verzí i po dalším reloadu.
+    const origin = _rawSnapshots.get(json) || _base;
+    const expectedSha = origin.sha;
+    _saveInProgress = true;
+    _readSequence++; // rozpracovaný poll už nesmí nahradit výsledek zápisu
     try {
-      const parsed = parseDatabase(json);
-      localStorage.setItem(DATA_KEY, JSON.stringify({
-        parsedData: parsed,
-        rawJson: json,
-        sha: _lastSha,
-        savedAt: new Date().toISOString()
-      }));
-    } catch(e) {}
 
-    _base = { sha: _lastSha, str: jsonStr };
-    // Historie AŽ PO úspěšném uložení úkolu, zápis běží na pozadí — její
-    // chyba nikdy nesmí shodit ani zdržet uložení (rozhodnutí JK
-    // 2026-09-22: "nejdřív úkol, pak historie").
-    try {
-      recordHistory(historyBase, json, user, {
-        message: commitMessage || "",
-        reason: historyBase ? "" : (_baseAtStart ? "jine_sha" : "zadny"),
-      });
-    }
-    catch (e) { console.warn("ft_loader historie:", e); }
+      // Oprava 2026-09-17 (nález č. 9): dřív čteno přímo z localStorage
+      // (ftCurrentUser — cokoliv, co si uživatel napsal do dialogu při
+      // zadávání tokenu, nikdy neověřené proti whitelistu). Veřejné
+      // FTLoader.getCurrentUser() (používané všude jinde pro commit zprávy)
+      // přitom správně upřednostňuje ftResolvedUser (zkratku ověřenou v
+      // resolveUserFromWhitelist) — saveToGitHub() tenhle přesnější zdroj
+      // nikdy nepoužívalo, takže json.updatedBy/committer v historii commitů
+      // top-data mohly ukazovat jiné jméno, než jaké appka jinde hlásila
+      // jako "Načteno · ... · kdo".
+      const user = getCurrentUserFromConfig();
+      json.updatedAt = new Date().toISOString();
+      json.updatedBy = user;
 
-    return data;
+      // Stav PŘED uložením pro historii úprav — jen když přesně odpovídá SHA,
+      // proti kterému se ukládá (GitHub zápis přijme jen při shodě SHA, takže
+      // rozdíl pak ukazuje přesně to, co TOHLE uložení změnilo).
+      const historyBase = origin.str;
+      const _baseAtStart = !!_base; // jen pro diagnostiku, když historyBase chybí
+
+      // Enkóduj JSON → UTF-8 → Base64 (po částech, aby nedošlo k přetečení zásobníku u velkých souborů)
+      // Kompaktní zápis (bez odsazení), ne JSON.stringify(json, null, 2) jako
+      // dřív — KRITICKÁ OPRAVA (2026-09-18, viz fetchFromGitHub() výš). Bez
+      // tohohle by první další uložení z appky (odkudkoliv — Dashboard,
+      // Správa úkolů) zase nafouklo soubor zpátky nad ~1MB, i po SPA-side
+      // opravě v topSync.js. Nikdo tenhle soubor needituje ručně, odsazení
+      // nemá funkční přínos.
+      const jsonStr = JSON.stringify(json);
+      const jsonBytes = new TextEncoder().encode(jsonStr);
+      let binary = "";
+      const CHUNK = 8192;
+      for (let i = 0; i < jsonBytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...jsonBytes.subarray(i, i + CHUNK));
+      }
+      const content = btoa(binary);
+
+      let resp;
+      try {
+        resp = await fetch(apiUrl(), {
+          method: "PUT",
+          headers: headers({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            message: commitMessage || `Update by ${user}`,
+            content,
+            sha: expectedSha,
+            committer: { name: user, email: `${user}@filtration.cz` }
+          })
+        });
+      } catch (e) { e.writeUncertain = true; throw e; }
+
+      if (resp.status === 409) {
+        throw new Error("CONFLICT: Někdo jiný mezitím uložil změny. Přenačti data a zkus znovu.");
+      }
+      if (!resp.ok) {
+        const error = new Error(`GitHub zápis ${resp.status}: ${await resp.text().then(t => t.slice(0,200))}`);
+        error.writeUncertain = resp.status >= 500;
+        throw error;
+      }
+
+      let data;
+      try {
+        data = await resp.json();
+        if (!data.content?.sha) throw new Error("Chybí potvrzení uložené verze.");
+      } catch (e) { e.writeUncertain = true; throw e; }
+      acceptDatabase(JSON.parse(jsonStr), data.content.sha, jsonStr);
+      // Historie AŽ PO úspěšném uložení úkolu, zápis běží na pozadí — její
+      // chyba nikdy nesmí shodit ani zdržet uložení (rozhodnutí JK
+      // 2026-09-22: "nejdřív úkol, pak historie").
+      try {
+        recordHistory(historyBase, json, user, {
+          message: commitMessage || "",
+          reason: historyBase ? "" : (_baseAtStart ? "jine_sha" : "zadny"),
+        });
+      }
+      catch (e) { console.warn("ft_loader historie:", e); }
+
+      return data;
+    } finally { _saveInProgress = false; }
   }
 
   // ── Historie úprav úkolů (2026-09-23, viz HISTORIE_UPRAV_navrh.md) ─────
@@ -1124,25 +1131,21 @@ const FTLoader = (() => {
 
   // ── Pomocné funkce pro správu dat ─────────────────────────────────────
   function getRawJson() {
-    try {
-      const s = localStorage.getItem(DATA_KEY);
-      if (!s) return null;
-      return JSON.parse(s).rawJson || null;
-    } catch(e) { return null; }
+    if (!_base) return null;
+    const raw = JSON.parse(_base.str);
+    _rawSnapshots.set(raw, _base);
+    return raw;
   }
 
-  // ── localStorage → sdílení mezi záložkami ─────────────────────────────
+  // Událost storage může čekat ve frontě a nést již zastaralá data.
+  // Slouží jen jako podnět pro čerstvé čtení, ne jako autorita pro zápis.
   function initStorageSync() {
     window.addEventListener("storage", e => {
       if (e.key !== DATA_KEY || !e.newValue) return;
       try {
-        const { parsedData, sha, rawJson } = JSON.parse(e.newValue);
-        if (parsedData && sha !== _lastSha) {
-          _lastSha = sha;
-          _base = rawJson ? { sha, str: JSON.stringify(rawJson) } : null;
-          if (_onData) _onData(parsedData);
-        }
-      } catch(_) {}
+        const { sha } = JSON.parse(e.newValue);
+        if (sha && sha !== _lastSha) fetchFromGitHub(true, { force: true });
+      } catch (_) {}
     });
   }
 
@@ -1152,6 +1155,8 @@ const FTLoader = (() => {
     const rez = c.find(x => x.typ === "rezervace");
     if (rez) return rez.stav;
     if (c.some(x => x.typ === "ukol")) return "používané";
+    const free = (autaRezervace || []).some(r => r.spz === spz && r.datum === datum && r.stav === "volné");
+    if (free) return "volné";
     const stav = c.find(x => x.typ === "stav");
     return stav ? stav.stav : "volné";
   }
@@ -1177,7 +1182,7 @@ const FTLoader = (() => {
     if (!spz || want.size === 0) return [];
     const out = [];
     (autaRezervace || []).forEach(r => {
-      if (r && r.spz === spz && want.has(r.datum)) out.push({ datum: r.datum, typ: "rezervace", stav: r.stav || "", poznamka: r.poznamka || "" });
+      if (r && r.spz === spz && r.stav !== "volné" && want.has(r.datum)) out.push({ datum: r.datum, typ: "rezervace", stav: r.stav || "", poznamka: r.poznamka || "" });
     });
     (tasks || []).forEach(t => {
       if (!t || t.cancelled || t.auto !== spz || (exclude && exclude(t))) return;
@@ -1546,6 +1551,195 @@ const FTLoader = (() => {
     }
   }
 
+  // ── Posun jednodenního úkolu (2026-09-29) ─────────────────────────────
+  // Svátky jsou výhradně ze SPA. Počet 13 je kontrola současného sync
+  // kontraktu, nikoli místní výpočet kalendáře. Při změně kontraktu upravit
+  // společně s INTEGRACE.md. Pracujeme se surovými úkoly, bez filtrů/kopií.
+  function validTaskDate(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(value + "T12:00:00Z");
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }
+
+  function nextSpaWorkingDay(from, tasks) {
+    const years = new Map(), invalidYears = new Set();
+    (tasks || []).forEach(t => {
+      const match = /^\*SPA-HOL-(\d{4}-\d{2}-\d{2})\*$/.exec(String(t?.id || ""));
+      if (!match) return;
+      const iso = match[1], year = iso.slice(0, 4);
+      if (!validTaskDate(iso) || t.plannedDate !== iso) { invalidYears.add(year); return; }
+      if (!years.has(year)) years.set(year, new Set());
+      years.get(year).add(iso);
+    });
+    const date = new Date(from + "T12:00:00Z");
+    for (let step = 0; step < 366; step++) {
+      date.setUTCDate(date.getUTCDate() + 1);
+      const iso = date.toISOString().slice(0, 10), year = iso.slice(0, 4);
+      const holidays = years.get(year);
+      if (invalidYears.has(year) || !holidays || holidays.size !== 13) {
+        throw new Error(`Pro rok ${year} chybí úplný seznam svátků ze SPA. Přesun nebyl proveden. Je potřeba aktualizovat synchronizaci ze SPA.`);
+      }
+      if (date.getUTCDay() !== 0 && date.getUTCDay() !== 6 && !holidays.has(iso)) return iso;
+    }
+    throw new Error("Další pracovní den se nepodařilo určit ze svátků SPA.");
+  }
+
+  function shiftFingerprint(task) {
+    const sort = value => Array.isArray(value) ? value.map(sort) :
+      value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(k => [k, sort(value[k])])) : value;
+    return JSON.stringify(sort(task));
+  }
+
+  function getTaskShiftPlan(displayTask, raw = getRawJson()) {
+    const hidden = { eligible: false };
+    if (!raw || !displayTask?.id || displayTask.recurring || displayTask.isMultiDay ||
+        /^\*?SPA/.test(String(displayTask.id)) || !validTaskDate(displayTask.plannedDate)) return hidden;
+    if ((raw.opakovaci || []).some(r => r.id === displayTask.id)) return hidden;
+    const matches = (raw.tasks || []).filter(t => t && t.id === displayTask.id);
+    // Duplicitní ID nesmí zvolit první náhodný záznam; zástupy běžně
+    // sdílejí ID. U této první verze jsou způsobilé jen jednoznačné úkoly.
+    if (matches.length !== 1) return hidden;
+    const task = matches[0];
+    const duration = task.durationDays == null || task.durationDays === "" ? 1 : Number(task.durationDays);
+    if (duration !== 1 || task.cancelled || task.recurring || isProjectTask(task) ||
+        String(task.state || "").toLocaleLowerCase("cs-CZ").includes("dokončeno") ||
+        task.plannedDate !== displayTask.plannedDate ||
+        (Array.isArray(task.completedDays) && task.completedDays.length > 0)) return hidden;
+    const plan = { eligible: true, id: task.id, from: task.plannedDate, fingerprint: shiftFingerprint(task) };
+    try { plan.to = nextSpaWorkingDay(plan.from, raw.tasks); }
+    catch (e) { plan.error = e.message; }
+    return plan;
+  }
+
+  function shiftDateLabel(iso) {
+    return new Date(iso + "T12:00:00Z").toLocaleDateString("cs-CZ", {
+      weekday: "short", day: "numeric", month: "numeric", year: "numeric", timeZone: "UTC"
+    });
+  }
+
+  function configureTaskShiftButton(button, task, { canWrite = false, hint = null } = {}) {
+    if (!button) return;
+    const plan = canWrite ? getTaskShiftPlan(task) : { eligible: false };
+    button._shiftPlan = plan;
+    button.hidden = !plan.eligible;
+    button.disabled = !!plan.error || _shiftInProgress;
+    button.textContent = plan.to ? `Posunout → ${shiftDateLabel(plan.to)}` : "Posunout na další pracovní den";
+    button.title = plan.error || "Přesunout úkol na následující pracovní den";
+    if (hint) { hint.hidden = !plan.error; hint.textContent = plan.error || ""; }
+  }
+
+  let _shiftInProgress = false;
+  async function shiftSingleDayTask(plan) {
+    if (_shiftInProgress) throw new Error("Právě se přesouvá jiný úkol. Vyčkej na dokončení.");
+    if (!plan?.eligible || !plan.to || plan.error) throw new Error(plan?.error || "Tento úkol nelze rychle přesunout.");
+    _shiftInProgress = true;
+    try {
+      if (!await canActuallyWrite()) throw new Error("Nemáš oprávnění přesouvat úkoly.");
+      for (let attempt = 0; attempt < 3; attempt++) {
+        let changedTask, result, beforeText;
+        try {
+          // Čerstvý celek dat + SHA. Selhání čtení zde nesmí být spolknuto.
+          await fetchFromGitHub(false, { force: true, strict: true });
+          if (!isUserVerified() || getUserRole() !== "planovac") throw new Error("Nemáš oprávnění přesouvat úkoly.");
+          const raw = getRawJson();
+          const current = getTaskShiftPlan({ id: plan.id, plannedDate: plan.from }, raw);
+          if (!current.eligible || current.fingerprint !== plan.fingerprint) {
+            throw new Error("Úkol se mezitím změnil nebo byl smazán. Otevři jeho detail znovu; přesun nebyl proveden.");
+          }
+          if (current.error) throw new Error(current.error);
+          if (current.to !== plan.to) throw new Error("Seznam svátků se změnil. Otevři detail znovu a ověř nové datum přesunu.");
+          beforeText = JSON.stringify(raw);
+          const task = raw.tasks.find(t => t.id === plan.id);
+          const conflicts = getAutoConflicts(task.auto, [plan.to], {
+            tasks: raw.tasks, auta: raw.auta, autaRezervace: raw.auta_rezervace, exclude: t => t === task
+          }).filter(c => c.typ !== "stav" || !(raw.auta_rezervace || []).some(r =>
+            r.spz === task.auto && r.datum === plan.to && r.stav === "volné"));
+          const warnings = [];
+          if (conflicts.length) warnings.push(describeAutoConflicts(task.auto, conflicts));
+          if (validTaskDate(task.dueDate) && plan.to > task.dueDate) warnings.push(`Pozor: nové datum je po požadovaném dokončení (${shiftDateLabel(task.dueDate)}).`);
+          const project = isProjectSubtask(task) && raw.tasks.find(t => t.id === task.vyroba.projekt && isProjectTask(t));
+          if (project && validTaskDate(project.dueDate) && plan.to > project.dueDate) warnings.push(`Pozor: nové datum je po termínu projektu (${shiftDateLabel(project.dueDate)}).`);
+          task.plannedDate = plan.to;
+          task.lastUpdated = localTodayISO();
+          changedTask = shiftFingerprint(task);
+          result = { id: plan.id, from: plan.from, to: plan.to, warnings, conflictLevel: autoConflictLevel(conflicts) };
+          const user = getCurrentUserFromConfig();
+          await saveToGitHub(raw, `Úkol ${plan.id} přesunut z ${plan.from} na ${plan.to} uživatelem ${user}`);
+          return result;
+        } catch (e) {
+          if (e.writeUncertain) {
+            // Server mohl zápis přijmout, i když odpověď nedorazila. Nikdy
+            // neposouvat znovu; jen ověřit tentýž výsledek čerstvým čtením.
+            try {
+              await fetchFromGitHub(false, { force: true, strict: true });
+              const matches = (getRawJson()?.tasks || []).filter(t => t.id === plan.id);
+              if (matches.length === 1 && shiftFingerprint(matches[0]) === changedTask) {
+                // Ztracená odpověď znamená, že saveToGitHub ještě historii
+                // nezapsalo. Zachytit pouze změnu ověřeného přesunu.
+                const after = JSON.parse(beforeText);
+                after.tasks[after.tasks.findIndex(t => t.id === plan.id)] = matches[0];
+                try { recordHistory(beforeText, after, getCurrentUserFromConfig(), { message: "Ověřený přesun po ztrátě odpovědi" }); }
+                catch (historyError) { console.warn("ft_loader historie:", historyError); }
+                return result;
+              }
+            } catch (_) { /* výsledek nelze bezpečně potvrdit */ }
+            throw new Error("Výsledek uložení se nepodařilo potvrdit. Obnov data a ověř datum úkolu před dalším přesunem.");
+          }
+          if (e.message.includes("CONFLICT") && attempt < 2) continue;
+          throw e;
+        }
+      }
+    } finally { _shiftInProgress = false; }
+  }
+
+  function showTaskShiftNotice(message, kind = "success") {
+    let notice = document.getElementById("taskShiftNotice");
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = "taskShiftNotice";
+      notice.setAttribute("role", "status");
+      notice.setAttribute("aria-live", "polite");
+      const text = document.createElement("div");
+      text.className = "task-shift-notice-text";
+      const close = document.createElement("button");
+      close.type = "button"; close.textContent = "Zavřít";
+      close.setAttribute("aria-label", "Zavřít oznámení o přesunu");
+      close.addEventListener("click", () => { notice.hidden = true; });
+      notice.append(text, close); document.body.append(notice);
+    }
+    notice.className = `task-shift-notice task-shift-${kind}`;
+    notice.querySelector(".task-shift-notice-text").textContent = message;
+    notice.hidden = false;
+  }
+
+  async function shiftTaskFromButton(button, { modal = null } = {}) {
+    if (!button || button.disabled || button.hidden) return;
+    const plan = button._shiftPlan;
+    button.disabled = true;
+    button.textContent = "Přesouvám…";
+    if (modal) { modal.classList.add("task-shift-busy"); modal.setAttribute("aria-busy", "true"); }
+    let moved = false;
+    try {
+      const result = await shiftSingleDayTask(plan);
+      moved = true;
+      if (modal && button._shiftPlan === plan) modal.classList.remove("open");
+      const warnings = result.warnings.join("\n");
+      const message = `Úkol ${result.id} přesunut z ${shiftDateLabel(result.from)} na ${shiftDateLabel(result.to)}.${warnings ? "\n" + warnings : ""}`;
+      showTaskShiftNotice(message, result.conflictLevel === "kolize" ? "collision" : warnings ? "warning" : "success");
+    } catch (e) {
+      showTaskShiftNotice(e.message || "Přesun se nepodařilo uložit.", "error");
+    } finally {
+      if (modal) { modal.classList.remove("task-shift-busy"); modal.removeAttribute("aria-busy"); }
+      // I po nejasném výsledku je potřeba znovu otevřít detail; starý
+      // náhled nesmí nabídnout další zápis na základě původního data.
+      if (button._shiftPlan === plan) {
+        button.disabled = true;
+        button.textContent = moved ? "Přesunuto" : "Otevři detail znovu";
+      }
+    }
+  }
+
+
   // ── Generování ID nových úkolů ──────────────────────────────────────────
   // DŘÍVE: "nejvyšší číslo v datech + 1", počítáno NEZÁVISLE v Dashboardu
   // (generateNextIdNew) i ve Správě úkolů (generateNextId) — dvě oddělené
@@ -1613,6 +1807,10 @@ const FTLoader = (() => {
     markDoneFromButton,
     isProjectTask,
     isProjectSubtask,
+    getTaskShiftPlan,
+    configureTaskShiftButton,
+    shiftSingleDayTask,
+    shiftTaskFromButton,
   };
 
 })();

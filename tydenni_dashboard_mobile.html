@@ -401,7 +401,9 @@
       </header>
       <div class="modal-label">Upřesnění</div>
       <div class="modal-text" id="modalNote"></div>
+      <p id="modalShiftHint" class="task-shift-hint" hidden></p>
       <div class="modal-actions-row">
+        <button id="modalShiftBtn" type="button" class="task-shift-btn" hidden>Posunout na další pracovní den</button>
         <button id="modalDoneBtn">✓ Hotovo</button>
         <button id="modalEditBtn">✏️ Upravit</button>
         <button id="modalCancelBtn">🗑️ Zrušit</button>
@@ -855,6 +857,7 @@ function openModal(task) {
   editBtn.style.display = (_canWrite && isSimpleTask) ? "inline-block" : "none";
   cancelBtn.style.display = (_canWrite && isSimpleTask) ? "inline-block" : "none";
 
+  if (FTLoader.configureTaskShiftButton) FTLoader.configureTaskShiftButton(document.getElementById("modalShiftBtn"), task, { canWrite: _canWrite, hint: document.getElementById("modalShiftHint") });
   document.getElementById("modal").classList.add("open");
 }
 
@@ -1212,6 +1215,10 @@ function buildAssigneeOptions() {
   if (etSel) etSel.innerHTML = '<option value="">— nevybráno —</option>' + opts;
 }
 
+document.getElementById("modalShiftBtn").addEventListener("click", () => {
+  if (!_canWrite) return;
+  if (FTLoader.shiftTaskFromButton) FTLoader.shiftTaskFromButton(document.getElementById("modalShiftBtn"), { modal: document.getElementById("modal") });
+});
 document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
 document.getElementById("modalEditBtn").addEventListener("click", () => openEditModalFromDetail());
 document.getElementById("modalCancelBtn").addEventListener("click", () => cancelTaskFromModal());

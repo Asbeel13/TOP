@@ -5,6 +5,64 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## Posun jednodenního úkolu z Dashboardu (2026-09-29, lokálně hotovo; čeká na JK)
+
+JK schválil lokální implementaci po teoretickém návrhu. **GitHub a nasazení
+provádí vždy výhradně JK. Před jakoukoliv další aktivní změnou se JK
+výslovně zeptat na svolení.** Tato dávka nebyla odeslána na GitHub ani
+nasazena. Aktuální jsou soubory v této záložní složce TOP.
+
+- `tydenni_dashboard_live_reload_local_linked.html` a
+  `tydenni_dashboard_mobile.html`: v detailu způsobilého úkolu je tlačítko
+  „Posunout → <datum>“. Po úspěšném přesunu se detail zavře a zůstane
+  viditelná zpráva s výsledkem a případnou kolizí auta. Vzhled je v
+  `components.css`, barvy používají proměnné z `theme.css`; mobilní PWA
+  mění cache `sw.js` na `top-mobile-v4`.
+- `ft_loader.js`: posunuje **jen existující aktivní jednodenní úkol s
+  jedinečným ID a platným plánovaným datem**. Tlačítko není pro opakované
+  úkoly a jejich výskyty/zástupy, vícedenní a dokončené či zrušené úkoly,
+  záznamy SPA a hlavní projekt výroby. Spoluřešitelská kopie odkazuje na
+  jediný surový úkol. Mění se pouze `plannedDate`, `lastUpdated` a běžná
+  metadata databáze při uložení; ostatní pole úkolu se zachovají.
+- Cílový den je první následující pracovní den. Víkendy se přeskočí;
+  **svátky se v TOP nevypočítávají**. Jediným zdrojem jsou syrové úkoly
+  SPA s ID `*SPA-HOL-YYYY-MM-DD*` a odpovídajícím `plannedDate`, bez
+  závislosti na zobrazení konkrétního řešitele. Pro každý dotčený rok se
+  vyžaduje 13 různých dat podle současného kontraktu SPA sync. Chybějící,
+  chybná či neúplná data přesun zastaví; při změně kontraktu počtu svátků
+  je nutné upravit validaci společně s `Esperanto/INTEGRACE.md`.
+- Kolize stejného auta s jiným úkolem (včetně dalších dnů vícedenního),
+  denní rezervací nebo trvalým stavem zobrazí upozornění, ale **přesun
+  neblokuje**. Denní záznam `volné` potlačuje varování o trvalém stavu
+  pouze pro cílový den, stejně jako `getAutoDostupnost`. Upozorní se i na
+  překročení `dueDate` úkolu či nadřazeného projektu, bez blokování.
+- Před zápisem se načte čerstvý celý `database.json` se SHA a ověří se
+  oprávnění `planovac`, identita úkolu, původní obsah i cílový den.
+  Konflikt SHA 409 vede nejvýše ke 3 pokusům s novým čtením a přepočtem
+  varování. Nejasný výsledek zápisu se ověřuje dalším čtením, nikdy
+  slepým opakováním. Pro velký JSON se ověřuje, že raw obsah odpovídá
+  SHA metadat. Snímek obsahu a SHA se v `FTLoader` drží pohromadě, aby
+  poll/storage cache nemohly vložit cizí základ pod připravený zápis.
+  Historie změn se zaznamená až po potvrzeném uložení (včetně ověřeného
+  zápisu se ztracenou odpovědí).
+- `tests/task-shift.test.cjs`: **42/42** offline testů prošlo, včetně
+  regresního porovnání parseru se starou verzí na lokálním snímku databáze,
+  syntetických svátků v nynějším SPA formátu, autorizace, konfliktů auta,
+  současných úprav, 409, výpadku spojení a velkého JSON. Spuštění:
+  `node --test --test-isolation=none tests/task-shift.test.cjs`.
+  Volitelně `TOP_SNAPSHOT` = cesta k lokálnímu `database.json`,
+  `TOP_BASELINE` = cesta k původnímu `ft_loader.js`; tyto kopie nejsou
+  součástí repozitáře. V prohlížeči ani proti živé databázi nebyl
+  přesun proveden; po vlastním nasazení má JK ověřit skutečný Dashboard
+  na počítači a mobilu, zejména informaci o kolizi a úplnost svátků.
+
+**Součást lokální dávky pro nahrání JK:** `ft_loader.js`, oba Dashboardy,
+`components.css`, `sw.js`, `tests/task-shift.test.cjs`, tento dokument a
+`Esperanto/INTEGRACE.md`. Sdílený `theme.css` se neměnil. `getAutoConflicts`
+ve stávajících formulářích stále uvádí trvalý stav auta i při denním
+`volné`; posun používá denní výjimku. Případné sjednocení starých
+formulářů je samostatná změna vyžadující svolení JK.
+
 ## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapa 1 NASAZENA a uzavřena, `8531e16` + `761dec7`)
 
 JK zahájil návrh modulu pro plánování a řízení výroby (projekty =

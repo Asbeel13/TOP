@@ -2,7 +2,7 @@
 // appky (HTML, JS, ikony), aby se appka po instalaci otevírala okamžitě
 // a fungovala aspoň částečně i bez signálu. Samotná data z GitHubu se
 // NIKDY necachují — vždy musí být čerstvá.
-const CACHE_NAME = "top-mobile-v3";
+const CACHE_NAME = "top-mobile-v4";
 const APP_SHELL = [
   "tydenni_prehled_mobile.html",
   "tydenni_dashboard_mobile.html",

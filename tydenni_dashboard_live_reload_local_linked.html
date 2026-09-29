@@ -460,6 +460,8 @@
       box-shadow: var(--shadow);
       overflow: hidden;
     }
+    #modal .modal-card header { flex-wrap: wrap; }
+    #modal .task-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
     .modal-card header {
       padding: 18px 20px;
       border-bottom: 1px solid var(--line-soft);
@@ -952,7 +954,8 @@
         <div class="chips" id="modalChips"></div>
         <h3 id="modalTitle" style="margin:10px 0 0;font-size:22px"></h3>
       </div>
-      <div style="display:flex;gap:8px;align-items:start;flex-shrink:0">
+      <div class="task-detail-actions">
+        <button id="modalShiftBtn" type="button" class="task-shift-btn" hidden>Posunout na další pracovní den</button>
         <button id="modalDoneBtn" style="display:none;padding:10px 16px;background:#ecfdf3;border:1px solid #86efac;color:#166534;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Hotovo</button>
         <button id="modalSubstituteBtn" style="display:none;padding:10px 16px;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 Zástup</button>
         <a id="modalEditBtn" href="#" target="top_edit_window" style="display:inline-block;padding:10px 16px;background:#1d4ed8;color:white;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">✏️ Upravit</a>
@@ -965,6 +968,7 @@
     <main>
       <div><strong>Upřesnění:</strong><div id="modalNote" class="muted" style="margin-top:6px"></div></div>
       <div><strong>Poznámka interní:</strong><div id="modalInternal" class="muted" style="margin-top:6px; white-space:pre-wrap"></div></div>
+      <p id="modalShiftHint" class="task-shift-hint" hidden></p>
       <div id="modalHistory" class="history-panel" hidden style="margin-top:0;"></div>
     </main>
   </div>
@@ -1701,6 +1705,7 @@ function openModal(task) {
   } else {
     els.modalSubstituteBtn.style.display = "none";
   }
+  if (FTLoader.configureTaskShiftButton) FTLoader.configureTaskShiftButton(document.getElementById("modalShiftBtn"), task, { canWrite: _canWriteNow, hint: document.getElementById("modalShiftHint") });
   setupModalHistory(task);
   els.modal.classList.add("open");
 }
@@ -1926,6 +1931,10 @@ document.getElementById("modalDeleteBtn").addEventListener("click", () => {
   if (!confirm(`Opravdu smazat úkol ${id}? Tato akce je nevratná.`)) return;
   els.modal.classList.remove("open");
   window.open(`sprava_ukolu_linked.html?delete=${encodeURIComponent(id)}&datum=${encodeURIComponent(plannedDate)}`, "top_edit_window");
+});
+document.getElementById("modalShiftBtn").addEventListener("click", () => {
+  if (!document.body.classList.contains("can-write")) return;
+  if (FTLoader.shiftTaskFromButton) FTLoader.shiftTaskFromButton(document.getElementById("modalShiftBtn"), { modal: els.modal });
 });
 document.getElementById("modalDoneBtn").addEventListener("click", () => markTaskAsDoneFromModal());
 document.getElementById("modalSubstituteBtn").addEventListener("click", () => openSubstituteModal(els.modalSubstituteBtn.dataset.ruleId));

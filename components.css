@@ -290,3 +290,59 @@
   .history-row { grid-template-columns: auto auto; }
   .history-detail { grid-column: 1 / -1; }
 }
+
+/* Posun úkolu — Dashboard počítač/mobil; barvy ze společné palety. */
+.task-shift-btn {
+  width: auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent-block-border);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-block-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.task-shift-btn:hover:not(:disabled) { border-color: var(--accent); }
+.task-shift-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.task-shift-btn:disabled { cursor: default; opacity: .65; }
+.task-shift-btn[hidden], .task-shift-hint[hidden], .task-shift-notice[hidden] { display: none; }
+.task-shift-hint { margin: 0; color: var(--warn-strong); font-size: 13px; }
+.task-shift-busy .task-detail-actions, .task-shift-busy .modal-actions-row { pointer-events: none; }
+.task-shift-notice {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10002;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  max-height: 45vh;
+  overflow: auto;
+  padding: 16px;
+  border: 2px solid var(--success-soft-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.task-shift-notice-text { white-space: pre-line; overflow-wrap: anywhere; }
+.task-shift-notice button {
+  width: auto;
+  margin-top: 10px;
+  padding: 8px 14px;
+  min-height: 44px;
+  border: 1px solid var(--line-medium);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font: inherit;
+  cursor: pointer;
+}
+.task-shift-collision { border-color: var(--auto-kolize); }
+.task-shift-warning { border-color: var(--auto-kolize-stav); }
+.task-shift-error { border-color: var(--danger); }
