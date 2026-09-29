@@ -5,12 +5,26 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
-## Posun jednodenního úkolu z Dashboardu (2026-09-29, lokálně hotovo; čeká na JK)
+## Posun jednodenního úkolu z Dashboardu (2026-09-29, NASAZENO — commit `612b2ac`)
 
-JK schválil lokální implementaci po teoretickém návrhu. **GitHub a nasazení
-provádí vždy výhradně JK. Před jakoukoliv další aktivní změnou se JK
-výslovně zeptat na svolení.** Tato dávka nebyla odeslána na GitHub ani
-nasazena. Aktuální jsou soubory v této záložní složce TOP.
+JK schválil lokální implementaci po teoretickém návrhu (připravil ChatGPT).
+**GitHub a nasazení provádí vždy výhradně JK. Před jakoukoliv další
+aktivní změnou se JK výslovně zeptat na svolení.**
+
+**✅ Nahráno 2026-09-29 17:06, commit `612b2ac`** — výjimečně Claude Code
+na výslovnou žádost JK („můžeš to všechno nahrát na GitHub?“), jednorázově,
+pravidlo výše se tím nemění. `git fetch` + `cmp`: všech 7 souborů bajtově
+shodných s lokální verzí (CRLF zachováno); GitHub Pages: SHA-256 všech 5
+funkčních souborů sedí (17:07). `Esperanto/INTEGRACE.md` v `9b4f6e3`.
+Před nahráním Claude Code ověřil mockem GitHub API na kopii živé DB
+(1 685 úkolů + testovací projekt výroby), že posun **nerozbíjí modul
+výroby**: hlavní úkol projektu tlačítko nemá, posun podúkolu (i z kopie
+spoluřešitele, počítač i mobil) změní jen `plannedDate`/`lastUpdated`,
+`vyroba` zůstane celé, upozornění na termín projektu funguje; Hotovo i
+uložení ve Správě úkolů `vyroba` zachovají; velký JSON (raw + SHA gitu
+ověřené proti `git hash-object`) se načte i uloží. Po testu změněný jen
+filtr varování o trvalém stavu auta při denním `volné` (bez vlivu na
+modul). Zbývá: JK ověří tlačítko s reálnými daty (počítač i mobil).
 
 - `tydenni_dashboard_live_reload_local_linked.html` a
   `tydenni_dashboard_mobile.html`: v detailu způsobilého úkolu je tlačítko
