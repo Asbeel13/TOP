@@ -398,6 +398,9 @@
        úkolů daného člověka. */
     .task .shared-badge { font-size: 9px; color: var(--text-muted); font-weight: 700; margin-bottom: 1px; }
     .task.co-owner-copy { outline: 1px dashed var(--text-muted); outline-offset: -3px; }
+    /* Podúkol projektu (modul výroby, etapa 1, 2026-09-29): štítek s
+       označením projektu, stejný styl jako štítek sdíleného úkolu. */
+    .task .project-badge { font-size: 9px; color: var(--text-muted); font-weight: 700; margin-bottom: 1px; }
     .backlog {
       margin-top: 16px;
       display: grid;
@@ -851,7 +854,7 @@
     <div class="control-card">
       <h3>Filtry</h3>
       <div class="field">
-        <label for="search">Hledat úkol / projekt / ID</label>
+        <label for="search">Hledat úkol / označení / ID</label>
         <input id="search" type="search" placeholder="např. Tatra, *0007*, Ford" />
       </div>
       <div class="field">
@@ -1065,8 +1068,8 @@
         </div>
       </div>
       <div class="grid two">
-        <div class="field field-optional"><label>Projekt</label><input id="m2_project" /></div>
-        <div class="field field-optional"><label>Interní číslo projektu</label><input id="m2_internal" /></div>
+        <div class="field field-optional"><label>Označení</label><input id="m2_project" /></div>
+        <div class="field field-optional"><label>Dodatečné označení</label><input id="m2_internal" /></div>
       </div>
       <div class="grid">
         <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m2_note_internal"></textarea></div>
@@ -1628,6 +1631,19 @@ function sharedBadgeHtml(task) {
   return label ? `<div class="shared-badge" title="Sdílený úkol">👥 ${escapeHtml(label)}</div>` : "";
 }
 
+// Štítek projektu u podúkolu ("📁 VY26000123"). projektOznaceni doplňuje
+// jen pro zobrazení FTLoader.parseDatabase — se starou ft_loader.js z HTTP
+// cache prostě chybí a štítek se neukáže.
+function projectBadgeHtml(task) {
+  return task.projektOznaceni ? `<div class="project-badge" title="Projekt ${escapeHtml(task.projektNazev || "")}">📁 ${escapeHtml(task.projektOznaceni)}</div>` : "";
+}
+
+function projectChip(task) {
+  if (!task.projektOznaceni) return "";
+  const name = task.projektNazev && task.projektNazev !== task.projektOznaceni ? ` · ${task.projektNazev}` : "";
+  return `📁 Projekt ${task.projektOznaceni}${name}`;
+}
+
 function openModal(task) {
   els.modalTitle.textContent = `${task.id || ""} ${task.title || ""}`.trim();
   els.modalNote.textContent = task.note || "Bez doplňující poznámky";
@@ -1635,12 +1651,13 @@ function openModal(task) {
   const chips = [
     task.priority || "Bez priority",
     task.primaryOwner || task.owner || "Bez řešitele",
-    task.project || "Bez projektu",
+    task.project || "Bez označení",
     task.plannedDate ? `Plán: ${task.plannedDate}` : "Bez data",
     task.state || "Bez stavu"
   ];
   const coOwners = FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : []; // pojistka: stará ft_loader.js z HTTP cache
   if (coOwners.length) chips.push(`👥 Spoluřešitelé: ${coOwners.join(", ")}`);
+  if (task.projektOznaceni) chips.push(projectChip(task));
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
@@ -1771,6 +1788,7 @@ function renderScheduleForSide(targetEl, side) {
         div.innerHTML = `
           ${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}
           ${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}
+          ${projectBadgeHtml(task)}
           ${sharedBadgeHtml(task)}
           <div class="title">${escapeHtml(task.title)}</div>
           <div class="meta">
@@ -1826,7 +1844,7 @@ function renderBacklog() {
   unscheduled.forEach(task => {
     const div = document.createElement("div");
     div.className = "list-item";
-    div.innerHTML = `<strong>${escapeHtml(task.id)} · ${escapeHtml(task.title)}</strong><div class="muted">${escapeHtml(task.owner)} · ${escapeHtml(task.priority)} · ${escapeHtml(task.project || "bez projektu")}</div>`;
+    div.innerHTML = `<strong>${escapeHtml(task.id)} · ${escapeHtml(task.title)}</strong><div class="muted">${escapeHtml(task.owner)} · ${escapeHtml(task.priority)} · ${escapeHtml(task.project || "bez označení")}</div>`;
     div.addEventListener("click", () => openModal(task));
     els.unscheduled.appendChild(div);
   });

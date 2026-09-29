@@ -610,8 +610,8 @@ initDarkMode();
       <div class="panel-body">
         <div id="activeFilterBar" class="active-filter-bar" hidden></div>
         <div class="filters">
-          <input id="quickProject" placeholder="Projekt" />
-          <input id="quickInternalProject" placeholder="Dodatečné označení projektu" />
+          <input id="quickProject" placeholder="Označení" />
+          <input id="quickInternalProject" placeholder="Dodatečné označení" />
           <input id="quickFromDate" type="date" />
           <input id="quickToDate" type="date" />
           <button id="quickOverdueBtn" onclick="toggleOverdueFilter()">⏰ Po termínu</button>
@@ -627,7 +627,7 @@ initDarkMode();
                 <th>Úkol</th>
                 <th>Priorita</th>
                 <th>Stav</th>
-                <th>Projekt</th>
+                <th>Označení</th>
                 <th>Řešitel</th>
                 <th>Plán</th>
                 <th>Dokončení</th>
@@ -784,8 +784,8 @@ initDarkMode();
           </div>
         </div>
         <div class="grid two">
-          <div class="field field-optional"><label>Projekt</label><input id="m_project" /></div>
-          <div class="field field-optional"><label>Dodatečné označení projektu</label><input id="m_internal" /></div>
+          <div class="field field-optional"><label>Označení</label><input id="m_project" /></div>
+          <div class="field field-optional"><label>Dodatečné označení</label><input id="m_internal" /></div>
         </div>
         <div class="grid">
           <div class="field field-optional"><label>Poznámka Interní JK</label><textarea id="m_note_internal"></textarea></div>
@@ -1126,7 +1126,7 @@ function describeActiveFilters() {
   mark(els.filterDoneMode, doneOn);
   if (doneOn) parts.push(selText(els.filterDoneMode).toLowerCase());
   mark(els.quickProject, val(els.quickProject));
-  if (val(els.quickProject)) parts.push(`projekt „${val(els.quickProject)}“`);
+  if (val(els.quickProject)) parts.push(`označení „${val(els.quickProject)}“`);
   mark(els.quickInternalProject, val(els.quickInternalProject));
   if (val(els.quickInternalProject)) parts.push(`dodatečné označení „${val(els.quickInternalProject)}“`);
   const from = val(els.quickFromDate), to = val(els.quickToDate);
@@ -2658,7 +2658,19 @@ function taskToRawFormat(t) {
     // NÁSTRAHA č. 1: musí být i v loadFromRaw() — jinak se pole při
     // jakémkoliv uložení tiše smaže u všech úkolů.
     coOwners: coOwners.length > 0 ? coOwners : undefined,
+    // Modul výroby (etapa 1, 2026-09-29): VŠECHNA data modulu na úkolu jsou
+    // v jediném objektu `vyroba` (hlavní úkol projektu / podúkol, viz
+    // RIZENI_VYROBY_navrh.md 11.1). Správa ho jen přenáší beze změny —
+    // NÁSTRAHA č. 1: musí být i v loadFromRaw(), jinak se při uložení
+    // čehokoliv smaže u všech úkolů.
+    vyroba: cloneVyroba(t.vyroba),
   };
+}
+
+// Kopie objektu `vyroba` (jen prostá JSON data) — ne sdílený odkaz mezi
+// pamětí Správy a surovými daty. Cokoliv jiného než objekt = pole chybí.
+function cloneVyroba(v) {
+  return v && typeof v === "object" && !Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : undefined;
 }
 
 // Otisk obsahu úkolu pro stabilní párování rowIndex napříč přenačteními
@@ -2828,6 +2840,8 @@ function loadFromRaw(raw) {
       // Protějšek k taskToRawFormat (Nástraha č. 1) — bez tohohle by se
       // coOwners při příštím uložení čehokoliv ztratily.
       coOwners: Array.isArray(t.coOwners) ? t.coOwners.slice() : undefined,
+      // Protějšek k taskToRawFormat (Nástraha č. 1) — data modulu výroby.
+      vyroba: cloneVyroba(t.vyroba),
       selected: false,
     })).map(mem => {
       mem._key = taskIdentityKey(mem);

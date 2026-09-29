@@ -243,6 +243,8 @@
     /* Sdílený úkol (spoluřešitelé, 2026-09-21) — stejné jako Dashboard. */
     .task .shared-badge { font-size: 9px; color: var(--text-muted); font-weight: 700; margin-bottom: 1px; }
     .task.co-owner-copy { outline: 1px dashed var(--text-muted); outline-offset: -3px; }
+    /* Podúkol projektu (modul výroby, etapa 1, 2026-09-29) — stejné jako Dashboard. */
+    .task .project-badge { font-size: 9px; color: var(--text-muted); font-weight: 700; margin-bottom: 1px; }
 
     /* ── MODAL ── */
     .modal {
@@ -817,6 +819,17 @@ function sharedBadgeHtml(task) {
   return label ? `<div class="shared-badge" title="Sdílený úkol">👥 ${escapeHtml(label)}</div>` : "";
 }
 
+// Štítek projektu u podúkolu ("📁 VY26000123") — stejné jako Dashboard.
+function projectBadgeHtml(task) {
+  return task.projektOznaceni ? `<div class="project-badge" title="Projekt ${escapeHtml(task.projektNazev || "")}">📁 ${escapeHtml(task.projektOznaceni)}</div>` : "";
+}
+
+function projectChip(task) {
+  if (!task.projektOznaceni) return "";
+  const name = task.projektNazev && task.projektNazev !== task.projektOznaceni ? ` · ${task.projektNazev}` : "";
+  return `📁 Projekt ${task.projektOznaceni}${name}`;
+}
+
 // ── RENDER ONE SIDE ──
 function renderSide(targetEl, side) {
   const layout = getPeopleLayout();
@@ -881,7 +894,7 @@ function renderSide(targetEl, side) {
         const div = document.createElement("div");
         div.className = cardClass(task) + densityClass;
         div.style.cursor = "pointer";
-        div.innerHTML = `${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}${sharedBadgeHtml(task)}<div class="title">${escapeHtml(task.title)}</div>
+        div.innerHTML = `${task.recurring ? '<div class="recurring-icon">🔁 opakující se</div>' : ""}${task.isMultiDay ? `<div class="multiday-badge">📅 ${task.multiDayIndex}/${task.multiDayTotal}</div>` : ""}${projectBadgeHtml(task)}${sharedBadgeHtml(task)}<div class="title">${escapeHtml(task.title)}</div>
           <div class="meta">
             <span class="${(task.project||"").toLowerCase().includes("ford") ? "danger" : ""}">${escapeHtml(task.project||"")}</span>
           </div>${task.auto ? `<div class="spz">🚗 ${escapeHtml(task.auto)}</div>` : ""}`;
@@ -983,12 +996,13 @@ function openModal(task) {
   const chips = [
     task.priority || "Bez priority",
     task.primaryOwner || task.owner || "Bez řešitele",
-    task.project || "Bez projektu",
+    task.project || "Bez označení",
     task.plannedDate ? `Plán: ${task.plannedDate}` : "Bez data",
     task.state || "Bez stavu"
   ];
   const coOwners = FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : []; // pojistka: stará ft_loader.js z HTTP cache
   if (coOwners.length) chips.push(`👥 Spoluřešitelé: ${coOwners.join(", ")}`);
+  if (task.projektOznaceni) chips.push(projectChip(task));
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);

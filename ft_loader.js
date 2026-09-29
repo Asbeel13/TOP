@@ -302,6 +302,17 @@ const FTLoader = (() => {
     return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
   }
 
+  // Modul výroby: všechna data modulu na úkolu jsou v jediném objektu
+  // `vyroba` (RIZENI_VYROBY_navrh.md 11.1). Hlavní úkol projektu má
+  // vyroba.druh "projekt", podúkol vyroba.druh "podukol" + vyroba.projekt
+  // = ID hlavního úkolu.
+  function isProjectTask(t) {
+    return !!(t && t.vyroba && typeof t.vyroba === "object" && t.vyroba.druh === "projekt");
+  }
+  function isProjectSubtask(t) {
+    return !!(t && t.vyroba && typeof t.vyroba === "object" && t.vyroba.druh === "podukol" && t.vyroba.projekt);
+  }
+
   function parseDatabase(json) {
     const tasks = (json.tasks || []).map(t => ({
       ...t,
@@ -386,7 +397,26 @@ const FTLoader = (() => {
       return result;
     }
 
-    const activeTasks = tasks.filter(t => !t.cancelled);
+    // Modul výroby (etapa 1, 2026-09-29, RIZENI_VYROBY_navrh.md 11.2/11.3):
+    // hlavní úkol projektu (vyroba.druh "projekt") je obal, ne práce na
+    // konkrétní den — v týdenním plánu, Backlogu ani počítadlech se
+    // nezobrazuje (JK 3.22). Podúkol projektu bez plannedDate se nezobrazuje
+    // v Backlogu (JK 3.39), je vidět jen v modulu. Oba zůstávají v allTasks
+    // (Správa úkolů). Podúkol dostane jen pro zobrazení projektOznaceni /
+    // projektNazev (neukládá se — stejný princip jako primaryOwner níž).
+    const projektById = {};
+    tasks.forEach(t => { if (isProjectTask(t)) projektById[t.id] = t; });
+    const activeTasks = tasks
+      .filter(t => !t.cancelled && !isProjectTask(t) && !(isProjectSubtask(t) && !t.plannedDate))
+      .map(t => {
+        const p = isProjectSubtask(t) ? projektById[t.vyroba.projekt] : null;
+        if (!p) return t;
+        return {
+          ...t,
+          projektOznaceni: String((p.vyroba && p.vyroba.oznaceni) || p.title || ""),
+          projektNazev: String(p.title || ""),
+        };
+      });
     const expandedTasks = expandMultiDayTasks(activeTasks);
     const coOwnerCopies = expandCoOwnerCopies(expandedTasks);
     // generateRecurring dostává záměrně jen expandedTasks (bez kopií) — její
@@ -1581,6 +1611,8 @@ const FTLoader = (() => {
     resetTaskHistory,
     markTaskDone,
     markDoneFromButton,
+    isProjectTask,
+    isProjectSubtask,
   };
 
 })();
