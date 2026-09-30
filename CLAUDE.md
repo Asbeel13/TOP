@@ -127,7 +127,10 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
   `"opravneni": ["projekty", "sablony"]` (top-data `37c92c1`, 2026-09-30),
   ostatní mají modul jen jako náhled.
   **Konvence:** podúkol bez řešitele = `owner: "Nezařazeno"` (jako
-  Správa úkolů). Test a detail v navrh.md sekce 12.
+  Správa úkolů). Test a detail v navrh.md sekce 12. Doplněk `962ce20`
+  (JK): čitelnost v tmavém režimu — upozornění „bez data“ červeně jako
+  kolize auta, štítek „Probíhá“ na `--prio-p2-*`. **`var(--accent)` jako
+  text na tmavém pozadí nepoužívat** (nemá tmavou variantu).
 - **Etapa 1 NASAZENA a ověřena (2026-09-29 13:35, commit `8531e16`,
   GitHub i Pages bajtově shodné s otestovanou verzí)** — 6 souborů:
   `ft_loader.js`, `sprava_ukolu_linked.html`,

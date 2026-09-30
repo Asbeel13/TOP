@@ -927,6 +927,16 @@ jen tento záznam, ostatní beze změny, ověřeno na GitHubu). Ostatní
 uživatelé mají modul jen jako náhled (záměr 6.17). Nasazená
 `ft_loader.js` pole zatím ignoruje, načte ho až verze z etapy 2.
 
+**Doplněk po nasazení (JK 2026-09-30, screenshot z tmavého režimu) —
+✅ NAHRÁNO `962ce20`, GitHub i Pages ověřeny:** modré upozornění „N
+podúkolů nemá datum“ bylo v tmavém režimu nečitelné (`--accent` nemá
+tmavou variantu, na `--accent-soft` splývá). Teď červený text jako
+upozornění na kolizi auta (`--auto-kolize`, bez pozadí). Stejná chyba u
+štítku stavu „Probíhá“ v detailu → `--prio-p2-bg`/`--prio-p2-text`
+(světlý režim beze změny). **Poučení pro další etapy:** `var(--accent)`
+nepoužívat jako barvu textu na tmavém pozadí — v tmavém režimu je stejná
+jako ve světlém.
+
 **Záměrně mimo etapu 2 / otevřené:** správa šablon (etapa 3), Gantt (4),
 kalendář (5); ve Správě úkolů se při zrušení hlavního úkolu zatím
 nenabízí zrušení podúkolů (v modulu ano); Přehled (desktop i mobil) a
