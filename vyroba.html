@@ -71,7 +71,9 @@
     .b-warn { background: var(--warn-soft); color: var(--warn-strong); }
     .b-danger { background: var(--danger-soft); color: var(--prio-p0-text); }
     .b-ok { background: var(--success-soft); color: var(--success-strong); }
-    .b-run { background: var(--accent-soft); color: var(--accent); }
+    /* --accent nemá tmavou variantu → na --accent-soft v tmavém režimu
+       nečitelné; --prio-p2-* je stejná modrá, v tmavém režimu světlá. */
+    .b-run { background: var(--prio-p2-bg); color: var(--prio-p2-text); }
     .pnum { font-family: var(--font-heading); font-weight: 700; font-size: 16px; letter-spacing: .01em; text-decoration: none; color: var(--text); }
     a.pnum:hover { color: var(--brand-accent); }
     .doc { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border: 1px solid var(--line-medium); border-radius: var(--radius-xs); font-size: 11.5px; font-weight: 500; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -84,7 +86,9 @@
     .meta b { color: var(--text); font-weight: 600; }
     .who { display: inline-flex; align-items: center; gap: 7px; color: var(--text); min-width: 0; }
     .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.35; padding: 7px 9px; border-radius: 6px; background: var(--warn-soft); color: var(--warn-strong); }
-    .hint.info { background: var(--accent-soft); color: var(--accent); }
+    /* Upozornění „podúkoly bez data“ — červeně jako upozornění na kolizi
+       auta (JK 2026-09-30; modrá byla v tmavém režimu nečitelná). */
+    .hint.info { background: none; padding: 2px 0; color: var(--auto-kolize); font-weight: 600; }
     .hint.bad { background: var(--danger-soft); color: var(--prio-p0-text); }
     .nodate { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: var(--radius-xs); background: var(--warn-soft); color: var(--warn-strong); font-size: 11px; font-weight: 600; white-space: nowrap; }
     .noowner { color: var(--warn-strong); font-weight: 600; }
