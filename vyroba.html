@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Řízení výroby — TOP</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="theme.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="components.css" />
+  <style>
+    /* Modul Řízení výroby (etapa 2, 2026-09-30) — RIZENI_VYROBY_navrh.md.
+       Všechny barvy jen z proměnných theme.css (pravidlo JK), vzhled podle
+       schváleného náčrtu (Artifact „Řízení výroby“, verze 2). */
+    * { box-sizing: border-box; }
+    html.dark { color-scheme: dark; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; line-height: 1.4; }
+    button, input, select, textarea { font-family: inherit; }
+    a { color: inherit; }
+    [hidden] { display: none !important; }
+    .muted { color: var(--text-muted); }
+    .hf { font-family: var(--font-heading); }
+
+    /* ── Hlavička (trvale tmavá jako sidebar Dashboardu) ── */
+    .hdr { position: sticky; top: 0; z-index: 50; min-height: 60px; background: var(--navy-800); color: var(--text-on-navy-softer); display: flex; align-items: center; gap: 24px; padding: 0 24px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand img { width: 30px; height: 30px; border-radius: 6px; }
+    .brand-name { font-family: var(--font-heading); font-weight: 700; font-size: 17px; letter-spacing: .02em; line-height: 1.1; }
+    .brand-sub { font-size: 11.5px; color: var(--text-on-navy-muted); line-height: 1.2; }
+    .tabs { display: flex; align-self: stretch; gap: 2px; }
+    .tab { display: flex; align-items: center; padding: 0 14px; color: var(--text-on-navy-muted); text-decoration: none; font-family: var(--font-heading); font-weight: 600; font-size: 14.5px; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
+    .tab.on { color: var(--text-on-navy-softer); border-bottom-color: var(--brand-accent); }
+    .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
+    .hdr-link { color: var(--text-on-navy-muted); font-size: 13px; text-decoration: none; padding: 8px; }
+    .hdr-link:hover { color: var(--text-on-navy-softer); }
+    .hdr-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--chrome-border); background: transparent; color: var(--text-on-navy-softer); cursor: pointer; font-size: 16px; }
+    .hdr-icon:hover { background: var(--chrome-hover); }
+    .sync { font-size: 12px; color: var(--text-on-navy-soft); max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sync.err { color: var(--danger-block); }
+
+    .page { padding: 20px 24px 40px; }
+    .notice { margin: 0 0 16px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn-strong); border: 1px solid var(--warn-soft-alt); font-size: 13px; }
+    .page-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+    .page-head h1 { font-family: var(--font-heading); margin: 0; font-size: 24px; font-weight: 700; }
+    .page-head .sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .page-head .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+    /* ── Tlačítka a pole ── */
+    .btn { white-space: nowrap; text-decoration: none; }
+    .btn:disabled { opacity: .55; cursor: default; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-danger { background: var(--danger-soft-alt); color: var(--danger-block-text); border-color: var(--danger-soft-border); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border-color: transparent; }
+    .btn-ghost:hover { color: var(--text); background: var(--line-softer); }
+    .bar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .lbl { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .inp { height: 36px; border: 1px solid var(--line-medium); border-radius: var(--radius-sm); background: var(--panel); color: var(--text); padding: 0 10px; font-size: 14px; min-width: 0; }
+    textarea.inp { height: auto; min-height: 70px; padding: 8px 10px; resize: vertical; }
+    .inp:focus { outline: 2px solid var(--focus-ring); outline-offset: 0; }
+    .chk { display: inline-flex; align-items: center; gap: 7px; height: 36px; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+
+    /* ── Štítky ── */
+    .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--radius-xs); font-family: var(--font-heading); font-weight: 600; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .b-VY { background: var(--prio-p2-bg); color: var(--prio-p2-text); }
+    .b-VZ { background: var(--prio-p1-bg); color: var(--prio-p1-text); }
+    .b-SZ { background: var(--chip-bg); color: var(--chip-text); }
+    .b-Jiné, .b-grey { background: var(--prio-p3-bg); color: var(--prio-p3-text); }
+    .b-warn { background: var(--warn-soft); color: var(--warn-strong); }
+    .b-danger { background: var(--danger-soft); color: var(--prio-p0-text); }
+    .b-ok { background: var(--success-soft); color: var(--success-strong); }
+    .b-run { background: var(--accent-soft); color: var(--accent); }
+    .pnum { font-family: var(--font-heading); font-weight: 700; font-size: 16px; letter-spacing: .01em; text-decoration: none; color: var(--text); }
+    a.pnum:hover { color: var(--brand-accent); }
+    .doc { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border: 1px solid var(--line-medium); border-radius: var(--radius-xs); font-size: 11.5px; font-weight: 500; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .doc b { color: var(--text); font-weight: 600; margin-right: 4px; }
+    .avatar { width: 24px; height: 24px; border-radius: 50%; background: color-mix(in srgb, var(--brand-accent) 13%, transparent); color: var(--brand-accent); font-family: var(--font-heading); font-weight: 700; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .progress { height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; flex-grow: 1; }
+    .progress > div { height: 100%; background: var(--success); border-radius: 3px; }
+    .meta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
+    .meta.between { justify-content: space-between; }
+    .meta b { color: var(--text); font-weight: 600; }
+    .who { display: inline-flex; align-items: center; gap: 7px; color: var(--text); min-width: 0; }
+    .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.35; padding: 7px 9px; border-radius: 6px; background: var(--warn-soft); color: var(--warn-strong); }
+    .hint.info { background: var(--accent-soft); color: var(--accent); }
+    .hint.bad { background: var(--danger-soft); color: var(--prio-p0-text); }
+    .nodate { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: var(--radius-xs); background: var(--warn-soft); color: var(--warn-strong); font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .noowner { color: var(--warn-strong); font-weight: 600; }
+
+    /* ── Přehled projektů (Kanban podle stavu) ── */
+    .board { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(230px, 1fr)); gap: 14px; align-items: start; overflow-x: auto; }
+    .col { background: color-mix(in srgb, var(--text) 6%, var(--bg)); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+    .col.drop-over, .cell.drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+    .col-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 2px; font-family: var(--font-heading); font-weight: 600; font-size: 15px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .count { margin-left: auto; font-family: var(--font-body); font-weight: 500; font-size: 12px; color: var(--text-muted); background: var(--panel); border-radius: 10px; padding: 1px 9px; }
+    .col-note { font-size: 12px; color: var(--text-muted); padding: 0 4px; }
+    .col-empty { font-size: 12px; color: var(--text-faint); padding: 6px 4px; }
+    .pcard { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; cursor: pointer; }
+    .pcard:hover { border-color: var(--accent-block-border); }
+    .pcard[draggable="true"] { cursor: grab; }
+    .pcard.dragging { opacity: .45; }
+    .pcard.cancelled { opacity: .6; }
+    .pcard.cancelled .ptitle { text-decoration: line-through; }
+    .prow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .prow .pnum { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prow .flag { margin-left: auto; }
+    .ptitle { font-weight: 600; font-size: 14px; line-height: 1.35; }
+    .docs { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    /* ── Detail projektu ── */
+    .back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); text-decoration: none; margin-bottom: 12px; }
+    .back:hover { color: var(--text); }
+    .dcard { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+    .dtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .dtop .pnum { font-size: 22px; }
+    .dtop .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .dtitle { font-size: 18px; font-weight: 600; margin: 8px 0 14px; }
+    .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; }
+    .kv .k { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; }
+    .kv .v { font-size: 14px; }
+    .kv .wide { grid-column: 1 / -1; }
+    .dnote { white-space: pre-wrap; }
+    .dhints { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .section-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; flex-wrap: wrap; }
+    .section-head h2 { font-family: var(--font-heading); font-size: 18px; margin: 0; }
+    .section-head .right { margin-left: auto; display: flex; gap: 8px; }
+
+    .pboard { display: grid; grid-template-columns: 190px repeat(4, minmax(190px, 1fr)); gap: 8px; overflow-x: auto; }
+    .pboard .hcell { font-family: var(--font-heading); font-weight: 600; font-size: 13.5px; padding: 6px 8px; display: flex; align-items: center; gap: 7px; }
+    .pboard .hcell .count { margin-left: auto; }
+    .phase { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .phase-name { font-family: var(--font-heading); font-weight: 600; font-size: 14px; }
+    .phase .meta { font-size: 12px; }
+    .cell { background: color-mix(in srgb, var(--text) 5%, var(--bg)); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 64px; }
+    .task-card.run { --stripe: var(--accent); }
+    .scard { display: flex; flex-direction: column; gap: 5px; }
+    .scard[draggable="true"] { cursor: grab; }
+    .scard.dragging { opacity: .45; }
+    .scard .title { font-size: 13.5px; }
+    .scard .meta { margin-top: 0; flex-wrap: wrap; gap: 6px; }
+    .items-btn { border: 1px solid var(--line-medium); background: var(--panel); color: var(--text-muted); border-radius: var(--radius-xs); font-size: 11.5px; font-weight: 600; padding: 1px 6px; cursor: pointer; }
+    .items-btn.all { color: var(--success); border-color: var(--success-soft-border); }
+    .items { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--line-softer); }
+    .item { display: flex; align-items: flex-start; gap: 7px; font-size: 12.5px; line-height: 1.35; cursor: pointer; }
+    .item input { margin: 2px 0 0; }
+    .item.done span.t { color: var(--text-muted); text-decoration: line-through; }
+    .item .by { color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+    .cancelled-list { margin-top: 18px; }
+    .crow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line-softer); font-size: 13px; }
+    .crow .t { text-decoration: line-through; color: var(--text-muted); }
+    .crow .right { margin-left: auto; }
+
+    /* ── Dialogy ── */
+    .vmodal { position: fixed; inset: 0; z-index: 10000; background: color-mix(in srgb, var(--navy-900) 55%, transparent); display: flex; align-items: flex-start; justify-content: center; padding: 5vh 16px; overflow: auto; }
+    .vmodal-card { background: var(--panel); color: var(--text); border-radius: 14px; width: min(760px, 100%); box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: 90vh; }
+    .vmodal-card.narrow { width: min(480px, 100%); }
+    .vmodal-head { padding: 16px 20px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 10px; }
+    .vmodal-head h3 { font-family: var(--font-heading); margin: 0; font-size: 18px; }
+    .vmodal-head .id { margin-left: auto; font-size: 12px; color: var(--text-muted); }
+    .vmodal-body { padding: 16px 20px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+    .vmodal-foot { padding: 12px 20px; border-top: 1px solid var(--line-soft); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .vmodal-foot .spacer { flex: 1; }
+    .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .fgrid .wide { grid-column: 1 / -1; }
+    .ferr { color: var(--danger); font-size: 13px; font-weight: 600; white-space: pre-line; }
+    .rows { display: flex; flex-direction: column; gap: 6px; }
+    .rowi { display: flex; gap: 6px; align-items: center; }
+    .rowi .inp { flex: 1; }
+    .rowi .inp.typ { flex: 0 0 90px; }
+    .rowi .mini { width: 32px; height: 32px; border: 1px solid var(--line-medium); background: var(--panel); color: var(--text-muted); border-radius: var(--radius-xs); cursor: pointer; flex-shrink: 0; }
+    .rowi .mini:disabled { opacity: .35; cursor: default; }
+    .rowi input[type=checkbox] { width: 18px; height: 18px; flex-shrink: 0; }
+    .preview { border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .preview .ph { font-family: var(--font-heading); font-weight: 600; font-size: 13.5px; margin-top: 4px; }
+    .preview label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .preview label .muted { margin-left: auto; font-size: 12px; white-space: nowrap; }
+    .typ-hint { font-size: 12px; color: var(--text-muted); }
+    .vnotice { position: fixed; right: 16px; bottom: 16px; z-index: 10002; width: min(520px, calc(100vw - 32px)); padding: 14px 16px; border-radius: var(--radius-sm); background: var(--panel); color: var(--text); border: 2px solid var(--success-soft-border); box-shadow: var(--shadow); display: flex; gap: 12px; align-items: flex-start; white-space: pre-line; }
+    .vnotice.error { border-color: var(--danger); }
+    .vnotice.warn { border-color: var(--warn); }
+    .vnotice button { margin-left: auto; }
+    body.busy, body.busy * { cursor: progress !important; }
+
+    @media (max-width: 900px) {
+      .fgrid { grid-template-columns: 1fr; }
+      .hdr { padding: 0 14px; }
+      .page { padding: 16px 14px 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="brand" href="#">
+    <img src="icons/icon-192.png" alt="" />
+    <div><div class="brand-name">TOP · Řízení výroby</div><div class="brand-sub">Projekty, fáze a podúkoly</div></div>
+  </a>
+  <nav class="tabs" aria-label="Zobrazení modulu">
+    <a class="tab on" href="#">Přehled projektů</a>
+  </nav>
+  <div class="hdr-right">
+    <span id="syncStatus" class="sync">Načítám data z GitHubu…</span>
+    <a class="hdr-link" href="tydenni_dashboard_live_reload_local_linked.html">Týdenní plán</a>
+    <a class="hdr-link" href="sprava_ukolu_linked.html">Správa úkolů</a>
+    <button class="hdr-icon dark-mode-btn" type="button" id="darkBtn" title="Tmavý režim">🌙</button>
+    <button class="btn btn-primary" type="button" id="newProjectBtn" hidden>+ Nový projekt</button>
+  </div>
+</header>
+
+<main class="page">
+  <div id="readonlyNotice" class="notice" hidden></div>
+
+  <section id="viewOverview">
+    <div class="page-head">
+      <div>
+        <h1>Přehled projektů</h1>
+        <div class="sub" id="overviewSub">Postup se počítá z podúkolů.</div>
+      </div>
+      <div class="right">
+        <span class="badge b-danger" id="overdueBadge" hidden></span>
+        <span class="muted" id="projectCount" style="font-size:13px"></span>
+      </div>
+    </div>
+    <div class="bar">
+      <div class="field"><label class="lbl" for="fQ">Hledat</label><input id="fQ" class="inp" type="search" placeholder="Číslo, název, PO, VO…" style="width:260px" /></div>
+      <div class="field"><label class="lbl" for="fTyp">Typ</label>
+        <select id="fTyp" class="inp" style="width:190px">
+          <option value="">Všechny typy</option>
+          <option value="VY">VY – zařízení</option>
+          <option value="VZ">VZ – rámy a konstrukce</option>
+          <option value="SZ">SZ – servis a opravy</option>
+          <option value="Jiné">Jiné</option>
+        </select>
+      </div>
+      <div class="field"><label class="lbl" for="fOwner">Zodpovědný</label><select id="fOwner" class="inp" style="width:190px"></select></div>
+      <label class="chk"><input type="checkbox" id="fOverdue" />Jen po termínu</label>
+      <label class="chk"><input type="checkbox" id="fOldDone" />Starší hotové</label>
+      <label class="chk"><input type="checkbox" id="fCancelled" />Zrušené</label>
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section id="viewDetail" hidden></section>
+</main>
+
+<!-- Nový projekt / úprava projektu -->
+<div class="vmodal" id="projectModal" hidden>
+  <div class="vmodal-card" role="dialog" aria-modal="true" aria-labelledby="pmTitleH">
+    <div class="vmodal-head"><h3 id="pmTitleH">Nový projekt</h3><span class="id" id="pmId"></span></div>
+    <div class="vmodal-body">
+      <div class="fgrid">
+        <div class="field wide" id="pmSablonaWrap">
+          <label class="lbl" for="pmSablona">Šablona postupu</label>
+          <select id="pmSablona" class="inp"></select>
+          <div class="typ-hint" id="pmSablonaPopis"></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="pmOznaceni">Hlavní označení (VY / VZ / SZ nebo název)</label>
+          <input id="pmOznaceni" class="inp" placeholder="např. VY26000123 nebo Hala 105" />
+          <div class="typ-hint" id="pmTypHint"></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="pmTitle">Název projektu *</label>
+          <input id="pmTitle" class="inp" placeholder="např. Hydraulický agregát FT-PZ-80" />
+        </div>
+        <div class="field">
+          <label class="lbl" for="pmOwner">Zodpovědný</label>
+          <select id="pmOwner" class="inp"></select>
+        </div>
+        <div class="field">
+          <label class="lbl" for="pmDue">Termín (požadované dokončení)</label>
+          <input id="pmDue" class="inp" type="date" />
+        </div>
+        <div class="field">
+          <label class="lbl" for="pmPriority">Priorita</label>
+          <select id="pmPriority" class="inp">
+            <option value="P0">P0</option><option value="P1">P1</option><option value="P2" selected>P2</option><option value="P3">P3</option>
+          </select>
+        </div>
+        <div class="field" id="pmReasonWrap" hidden>
+          <label class="lbl" for="pmReason">Důvod zamrazení</label>
+          <input id="pmReason" class="inp" />
+        </div>
+        <div class="field wide">
+          <span class="lbl">Doklady z PROFITu (PO, VO, VY, VZ, SZ, NA)</span>
+          <div class="rows" id="pmDocs"></div>
+          <div><button class="btn btn-secondary btn-sm" type="button" id="pmAddDoc">+ Přidat doklad</button></div>
+        </div>
+        <div class="field wide">
+          <label class="lbl" for="pmNote">Poznámka</label>
+          <textarea id="pmNote" class="inp"></textarea>
+        </div>
+        <div class="field wide" id="pmPreviewWrap">
+          <span class="lbl">Co se vytvoří (podúkoly jde vyřadit)</span>
+          <div class="preview" id="pmPreview"></div>
+        </div>
+      </div>
+      <div class="ferr" id="pmErr"></div>
+    </div>
+    <div class="vmodal-foot">
+      <span class="spacer"></span>
+      <button class="btn btn-secondary" type="button" data-close>Zavřít</button>
+      <button class="btn btn-primary" type="button" id="pmSave">Založit projekt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Podúkol -->
+<div class="vmodal" id="subModal" hidden>
+  <div class="vmodal-card" role="dialog" aria-modal="true" aria-labelledby="smTitleH">
+    <div class="vmodal-head"><h3 id="smTitleH">Podúkol</h3><span class="id" id="smId"></span></div>
+    <div class="vmodal-body">
+      <div class="fgrid">
+        <div class="field wide">
+          <label class="lbl" for="smTitle">Název *</label>
+          <input id="smTitle" class="inp" />
+        </div>
+        <div class="field">
+          <label class="lbl" for="smFaze">Fáze</label>
+          <select id="smFaze" class="inp"></select>
+        </div>
+        <div class="field">
+          <label class="lbl" for="smState">Stav</label>
+          <select id="smState" class="inp">
+            <option>Nový</option><option>Probíhá</option><option>Čeká se</option><option>Dokončeno</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl" for="smOwner">Řešitel</label>
+          <select id="smOwner" class="inp"></select>
+        </div>
+        <div class="field">
+          <label class="lbl" for="smPriority">Priorita</label>
+          <select id="smPriority" class="inp">
+            <option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl" for="smDate">Plánované datum</label>
+          <input id="smDate" class="inp" type="date" />
+        </div>
+        <div class="field">
+          <label class="lbl" for="smDays">Počet dní</label>
+          <input id="smDays" class="inp" type="number" min="1" max="60" step="1" value="1" />
+        </div>
+        <div class="field wide">
+          <label class="lbl" for="smNote">Upřesnění (poznámka)</label>
+          <textarea id="smNote" class="inp"></textarea>
+        </div>
+        <div class="field wide">
+          <span class="lbl">Položky k odškrtnutí</span>
+          <div class="rows" id="smItems"></div>
+          <div><button class="btn btn-secondary btn-sm" type="button" id="smAddItem">+ Přidat položku</button></div>
+        </div>
+        <div class="field wide typ-hint" id="smExtra"></div>
+      </div>
+      <div class="ferr" id="smErr"></div>
+      <div id="smHistory" class="history-panel" hidden></div>
+    </div>
+    <div class="vmodal-foot">
+      <button class="btn btn-danger" type="button" id="smCancelTask" hidden>Zrušit podúkol</button>
+      <button class="btn btn-secondary" type="button" id="smHistoryBtn" hidden>🕘 Historie</button>
+      <a class="btn btn-secondary" id="smSpravaLink" target="top_edit_window" hidden>Otevřít ve Správě úkolů</a>
+      <span class="spacer"></span>
+      <button class="btn btn-secondary" type="button" data-close>Zavřít</button>
+      <button class="btn btn-primary" type="button" id="smSave">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fáze projektu -->
+<div class="vmodal" id="phasesModal" hidden>
+  <div class="vmodal-card narrow" role="dialog" aria-modal="true" aria-labelledby="fmTitleH">
+    <div class="vmodal-head"><h3 id="fmTitleH">Fáze projektu</h3></div>
+    <div class="vmodal-body">
+      <div class="typ-hint">Pořadí fází určuje řádky v detailu projektu. Podúkoly z odebrané fáze zůstanou v projektu jako „Bez fáze“.</div>
+      <div class="rows" id="fmList"></div>
+      <div><button class="btn btn-secondary btn-sm" type="button" id="fmAdd">+ Přidat fázi</button></div>
+      <div class="ferr" id="fmErr"></div>
+    </div>
+    <div class="vmodal-foot">
+      <span class="spacer"></span>
+      <button class="btn btn-secondary" type="button" data-close>Zavřít</button>
+      <button class="btn btn-primary" type="button" id="fmSave">Uložit fáze</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dotaz / potvrzení -->
+<div class="vmodal" id="askModal" hidden>
+  <div class="vmodal-card narrow" role="dialog" aria-modal="true" aria-labelledby="amTitleH">
+    <div class="vmodal-head"><h3 id="amTitleH"></h3></div>
+    <div class="vmodal-body">
+      <div id="amText" style="white-space:pre-line"></div>
+      <label class="chk" id="amCheckWrap" hidden style="height:auto"><input type="checkbox" id="amCheck" /><span id="amCheckText"></span></label>
+      <input id="amInput" class="inp" hidden />
+    </div>
+    <div class="vmodal-foot">
+      <span class="spacer"></span>
+      <button class="btn btn-secondary" type="button" id="amCancel">Zpět</button>
+      <button class="btn btn-primary" type="button" id="amOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script src="ft_loader.js"></script>
+<script>
+// ── Modul Řízení výroby — stránka (etapa 2, 2026-09-30) ──────────────────
+// Zobrazení a ovládání; data a ukládání výhradně přes FTLoader.vyroba
+// (ft_loader.js). Projekty i podúkoly jsou běžné úkoly TOP (navrh 6.1, 6.6).
+
+// ── Tmavý režim (stejný klíč jako ostatní stránky TOP) ───────────────────
+const DARK_KEY = "ft_darkMode";
+function applyDarkMode(dark) {
+  document.documentElement.classList.toggle("dark", dark);
+  localStorage.setItem(DARK_KEY, dark ? "1" : "0");
+  document.querySelectorAll(".dark-mode-btn").forEach(btn => {
+    btn.textContent = dark ? "☀️" : "🌙";
+    btn.title = dark ? "Světlý režim" : "Tmavý režim";
+  });
+}
+(function initDarkMode() {
+  const saved = localStorage.getItem(DARK_KEY);
+  const dark = saved !== null ? saved === "1" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyDarkMode(dark);
+})();
+document.getElementById("darkBtn").addEventListener("click", () => applyDarkMode(!document.documentElement.classList.contains("dark")));
+
+const V = FTLoader.vyroba; // chybí = stará ft_loader.js z HTTP cache
+const STAVY = ["Nový", "Probíhá", "Čeká se", "Dokončeno"];
+const PROJ_COLS = [
+  { state: "Nový", name: "Nový", dot: "var(--text-faint)" },
+  { state: "Probíhá", name: "Probíhá", dot: "var(--accent)" },
+  { state: "Čeká se", name: "Zamrzlý", dot: "var(--warn)" },
+  { state: "Dokončeno", name: "Hotový", dot: "var(--success)" },
+];
+const SUB_COLS = [
+  { state: "Nový", name: "Nový", dot: "var(--text-faint)" },
+  { state: "Probíhá", name: "Probíhá", dot: "var(--accent)" },
+  { state: "Čeká se", name: "Čeká se", dot: "var(--warn)" },
+  { state: "Dokončeno", name: "Dokončeno", dot: "var(--success)" },
+];
+const HOTOVE_DNI = 30;       // Hotový sloupec: jen posledních 30 dní (náčrt)
+const FILTER_KEY = "ftVyrobaFiltry";
+
+let RAW = null;              // surová data (FTLoader.getRawJson), jediný zdroj
+let CAN_EDIT = false;
+let _permissionChecked = false;
+const EXPANDED = new Set();  // podúkoly s rozbaleným seznamem položek
+let SHOW_CANCELLED_SUBS = false;
+
+// ── Pomocné ──────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function addDaysISO(iso, n) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+function daysBetween(a, b) {
+  const [y1, m1, d1] = a.split("-").map(Number), [y2, m2, d2] = b.split("-").map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
+}
+function fmtDate(iso, withYear = true) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return "";
+  return `${+m[3]}. ${+m[2]}.` + (withYear ? ` ${m[1]}` : "");
+}
+function plural(n, one, few, many) { return n === 1 ? one : (n >= 2 && n <= 4 ? few : many); }
+function resitele() { return (RAW && Array.isArray(RAW.resitele)) ? RAW.resitele : []; }
+// "" i "Nezařazeno" (konvence Správy úkolů) = bez řešitele.
+function isAssigned(z) { return !V.isUnassigned(z); }
+function resitelName(z) {
+  const r = resitele().find(x => x.zkratka === z);
+  return r ? `${r.jmeno || ""} ${r.prijmeni || ""}`.trim() || z : z;
+}
+function ownerOptions(current, emptyLabel) {
+  const active = resitele().filter(r => r && r.zkratka && !r.vyrazen)
+    .sort((a, b) => a.zkratka.localeCompare(b.zkratka, "cs"));
+  let html = `<option value="">${esc(emptyLabel)}</option>` +
+    active.map(r => `<option value="${esc(r.zkratka)}">${esc(r.zkratka)} – ${esc(resitelName(r.zkratka))}</option>`).join("");
+  if (current && !active.some(r => r.zkratka === current)) {
+    html += `<option value="${esc(current)}">${esc(current)} (vyřazený)</option>`;
+  }
+  return html;
+}
+function allTasks() { return (RAW && Array.isArray(RAW.tasks)) ? RAW.tasks : []; }
+function findProject(id) {
+  const list = allTasks().filter(t => t && t.id === id && FTLoader.isProjectTask(t));
+  return list.length === 1 ? list[0] : null;
+}
+function findSubtask(id) {
+  const list = allTasks().filter(t => t && t.id === id && FTLoader.isProjectSubtask(t));
+  return list.length === 1 ? list[0] : null;
+}
+function projectLabel(p) { return (p.vyroba && p.vyroba.oznaceni) || p.title || p.id; }
+function projectTyp(p) { return (p.vyroba && p.vyroba.typ) || V.typFromOznaceni(p.vyroba && p.vyroba.oznaceni); }
+function projectInfo(p) {
+  const subs = V.subtasks(allTasks(), p.id);
+  const prog = V.progress(subs);
+  const phase = V.currentPhase(p, subs);
+  const today = todayISO();
+  const overdueDays = (p.dueDate && p.dueDate < today && p.state !== "Dokončeno" && !p.cancelled) ? daysBetween(p.dueDate, today) : 0;
+  return { subs, prog, phase, overdueDays, typ: projectTyp(p) };
+}
+function stateLabel(state) { return V.STAV_PROJEKTU[state] || state || "Nový"; }
+function stateBadgeCls(state) {
+  return state === "Dokončeno" ? "b-ok" : state === "Čeká se" ? "b-warn" : state === "Probíhá" ? "b-run" : "b-grey";
+}
+function taskDates(t) {
+  const dates = FTLoader.getMultiDayOccurrenceDates(t);
+  if (!dates.length) return "";
+  const first = dates[0], last = dates[dates.length - 1];
+  return first === last ? fmtDate(first, false) : `${fmtDate(first, false)} – ${fmtDate(last, false)}`;
+}
+
+function setSync(msg, isError) {
+  const el = document.getElementById("syncStatus");
+  el.textContent = msg || "";
+  el.title = msg || "";
+  el.classList.toggle("err", !!isError);
+}
+
+let _noticeTimer = null;
+function notify(message, kind = "success") {
+  let n = document.getElementById("vNotice");
+  if (!n) {
+    n = document.createElement("div");
+    n.id = "vNotice";
+    n.setAttribute("role", "status");
+    n.setAttribute("aria-live", "polite");
+    n.innerHTML = `<div class="t"></div><button class="btn btn-secondary btn-sm" type="button">Zavřít</button>`;
+    n.querySelector("button").addEventListener("click", () => { n.hidden = true; });
+    document.body.append(n);
+  }
+  n.className = `vnotice ${kind === "success" ? "" : kind}`;
+  n.querySelector(".t").textContent = message;
+  n.hidden = false;
+  clearTimeout(_noticeTimer);
+  if (kind === "success") _noticeTimer = setTimeout(() => { n.hidden = true; }, 7000);
+}
+
+// Jedna změna dat najednou; chyba = srozumitelná hláška, nic se nezmění.
+async function run(action, successMsg) {
+  document.body.classList.add("busy");
+  try {
+    const result = await action();
+    if (successMsg) notify(typeof successMsg === "function" ? successMsg(result) : successMsg);
+    return { ok: true, result };
+  } catch (e) {
+    console.error(e);
+    notify(e.message || "Uložení se nepodařilo.", "error");
+    return { ok: false, error: e };
+  } finally {
+    document.body.classList.remove("busy");
+  }
+}
+
+// ── Dialogy ──────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).hidden = false; }
+function closeModal(id) { document.getElementById(id).hidden = true; }
+document.querySelectorAll(".vmodal [data-close]").forEach(btn =>
+  btn.addEventListener("click", () => closeModal(btn.closest(".vmodal").id)));
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  const open = [...document.querySelectorAll(".vmodal")].filter(m => !m.hidden);
+  if (!open.length) return;
+  const top = open[open.length - 1];
+  if (top.id === "askModal") document.getElementById("amCancel").click();
+  else closeModal(top.id);
+});
+
+// Náhrada prompt/confirm ve stylu appky. Vrací: input → text | null,
+// jinak true/false; s checkboxem { ok, checked }.
+function ask({ title, text, input = false, value = "", okText = "OK", danger = false, check = null }) {
+  return new Promise(resolve => {
+    const m = document.getElementById("askModal");
+    document.getElementById("amTitleH").textContent = title || "";
+    document.getElementById("amText").textContent = text || "";
+    const inp = document.getElementById("amInput");
+    inp.hidden = !input;
+    inp.value = value || "";
+    const cw = document.getElementById("amCheckWrap"), cb = document.getElementById("amCheck");
+    cw.hidden = !check;
+    cb.checked = !!(check && check.checked);
+    document.getElementById("amCheckText").textContent = check ? check.text : "";
+    const ok = document.getElementById("amOk"), cancel = document.getElementById("amCancel");
+    ok.textContent = okText;
+    ok.className = `btn ${danger ? "btn-danger" : "btn-primary"}`;
+    const done = val => {
+      ok.onclick = cancel.onclick = inp.onkeydown = null;
+      m.hidden = true;
+      resolve(val);
+    };
+    ok.onclick = () => done(input ? inp.value : (check ? { ok: true, checked: cb.checked } : true));
+    cancel.onclick = () => done(input ? null : (check ? { ok: false, checked: cb.checked } : false));
+    inp.onkeydown = e => { if (e.key === "Enter") ok.click(); };
+    m.hidden = false;
+    (input ? inp : ok).focus();
+  });
+}
+
+// ── Směrování: #projekt=<ID> = detail, jinak přehled ─────────────────────
+function currentProjectId() {
+  const m = /^#projekt=(.+)$/.exec(location.hash || "");
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function goProject(id) { location.hash = "projekt=" + encodeURIComponent(id); }
+function goOverview() { location.hash = ""; }
+window.addEventListener("hashchange", () => { window.scrollTo(0, 0); render(); });
+
+function render() {
+  if (!V) return;
+  document.getElementById("newProjectBtn").hidden = !CAN_EDIT;
+  if (!RAW) return;
+  const id = currentProjectId();
+  document.getElementById("viewOverview").hidden = !!id;
+  document.getElementById("viewDetail").hidden = !id;
+  if (id) renderDetail(id); else renderOverview();
+}
+
+// ── Přehled projektů ─────────────────────────────────────────────────────
+const F = (() => {
+  try { return Object.assign({ q: "", typ: "", owner: "", overdue: false, oldDone: false, cancelled: false }, JSON.parse(localStorage.getItem(FILTER_KEY) || "{}")); }
+  catch (e) { return { q: "", typ: "", owner: "", overdue: false, oldDone: false, cancelled: false }; }
+})();
+function saveFilters() { try { localStorage.setItem(FILTER_KEY, JSON.stringify(F)); } catch (e) {} }
+(function bindFilters() {
+  const q = document.getElementById("fQ"), typ = document.getElementById("fTyp");
+  const ov = document.getElementById("fOverdue"), od = document.getElementById("fOldDone"), ca = document.getElementById("fCancelled");
+  q.value = F.q; typ.value = F.typ; ov.checked = F.overdue; od.checked = F.oldDone; ca.checked = F.cancelled;
+  q.addEventListener("input", () => { F.q = q.value; saveFilters(); renderOverview(); });
+  typ.addEventListener("change", () => { F.typ = typ.value; saveFilters(); renderOverview(); });
+  document.getElementById("fOwner").addEventListener("change", e => { F.owner = e.target.value; saveFilters(); renderOverview(); });
+  ov.addEventListener("change", () => { F.overdue = ov.checked; saveFilters(); renderOverview(); });
+  od.addEventListener("change", () => { F.oldDone = od.checked; saveFilters(); renderOverview(); });
+  ca.addEventListener("change", () => { F.cancelled = ca.checked; saveFilters(); renderOverview(); });
+})();
+
+function projectMatches(p, info) {
+  if (p.cancelled && !F.cancelled) return false;
+  if (F.typ && info.typ !== F.typ) return false;
+  if (F.owner && p.owner !== F.owner) return false;
+  if (F.overdue && !info.overdueDays) return false;
+  const q = F.q.trim().toLowerCase();
+  if (q) {
+    const hay = [p.id, p.title, p.vyroba.oznaceni, p.note, ...(p.vyroba.doklady || []).map(d => d.cislo)]
+      .map(x => String(x || "").toLowerCase()).join(" ");
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function renderOverview() {
+  if (!RAW || !V) return;
+  document.title = "Řízení výroby — TOP";
+  const projects = V.projects(allTasks());
+  // Filtr Zodpovědný: jen lidé, kteří nějaký projekt mají.
+  const fOwner = document.getElementById("fOwner");
+  const owners = [...new Set(projects.map(p => p.owner).filter(isAssigned))].sort((a, b) => a.localeCompare(b, "cs"));
+  fOwner.innerHTML = `<option value="">Všichni</option>` + owners.map(z => `<option value="${esc(z)}">${esc(z)} – ${esc(resitelName(z))}</option>`).join("");
+  fOwner.value = owners.includes(F.owner) ? F.owner : "";
+
+  const today = todayISO(), hotoveOd = addDaysISO(today, -HOTOVE_DNI);
+  const rows = projects.map(p => ({ p, info: projectInfo(p) })).filter(x => projectMatches(x.p, x.info));
+  const overdue = rows.filter(x => x.info.overdueDays).length;
+  const ob = document.getElementById("overdueBadge");
+  ob.hidden = !overdue;
+  ob.textContent = `${overdue} po termínu`;
+  const active = projects.filter(p => !p.cancelled).length;
+  document.getElementById("projectCount").textContent = `${active} ${plural(active, "projekt", "projekty", "projektů")}`;
+  document.getElementById("overviewSub").textContent = CAN_EDIT
+    ? "Stav projektu změníte přetažením karty do jiného sloupce. Postup se počítá z podúkolů."
+    : "Postup se počítá z podúkolů.";
+
+  // Sloupce = 4 stavy + jakýkoliv jiný stav, který se v datech vyskytne
+  // (stejná pojistka jako Kanban ve Správě úkolů — nic tiše nezmizí).
+  const extra = [...new Set(rows.map(x => x.p.state || "Nový").filter(s => !STAVY.includes(s)))].sort();
+  const cols = [...PROJ_COLS, ...extra.map(s => ({ state: s, name: s, dot: "var(--text-faint)" }))];
+  const board = document.getElementById("board");
+  board.style.setProperty("--cols", cols.length);
+  board.innerHTML = cols.map(col => {
+    let list = rows.filter(x => (x.p.state || "Nový") === col.state);
+    let note = "";
+    if (col.state === "Dokončeno" && !F.oldDone) {
+      const all = list.length;
+      list = list.filter(x => !x.p.doneDate || x.p.doneDate >= hotoveOd);
+      note = all > list.length ? `Posledních ${HOTOVE_DNI} dní (starších: ${all - list.length})` : `Posledních ${HOTOVE_DNI} dní`;
+    }
+    list.sort((a, b) => String(a.p.dueDate || "9999").localeCompare(String(b.p.dueDate || "9999")) || projectLabel(a.p).localeCompare(projectLabel(b.p), "cs"));
+    return `<section class="col" data-state="${esc(col.state)}" aria-label="${esc(col.name)}">
+      <div class="col-head"><span class="dot" style="background:${col.dot}"></span>${esc(col.name)}<span class="count">${list.length}</span></div>
+      ${note ? `<div class="col-note">${esc(note)}</div>` : ""}
+      ${list.map(x => projectCardHtml(x.p, x.info)).join("") || `<div class="col-empty">Žádné projekty</div>`}
+    </section>`;
+  }).join("");
+}
+
+function projectCardHtml(p, info) {
+  const v = p.vyroba || {};
+  const label = v.oznaceni || p.title;
+  const pct = info.prog.total ? Math.round(100 * info.prog.done / info.prog.total) : 0;
+  let flag = "";
+  if (p.cancelled) flag = `<span class="badge b-grey flag">Zrušený</span>`;
+  else if (info.overdueDays) flag = `<span class="badge b-danger flag">Po termínu ${info.overdueDays} ${plural(info.overdueDays, "den", "dny", "dní")}</span>`;
+  else if (p.state === "Dokončeno" && p.doneDate) flag = `<span class="badge b-ok flag">Hotovo ${esc(fmtDate(p.doneDate, false))}</span>`;
+  const hints = [];
+  if (!p.cancelled && p.state !== "Dokončeno" && info.prog.total > 0 && info.prog.done === info.prog.total) {
+    hints.push(`<div class="hint">⚠ Všechny podúkoly jsou hotové. Přesunout projekt do Hotové?</div>`);
+  }
+  if (p.state === "Čeká se") {
+    const od = v.zamrazenoOd ? `Zamrzlé od ${fmtDate(v.zamrazenoOd, false)}` : "Zamrzlé";
+    hints.push(`<div class="hint">${esc(od)}${v.duvodZamrazeni ? `: ${esc(v.duvodZamrazeni)}` : "."}</div>`);
+  }
+  const docs = (v.doklady || []).map(d => `<span class="doc" title="${esc(d.typ)}">${esc(d.cislo)}</span>`).join("");
+  const drag = CAN_EDIT && !p.cancelled;
+  return `<article class="pcard${p.cancelled ? " cancelled" : ""}" data-id="${esc(p.id)}" draggable="${drag}">
+    <div class="prow"><span class="badge b-${esc(info.typ)}">${esc(info.typ)}</span><a class="pnum" href="#projekt=${encodeURIComponent(p.id)}">${esc(label)}</a>${flag}</div>
+    ${v.oznaceni ? `<div class="ptitle">${esc(p.title)}</div>` : ""}
+    <div class="meta between">
+      <span class="who">${isAssigned(p.owner) ? `<span class="avatar">${esc(p.owner)}</span>${esc(resitelName(p.owner))}` : `<span class="noowner">bez zodpovědného</span>`}</span>
+      <span>📅 ${p.dueDate ? esc(fmtDate(p.dueDate)) : "bez termínu"}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div class="meta between"><span>Fáze <b>${esc(info.phase ? info.phase.nazev : "—")}</b></span><span style="font-variant-numeric:tabular-nums">${info.prog.done}/${info.prog.total}</span></div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+    </div>
+    ${docs ? `<div class="docs">${docs}</div>` : ""}
+    ${hints.join("")}
+  </article>`;
+}
+
+// Přetahování projektů (navrh 6.18) — delegace událostí na #board.
+let _dragProject = null;
+(function bindBoardDnD() {
+  const board = document.getElementById("board");
+  board.addEventListener("click", e => {
+    const card = e.target.closest(".pcard");
+    if (!card || e.target.closest("a")) return;
+    goProject(card.dataset.id);
+  });
+  board.addEventListener("dragstart", e => {
+    const card = e.target.closest(".pcard[draggable='true']");
+    if (!card) return;
+    _dragProject = card.dataset.id;
+    card.classList.add("dragging");
+    try { e.dataTransfer.setData("text/plain", _dragProject); e.dataTransfer.effectAllowed = "move"; } catch (err) {}
+  });
+  board.addEventListener("dragend", e => {
+    const card = e.target.closest(".pcard");
+    if (card) card.classList.remove("dragging");
+    board.querySelectorAll(".drop-over").forEach(c => c.classList.remove("drop-over"));
+  });
+  board.addEventListener("dragover", e => {
+    const col = e.target.closest(".col");
+    if (!col || !_dragProject) return;
+    e.preventDefault();
+    board.querySelectorAll(".drop-over").forEach(c => { if (c !== col) c.classList.remove("drop-over"); });
+    col.classList.add("drop-over");
+  });
+  board.addEventListener("drop", e => {
+    const col = e.target.closest(".col");
+    if (!col || !_dragProject) return;
+    e.preventDefault();
+    col.classList.remove("drop-over");
+    const id = _dragProject;
+    _dragProject = null;
+    changeProjectState(id, col.dataset.state);
+  });
+})();
+
+// Změna stavu projektu s pojistkami (navrh 6.18, JK 3.26, 3.33, 3.37).
+async function changeProjectState(id, state) {
+  const p = findProject(id);
+  if (!p || !CAN_EDIT || !STAVY.includes(state)) return false;
+  if (p.state === state) return false;
+  let reason = "";
+  if (state === "Čeká se") {
+    const r = await ask({ title: "Zamrazit projekt", text: `Proč je projekt ${projectLabel(p)} zamrzlý? Důvod se ukáže na kartě (nepovinné).`, input: true, okText: "Zamrazit" });
+    if (r === null) return false;
+    reason = r;
+  } else if (state === "Dokončeno") {
+    const subs = V.subtasks(allTasks(), id);
+    const open = subs.filter(t => t.state !== "Dokončeno");
+    const items = subs.reduce((n, t) => n + (t.vyroba.polozky || []).filter(x => !x.hotovo).length, 0);
+    if (open.length) {
+      const ok = await ask({
+        title: "Uzavřít projekt",
+        text: `${open.length} ${plural(open.length, "podúkol není hotový", "podúkoly nejsou hotové", "podúkolů není hotových")}:\n` +
+          open.slice(0, 8).map(t => `• ${t.title}`).join("\n") + (open.length > 8 ? "\n…" : "") +
+          `\n\nUzavřít projekt a označit je jako hotové?` + (items ? ` Odškrtne se i ${items} ${plural(items, "položka", "položky", "položek")}.` : ""),
+        okText: "Uzavřít projekt",
+      });
+      if (!ok) return false;
+    }
+  }
+  const res = await run(() => V.setProjectState(id, state, { reason }), r =>
+    `Projekt ${r.label}: ${stateLabel(r.from)} → ${stateLabel(state)}.` +
+    (r.closed ? `\nOznačeno jako hotové: ${r.closed} ${plural(r.closed, "podúkol", "podúkoly", "podúkolů")}.` : "") +
+    (r.ticked ? `\nOdškrtnuto: ${r.ticked} ${plural(r.ticked, "položka", "položky", "položek")}.` : ""));
+  return res.ok;
+}
+
+// ── Detail projektu ──────────────────────────────────────────────────────
+function renderDetail(id) {
+  const el = document.getElementById("viewDetail");
+  const p = findProject(id);
+  if (!p) {
+    document.title = "Projekt nenalezen — Řízení výroby";
+    el.innerHTML = `<a class="back" href="#">← Přehled projektů</a><div class="dcard">Projekt <b>${esc(id)}</b> nebyl nalezen (možná byl smazán, nebo odkaz není správný).</div>`;
+    return;
+  }
+  const v = p.vyroba || {};
+  const info = projectInfo(p);
+  const pct = info.prog.total ? Math.round(100 * info.prog.done / info.prog.total) : 0;
+  const label = v.oznaceni || p.title;
+  document.title = `${label} — Řízení výroby`;
+  const edit = CAN_EDIT && !p.cancelled;
+
+  const hints = [];
+  if (p.cancelled) hints.push(`<div class="hint bad">Projekt je zrušený. Jeho podúkoly se dál zobrazují v týdenním plánu, pokud nejsou zrušené.</div>`);
+  if (!p.cancelled && p.state !== "Dokončeno" && info.prog.total > 0 && info.prog.done === info.prog.total) {
+    hints.push(`<div class="hint">⚠ Všechny podúkoly jsou hotové, projekt je pořád ve stavu „${esc(stateLabel(p.state))}“.</div>`);
+  }
+  if (info.overdueDays) hints.push(`<div class="hint bad">Po termínu ${info.overdueDays} ${plural(info.overdueDays, "den", "dny", "dní")}.</div>`);
+  const noDate = info.subs.filter(t => !t.plannedDate && t.state !== "Dokončeno").length;
+  if (noDate) hints.push(`<div class="hint info">${noDate} ${plural(noDate, "podúkol nemá", "podúkoly nemají", "podúkolů nemá")} datum — v týdenním plánu se ${noDate > 1 ? "objeví, až dostanou" : "objeví, až dostane"} řešitele a datum.</div>`);
+
+  const docs = (v.doklady || []).map(d => `<span class="doc"><b>${esc(d.typ)}</b>${esc(d.cislo)}</span>`).join("") || `<span class="muted">—</span>`;
+  const stateSel = `<select class="inp" id="dState" style="height:32px" ${edit ? "" : "disabled"} title="Stav projektu">` +
+    STAVY.map(s => `<option value="${esc(s)}" ${p.state === s ? "selected" : ""}>${esc(stateLabel(s))}</option>`).join("") +
+    (STAVY.includes(p.state) ? "" : `<option selected>${esc(p.state)}</option>`) + `</select>`;
+
+  el.innerHTML = `
+    <a class="back" href="#">← Přehled projektů</a>
+    <div class="dcard">
+      <div class="dtop">
+        <span class="badge b-${esc(info.typ)}">${esc(info.typ)}</span>
+        <span class="pnum">${esc(label)}</span>
+        <span class="badge ${stateBadgeCls(p.state)}">${esc(stateLabel(p.state))}</span>
+        ${p.cancelled ? `<span class="badge b-grey">Zrušený</span>` : ""}
+        <span class="muted" style="font-size:12px">${esc(p.id)}</span>
+        <div class="actions">
+          ${stateSel}
+          ${edit ? `<button class="btn btn-secondary btn-sm" type="button" id="dEdit">Upravit projekt</button>` : ""}
+          <button class="btn btn-secondary btn-sm" type="button" id="dHistory">🕘 Historie</button>
+          ${CAN_EDIT ? (p.cancelled
+            ? `<button class="btn btn-secondary btn-sm" type="button" id="dRestore">Obnovit projekt</button>`
+            : `<button class="btn btn-danger btn-sm" type="button" id="dCancel">Zrušit projekt</button>`) : ""}
+        </div>
+      </div>
+      ${v.oznaceni ? `<div class="dtitle">${esc(p.title)}</div>` : `<div style="height:12px"></div>`}
+      <div class="kv">
+        <div><div class="k">Zodpovědný</div><div class="v">${isAssigned(p.owner) ? `<span class="who"><span class="avatar">${esc(p.owner)}</span>${esc(resitelName(p.owner))}</span>` : `<span class="noowner">nevybrán</span>`}</div></div>
+        <div><div class="k">Termín</div><div class="v">${p.dueDate ? esc(fmtDate(p.dueDate)) : "—"}</div></div>
+        <div><div class="k">Priorita</div><div class="v">${esc(p.priority || "P2")}</div></div>
+        <div><div class="k">Šablona</div><div class="v">${esc(v.sablona || "bez šablony")}</div></div>
+        <div><div class="k">Založeno</div><div class="v">${esc(fmtDate(p.createdDate) || "—")}</div></div>
+        <div><div class="k">Postup</div><div class="v" style="display:flex;align-items:center;gap:8px"><div class="progress"><div style="width:${pct}%"></div></div><span style="font-variant-numeric:tabular-nums">${info.prog.done}/${info.prog.total}</span></div></div>
+        ${p.state === "Čeká se" ? `<div class="wide"><div class="k">Zamrzlé${v.zamrazenoOd ? ` od ${esc(fmtDate(v.zamrazenoOd))}` : ""}</div><div class="v">${esc(v.duvodZamrazeni || "bez uvedeného důvodu")}</div></div>` : ""}
+        <div class="wide"><div class="k">Doklady</div><div class="v docs">${docs}</div></div>
+        ${p.note ? `<div class="wide"><div class="k">Poznámka</div><div class="v dnote">${esc(p.note)}</div></div>` : ""}
+      </div>
+      ${hints.length ? `<div class="dhints">${hints.join("")}</div>` : ""}
+      <div id="dHistoryPanel" class="history-panel" hidden></div>
+    </div>
+
+    <div class="section-head">
+      <h2>Podúkoly podle fází</h2>
+      <span class="muted" style="font-size:13px">${edit ? "Stav i fázi podúkolu změníte přetažením karty." : ""}</span>
+      <div class="right">${edit ? `<button class="btn btn-secondary btn-sm" type="button" id="dPhases">Upravit fáze</button>` : ""}</div>
+    </div>
+    ${phaseBoardHtml(p, edit)}
+    ${cancelledSubsHtml(p)}
+  `;
+
+  const byId = x => el.querySelector("#" + x);
+  const stateEl = byId("dState");
+  if (stateEl) stateEl.addEventListener("change", async () => {
+    const ok = await changeProjectState(p.id, stateEl.value);
+    if (!ok) stateEl.value = p.state; // zrušeno nebo chyba → zpět na uložený stav
+  });
+  if (byId("dEdit")) byId("dEdit").addEventListener("click", () => openProjectModal(p.id));
+  if (byId("dPhases")) byId("dPhases").addEventListener("click", () => openPhasesModal(p.id));
+  byId("dHistory").addEventListener("click", () =>
+    FTLoader.toggleTaskHistory(byId("dHistoryPanel"), p, { tasks: allTasks(), ruleIds: (RAW.opakovaci || []).map(o => o.id) }));
+  if (byId("dCancel")) byId("dCancel").addEventListener("click", () => cancelProject(p.id));
+  if (byId("dRestore")) byId("dRestore").addEventListener("click", () => restoreProject(p.id));
+  const tog = byId("dShowCancelled");
+  if (tog) tog.addEventListener("click", () => { SHOW_CANCELLED_SUBS = !SHOW_CANCELLED_SUBS; renderDetail(p.id); });
+}
+
+function subStateCls(state) {
+  return state === "Dokončeno" ? "done" : state === "Čeká se" ? "waiting" : state === "Probíhá" ? "run" : "";
+}
+
+function phaseBoardHtml(p, edit) {
+  const faze = (p.vyroba.faze || []);
+  const subs = V.subtasks(allTasks(), p.id);
+  const known = new Set(faze.map(f => f.id));
+  const rowsDef = faze.map(f => ({ id: f.id, nazev: f.nazev }));
+  if (subs.some(t => !known.has(t.vyroba.faze)) || !rowsDef.length) rowsDef.push({ id: "", nazev: "Bez fáze" });
+  const colCount = s => subs.filter(t => (t.state || "Nový") === s).length;
+  const extraStates = [...new Set(subs.map(t => t.state || "Nový").filter(s => !STAVY.includes(s)))];
+  const cols = [...SUB_COLS, ...extraStates.map(s => ({ state: s, name: s, dot: "var(--text-faint)" }))];
+  let html = `<div class="pboard" id="pboard" data-project="${esc(p.id)}" style="grid-template-columns:190px repeat(${cols.length}, minmax(190px, 1fr))">`;
+  html += `<div class="hcell">Fáze</div>` + cols.map(c =>
+    `<div class="hcell"><span class="dot" style="background:${c.dot}"></span>${esc(c.name)}<span class="count">${colCount(c.state)}</span></div>`).join("");
+  rowsDef.forEach(row => {
+    const rowSubs = subs.filter(t => row.id ? t.vyroba.faze === row.id : !known.has(t.vyroba.faze));
+    const prog = V.progress(rowSubs);
+    html += `<div class="phase">
+      <div class="phase-name">${esc(row.nazev)}</div>
+      <div class="meta">${prog.done}/${prog.total} hotovo</div>
+      ${edit ? `<div><button class="btn btn-secondary btn-sm" type="button" data-add-sub="${esc(row.id)}">+ Podúkol</button></div>` : ""}
+    </div>`;
+    cols.forEach(c => {
+      const cellSubs = rowSubs.filter(t => (t.state || "Nový") === c.state);
+      html += `<div class="cell" data-state="${esc(c.state)}" data-faze="${esc(row.id)}">${cellSubs.map(t => subCardHtml(t, edit)).join("")}</div>`;
+    });
+  });
+  return html + `</div>`;
+}
+
+function subCardHtml(t, edit) {
+  const items = t.vyroba.polozky || [];
+  const doneItems = items.filter(x => x.hotovo).length;
+  const open = EXPANDED.has(t.id);
+  const dates = taskDates(t);
+  const owner = isAssigned(t.owner) ? `<span class="who" title="${esc(resitelName(t.owner))}"><span class="avatar">${esc(t.owner)}</span></span>` : `<span class="noowner">bez řešitele</span>`;
+  const itemsBtn = items.length
+    ? `<button class="items-btn${doneItems === items.length ? " all" : ""}" type="button" data-items="${esc(t.id)}" title="Položky k odškrtnutí">☑ ${doneItems}/${items.length}</button>` : "";
+  const list = open && items.length ? `<div class="items">${items.map(x => `
+      <label class="item${x.hotovo ? " done" : ""}">
+        <input type="checkbox" data-sub="${esc(t.id)}" data-item="${esc(x.id)}" ${x.hotovo ? "checked" : ""} ${edit ? "" : "disabled"} />
+        <span class="t">${esc(x.text)}</span>
+        ${x.hotovo && (x.kdo || x.kdy) ? `<span class="by">${esc(x.kdo || "")} ${esc(x.kdy ? fmtDate(x.kdy.slice(0, 10), false) : "")}</span>` : ""}
+      </label>`).join("")}</div>` : "";
+  return `<div class="task-card scard ${subStateCls(t.state)}" data-sub="${esc(t.id)}" draggable="${edit}">
+    <div class="title">${esc(t.title)}</div>
+    <div class="meta">${owner}${dates ? `<span>${esc(dates)}</span>` : `<span class="nodate">bez data</span>`}${itemsBtn}</div>
+    ${list}
+  </div>`;
+}
+
+function cancelledSubsHtml(p) {
+  const cancelled = V.subtasks(allTasks(), p.id, { includeCancelled: true }).filter(t => t.cancelled);
+  if (!cancelled.length) return "";
+  const rows = SHOW_CANCELLED_SUBS ? cancelled.map(t => `
+    <div class="crow">
+      <span class="t">${esc(t.title)}</span><span class="muted">${esc(isAssigned(t.owner) ? t.owner : "")} ${esc(taskDates(t))}</span>
+      ${CAN_EDIT && !p.cancelled ? `<span class="right"><button class="btn btn-secondary btn-sm" type="button" data-restore-sub="${esc(t.id)}">Obnovit</button></span>` : ""}
+    </div>`).join("") : "";
+  return `<div class="cancelled-list">
+    <button class="btn btn-ghost btn-sm" type="button" id="dShowCancelled">${SHOW_CANCELLED_SUBS ? "▾" : "▸"} Zrušené podúkoly (${cancelled.length})</button>
+    ${rows}
+  </div>`;
+}
+
+// Události detailu — delegace na #viewDetail (obsah se překresluje).
+let _dragSub = null;
+(function bindDetailEvents() {
+  const el = document.getElementById("viewDetail");
+  el.addEventListener("click", async e => {
+    const itemsBtn = e.target.closest("[data-items]");
+    if (itemsBtn) {
+      const id = itemsBtn.dataset.items;
+      if (EXPANDED.has(id)) EXPANDED.delete(id); else EXPANDED.add(id);
+      renderDetail(currentProjectId());
+      return;
+    }
+    if (e.target.closest(".item")) return; // zaškrtávání řeší "change"
+    const add = e.target.closest("[data-add-sub]");
+    if (add) { openSubModal(currentProjectId(), null, add.dataset.addSub); return; }
+    const restore = e.target.closest("[data-restore-sub]");
+    if (restore) {
+      await run(() => V.setSubtaskCancelled(restore.dataset.restoreSub, false), "Podúkol obnoven.");
+      return;
+    }
+    const card = e.target.closest(".scard");
+    if (card) openSubModal(currentProjectId(), card.dataset.sub);
+  });
+  el.addEventListener("change", async e => {
+    const cb = e.target.closest("input[data-item]");
+    if (!cb) return;
+    cb.disabled = true;
+    await run(() => V.setItemDone(cb.dataset.sub, cb.dataset.item, cb.checked));
+    render(); // i bez uložení (chyba / beze změny) ukázat skutečný stav
+  });
+  el.addEventListener("dragstart", e => {
+    const card = e.target.closest(".scard[draggable='true']");
+    if (!card) return;
+    _dragSub = card.dataset.sub;
+    card.classList.add("dragging");
+    try { e.dataTransfer.setData("text/plain", _dragSub); e.dataTransfer.effectAllowed = "move"; } catch (err) {}
+  });
+  el.addEventListener("dragend", e => {
+    const card = e.target.closest(".scard");
+    if (card) card.classList.remove("dragging");
+    el.querySelectorAll(".drop-over").forEach(c => c.classList.remove("drop-over"));
+  });
+  el.addEventListener("dragover", e => {
+    const cell = e.target.closest(".cell");
+    if (!cell || !_dragSub) return;
+    e.preventDefault();
+    el.querySelectorAll(".drop-over").forEach(c => { if (c !== cell) c.classList.remove("drop-over"); });
+    cell.classList.add("drop-over");
+  });
+  el.addEventListener("drop", async e => {
+    const cell = e.target.closest(".cell");
+    if (!cell || !_dragSub) return;
+    e.preventDefault();
+    cell.classList.remove("drop-over");
+    const id = _dragSub;
+    _dragSub = null;
+    const t = findSubtask(id);
+    if (!t) return;
+    const state = cell.dataset.state, faze = cell.dataset.faze;
+    // Podúkol s neexistující fází je v řádku „Bez fáze“ (faze "").
+    const p = findProject(t.vyroba.projekt);
+    const known = new Set(((p && p.vyroba.faze) || []).map(f => f.id));
+    const fazeChanged = (known.has(t.vyroba.faze) ? t.vyroba.faze : "") !== faze;
+    if (t.state === state && !fazeChanged) return;
+    await run(() => V.moveSubtask(id, { state: t.state === state ? undefined : state, faze: fazeChanged ? faze : undefined }));
+  });
+})();
+
+async function cancelProject(id) {
+  const p = findProject(id);
+  if (!p) return;
+  const open = V.subtasks(allTasks(), id).filter(t => t.state !== "Dokončeno").length;
+  const r = await ask({
+    title: "Zrušit projekt",
+    text: `Zrušit projekt ${projectLabel(p)}? Zrušený projekt zmizí z přehledu (zobrazí se jen s filtrem „Zrušené“) a jde obnovit.`,
+    okText: "Zrušit projekt", danger: true,
+    check: open ? { text: `Zrušit i ${open} ${plural(open, "nedokončený podúkol", "nedokončené podúkoly", "nedokončených podúkolů")} (zmizí z týdenního plánu)`, checked: true } : null,
+  });
+  const ok = open ? r.ok : r;
+  if (!ok) return;
+  await run(() => V.setProjectCancelled(id, true, { withSubtasks: open ? r.checked : false }),
+    res => `Projekt ${res.label} zrušen.` + (res.subs ? ` Zrušeno podúkolů: ${res.subs}.` : ""));
+}
+async function restoreProject(id) {
+  await run(() => V.setProjectCancelled(id, false),
+    res => `Projekt ${res.label} obnoven.` + (res.subs ? ` Obnoveno podúkolů zrušených spolu s ním: ${res.subs}.` : ""));
+}
+
+// ── Dialog: nový projekt / úprava projektu ───────────────────────────────
+let PM = null; // { mode: "new"|"edit", id, fp, templateTouched }
+function docRowHtml(d) {
+  const typ = (d && d.typ) || "";
+  return `<div class="rowi" data-id="${esc((d && d.id) || "")}">
+    <select class="inp typ">${["", ...V.TYPY_DOKLADU].map(t => `<option value="${t}" ${t === typ ? "selected" : ""}>${t || "typ"}</option>`).join("")}</select>
+    <input class="inp" value="${esc((d && d.cislo) || "")}" placeholder="např. PO26001357" />
+    <button class="mini" type="button" data-del title="Odebrat">✕</button>
+  </div>`;
+}
+function readDocs() {
+  return [...document.querySelectorAll("#pmDocs .rowi")].map(r => ({
+    id: r.dataset.id || undefined, typ: r.querySelector("select").value, cislo: r.querySelector("input").value,
+  })).filter(d => d.cislo.trim());
+}
+document.getElementById("pmAddDoc").addEventListener("click", () => {
+  document.getElementById("pmDocs").insertAdjacentHTML("beforeend", docRowHtml(null));
+  const inputs = document.querySelectorAll("#pmDocs .rowi input");
+  inputs[inputs.length - 1].focus();
+});
+document.getElementById("pmDocs").addEventListener("click", e => {
+  if (e.target.closest("[data-del]")) e.target.closest(".rowi").remove();
+});
+document.getElementById("pmDocs").addEventListener("input", e => {
+  const inp = e.target.closest(".rowi input");
+  if (!inp) return;
+  const sel = inp.closest(".rowi").querySelector("select");
+  const m = /^\s*([A-Za-z]{2})\s*\d/.exec(inp.value);
+  if (m && V.TYPY_DOKLADU.includes(m[1].toUpperCase())) sel.value = m[1].toUpperCase();
+});
+
+function updateTypHint() {
+  const val = document.getElementById("pmOznaceni").value;
+  const typ = V.typFromOznaceni(V.normOznaceni(val));
+  document.getElementById("pmTypHint").textContent = val.trim()
+    ? `Typ projektu: ${typ === "Jiné" ? "Jiné (volný název)" : typ}` : "Bez čísla se projekt zobrazí pod svým názvem.";
+  if (PM && PM.mode === "new" && !PM.templateTouched && typ !== "Jiné") {
+    const s = V.getSablony(RAW).find(x => x.predpona === typ);
+    if (s) { document.getElementById("pmSablona").value = s.id; renderTemplatePreview(); }
+  }
+}
+document.getElementById("pmOznaceni").addEventListener("input", updateTypHint);
+document.getElementById("pmSablona").addEventListener("change", () => { if (PM) PM.templateTouched = true; renderTemplatePreview(); });
+
+function renderTemplatePreview() {
+  const s = V.getSablony(RAW).find(x => x.id === document.getElementById("pmSablona").value);
+  document.getElementById("pmSablonaPopis").textContent = s ? (s.popis || "") : "";
+  const box = document.getElementById("pmPreview");
+  if (!s || !(s.faze || []).length) {
+    box.innerHTML = `<div class="muted" style="font-size:13px">Projekt bez fází a podúkolů — doplníš je v detailu projektu.</div>`;
+    return;
+  }
+  box.innerHTML = s.faze.map(f => `<div class="ph">${esc(f.nazev)}</div>` + (f.ukoly || []).map(u => {
+    const pol = (u.polozky || []).length;
+    const who = u.resitel ? `${u.resitel}` : "řešitel při plánování";
+    return `<label><input type="checkbox" data-ukol="${esc(u.id)}" checked />${esc(u.nazev)}<span class="muted">${esc(who)} · ${u.dny || 1} ${plural(u.dny || 1, "den", "dny", "dní")}${pol ? ` · ${pol} ${plural(pol, "položka", "položky", "položek")}` : ""}</span></label>`;
+  }).join("")).join("");
+}
+
+function openProjectModal(editId) {
+  if (!CAN_EDIT) return;
+  const p = editId ? findProject(editId) : null;
+  if (editId && !p) return;
+  PM = { mode: p ? "edit" : "new", id: p ? p.id : null, fp: p ? V.fingerprint(p) : null, templateTouched: false };
+  const v = (p && p.vyroba) || {};
+  document.getElementById("pmTitleH").textContent = p ? `Upravit projekt` : "Nový projekt";
+  document.getElementById("pmId").textContent = p ? p.id : "";
+  document.getElementById("pmSablonaWrap").hidden = !!p;
+  document.getElementById("pmPreviewWrap").hidden = !!p;
+  document.getElementById("pmSave").textContent = p ? "Uložit" : "Založit projekt";
+  const sablony = V.getSablony(RAW);
+  document.getElementById("pmSablona").innerHTML = sablony.map(s => `<option value="${esc(s.id)}">${esc(s.nazev)}</option>`).join("");
+  document.getElementById("pmSablona").value = sablony[0] ? sablony[0].id : "";
+  document.getElementById("pmOznaceni").value = v.oznaceni || "";
+  document.getElementById("pmTitle").value = p ? p.title || "" : "";
+  const me = FTLoader.getCurrentUser();
+  const owner = p ? (isAssigned(p.owner) ? p.owner : "") : (resitele().some(r => r.zkratka === me && !r.vyrazen) ? me : "");
+  document.getElementById("pmOwner").innerHTML = ownerOptions(owner, "— nevybráno —");
+  document.getElementById("pmOwner").value = owner;
+  document.getElementById("pmDue").value = p ? p.dueDate || "" : "";
+  document.getElementById("pmPriority").value = p ? p.priority || "P2" : "P2";
+  document.getElementById("pmNote").value = p ? p.note || "" : "";
+  document.getElementById("pmReasonWrap").hidden = !(p && p.state === "Čeká se");
+  document.getElementById("pmReason").value = v.duvodZamrazeni || "";
+  document.getElementById("pmDocs").innerHTML = (v.doklady || []).map(docRowHtml).join("");
+  document.getElementById("pmErr").textContent = "";
+  updateTypHint();
+  renderTemplatePreview();
+  openModal("projectModal");
+  document.getElementById(p ? "pmTitle" : "pmOznaceni").focus();
+}
+document.getElementById("newProjectBtn").addEventListener("click", () => openProjectModal(null));
+
+document.getElementById("pmSave").addEventListener("click", async () => {
+  if (!PM) return;
+  const err = document.getElementById("pmErr");
+  err.textContent = "";
+  const data = {
+    title: document.getElementById("pmTitle").value,
+    oznaceni: document.getElementById("pmOznaceni").value,
+    owner: document.getElementById("pmOwner").value,
+    dueDate: document.getElementById("pmDue").value,
+    priority: document.getElementById("pmPriority").value,
+    note: document.getElementById("pmNote").value,
+    doklady: readDocs(),
+  };
+  if (!data.title.trim()) { err.textContent = "Vyplň název projektu."; return; }
+  // Stejné označení u jiného platného projektu → jen upozornit.
+  const oz = V.normOznaceni(data.oznaceni).toLowerCase();
+  const dup = oz && V.projects(allTasks()).find(x => !x.cancelled && x.id !== PM.id && String(x.vyroba.oznaceni || "").toLowerCase() === oz);
+  if (dup && !(await ask({ title: "Stejné označení", text: `Označení ${dup.vyroba.oznaceni} už má projekt „${dup.title}“ (${dup.id}). Přesto uložit?`, okText: "Uložit" }))) return;
+  const btn = document.getElementById("pmSave");
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = "Ukládám…";
+  let res;
+  if (PM.mode === "new") {
+    data.sablonaId = document.getElementById("pmSablona").value;
+    data.vynechat = [...document.querySelectorAll("#pmPreview input[data-ukol]")].filter(c => !c.checked).map(c => c.dataset.ukol);
+    res = await run(() => V.createProject(data), r => `Projekt ${r.oznaceni || r.title} založen (${r.count} ${plural(r.count, "podúkol", "podúkoly", "podúkolů")}).`);
+  } else {
+    if (!document.getElementById("pmReasonWrap").hidden) data.duvodZamrazeni = document.getElementById("pmReason").value;
+    res = await run(() => V.updateProject(PM.id, data, PM.fp), "Projekt uložen.");
+  }
+  btn.disabled = false;
+  btn.textContent = label;
+  if (!res.ok) { err.textContent = res.error.message; return; }
+  closeModal("projectModal");
+  if (PM.mode === "new") goProject(res.result.id);
+  PM = null;
+});
+
+// ── Dialog: podúkol ──────────────────────────────────────────────────────
+let SM = null; // { projectId, subId, fp }
+function itemRowHtml(x) {
+  return `<div class="rowi" data-id="${esc((x && x.id) || "")}">
+    <input type="checkbox" ${x && x.hotovo ? "checked" : ""} title="Hotovo" />
+    <input class="inp" value="${esc((x && x.text) || "")}" placeholder="např. Hadice DN19 – mají přijít 40. KT" />
+    <button class="mini" type="button" data-del title="Odebrat">✕</button>
+  </div>`;
+}
+function readItems() {
+  return [...document.querySelectorAll("#smItems .rowi")].map(r => ({
+    id: r.dataset.id || undefined,
+    hotovo: r.querySelector("input[type=checkbox]").checked,
+    text: r.querySelector("input.inp").value,
+  })).filter(x => x.text.trim());
+}
+document.getElementById("smAddItem").addEventListener("click", () => {
+  document.getElementById("smItems").insertAdjacentHTML("beforeend", itemRowHtml(null));
+  const inputs = document.querySelectorAll("#smItems .rowi input.inp");
+  inputs[inputs.length - 1].focus();
+});
+document.getElementById("smItems").addEventListener("click", e => {
+  if (e.target.closest("[data-del]")) e.target.closest(".rowi").remove();
+});
+
+function openSubModal(projectId, subId, fazeId) {
+  const p = findProject(projectId);
+  if (!p) return;
+  const t = subId ? findSubtask(subId) : null;
+  if (subId && !t) return;
+  const edit = CAN_EDIT && !p.cancelled && !(t && t.cancelled);
+  SM = { projectId, subId: t ? t.id : null, fp: t ? V.fingerprint(t) : null };
+  document.getElementById("smTitleH").textContent = t ? (edit ? "Upravit podúkol" : "Podúkol") : "Nový podúkol";
+  document.getElementById("smId").textContent = t ? t.id : `projekt ${projectLabel(p)}`;
+  document.getElementById("smTitle").value = t ? t.title || "" : "";
+  const faze = p.vyroba.faze || [];
+  const curFaze = t ? t.vyroba.faze || "" : (fazeId || "");
+  document.getElementById("smFaze").innerHTML = faze.map(f => `<option value="${esc(f.id)}">${esc(f.nazev)}</option>`).join("") + `<option value="">Bez fáze</option>`;
+  document.getElementById("smFaze").value = faze.some(f => f.id === curFaze) ? curFaze : "";
+  document.getElementById("smState").value = t && STAVY.includes(t.state) ? t.state : "Nový";
+  document.getElementById("smOwner").innerHTML = ownerOptions(t && isAssigned(t.owner) ? t.owner : "", "— doplnit při plánování —");
+  document.getElementById("smOwner").value = t && isAssigned(t.owner) ? t.owner : "";
+  document.getElementById("smPriority").value = t ? t.priority || "P2" : (p.priority || "P2");
+  document.getElementById("smDate").value = t ? t.plannedDate || "" : "";
+  document.getElementById("smDays").value = t ? (parseInt(t.durationDays, 10) || 1) : 1;
+  document.getElementById("smNote").value = t ? t.note || "" : "";
+  document.getElementById("smItems").innerHTML = (t ? t.vyroba.polozky || [] : []).map(itemRowHtml).join("");
+  // Pole, která modul neupravuje, ale zachová (spoluřešitelé, auto, dny v týdnu).
+  const extra = [];
+  if (t) {
+    const co = FTLoader.getCoOwners ? FTLoader.getCoOwners(t) : [];
+    if (co.length) extra.push(`spoluřešitelé ${co.join(", ")}`);
+    if (t.auto) extra.push(`auto ${t.auto}`);
+    if (Array.isArray(t.activeDays) && t.activeDays.length) extra.push("vybrané dny v týdnu");
+    if (Array.isArray(t.completedDays) && t.completedDays.length) extra.push(`hotové dny: ${t.completedDays.length}`);
+  }
+  document.getElementById("smExtra").textContent = extra.length ? `Další údaje (upravují se ve Správě úkolů): ${extra.join(" · ")}.` : "";
+  const link = document.getElementById("smSpravaLink");
+  link.hidden = !t;
+  if (t) link.href = `sprava_ukolu_linked.html?id=${encodeURIComponent(t.id)}&datum=${encodeURIComponent(t.plannedDate || "")}`;
+  const cancelBtn = document.getElementById("smCancelTask");
+  cancelBtn.hidden = !(t && CAN_EDIT && !p.cancelled);
+  cancelBtn.textContent = t && t.cancelled ? "Obnovit podúkol" : "Zrušit podúkol";
+  cancelBtn.className = `btn ${t && t.cancelled ? "btn-secondary" : "btn-danger"}`;
+  document.getElementById("smHistoryBtn").hidden = !t;
+  FTLoader.resetTaskHistory(document.getElementById("smHistory"));
+  document.getElementById("smSave").hidden = !edit && !!t || !CAN_EDIT;
+  document.querySelectorAll("#subModal .vmodal-body input, #subModal .vmodal-body select, #subModal .vmodal-body textarea, #smAddItem, #smItems [data-del]")
+    .forEach(x => { x.disabled = !(edit || (!t && CAN_EDIT)); });
+  document.getElementById("smErr").textContent = "";
+  openModal("subModal");
+  if (!t) document.getElementById("smTitle").focus();
+}
+
+document.getElementById("smHistoryBtn").addEventListener("click", () => {
+  const t = SM && SM.subId ? findSubtask(SM.subId) : null;
+  if (t) FTLoader.toggleTaskHistory(document.getElementById("smHistory"), t, { tasks: allTasks(), ruleIds: (RAW.opakovaci || []).map(o => o.id) });
+});
+
+document.getElementById("smSave").addEventListener("click", async () => {
+  if (!SM) return;
+  const err = document.getElementById("smErr");
+  err.textContent = "";
+  const fields = {
+    title: document.getElementById("smTitle").value,
+    faze: document.getElementById("smFaze").value,
+    state: document.getElementById("smState").value,
+    owner: document.getElementById("smOwner").value,
+    priority: document.getElementById("smPriority").value,
+    plannedDate: document.getElementById("smDate").value,
+    durationDays: document.getElementById("smDays").value,
+    note: document.getElementById("smNote").value,
+    polozky: readItems(),
+  };
+  if (!fields.title.trim()) { err.textContent = "Vyplň název podúkolu."; return; }
+  if (fields.plannedDate && !fields.owner) { err.textContent = "Podúkol s plánovaným datem musí mít řešitele — jinak by se v týdenním plánu u nikoho neukázal."; return; }
+  const btn = document.getElementById("smSave");
+  btn.disabled = true;
+  btn.textContent = "Ukládám…";
+  const res = await run(() => V.saveSubtask(SM.projectId, SM.subId, fields, SM.fp), SM.subId ? "Podúkol uložen." : "Podúkol přidán.");
+  btn.disabled = false;
+  btn.textContent = "Uložit";
+  if (!res.ok) { err.textContent = res.error.message; return; }
+  closeModal("subModal");
+  SM = null;
+});
+
+document.getElementById("smCancelTask").addEventListener("click", async () => {
+  if (!SM || !SM.subId) return;
+  const t = findSubtask(SM.subId);
+  if (!t) return;
+  const restore = !!t.cancelled;
+  if (!restore && !(await ask({ title: "Zrušit podúkol", text: `Zrušit podúkol „${t.title}“? Zmizí z týdenního plánu i z postupu projektu; jde obnovit.`, okText: "Zrušit podúkol", danger: true }))) return;
+  const res = await run(() => V.setSubtaskCancelled(t.id, !restore), restore ? "Podúkol obnoven." : "Podúkol zrušen.");
+  if (res.ok) { closeModal("subModal"); SM = null; }
+});
+
+// ── Dialog: fáze projektu ────────────────────────────────────────────────
+let FM = null; // { id, fp }
+function phaseRowHtml(f) {
+  return `<div class="rowi" data-id="${esc((f && f.id) || "")}">
+    <button class="mini" type="button" data-up title="Posunout výš">↑</button>
+    <button class="mini" type="button" data-down title="Posunout níž">↓</button>
+    <input class="inp" value="${esc((f && f.nazev) || "")}" placeholder="Název fáze" />
+    <button class="mini" type="button" data-del title="Odebrat fázi">✕</button>
+  </div>`;
+}
+function openPhasesModal(id) {
+  const p = findProject(id);
+  if (!p || !CAN_EDIT) return;
+  FM = { id, fp: V.fingerprint(p) };
+  document.getElementById("fmList").innerHTML = (p.vyroba.faze || []).map(phaseRowHtml).join("");
+  document.getElementById("fmErr").textContent = "";
+  openModal("phasesModal");
+}
+document.getElementById("fmAdd").addEventListener("click", () => {
+  document.getElementById("fmList").insertAdjacentHTML("beforeend", phaseRowHtml(null));
+  const inputs = document.querySelectorAll("#fmList .rowi input");
+  inputs[inputs.length - 1].focus();
+});
+document.getElementById("fmList").addEventListener("click", e => {
+  const row = e.target.closest(".rowi");
+  if (!row) return;
+  if (e.target.closest("[data-del]")) row.remove();
+  else if (e.target.closest("[data-up]") && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+  else if (e.target.closest("[data-down]") && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+});
+document.getElementById("fmSave").addEventListener("click", async () => {
+  if (!FM) return;
+  const list = [...document.querySelectorAll("#fmList .rowi")].map(r => ({ id: r.dataset.id || undefined, nazev: r.querySelector("input").value }));
+  const err = document.getElementById("fmErr");
+  if (list.some(f => !f.nazev.trim())) { err.textContent = "Každá fáze musí mít název (prázdnou fázi odeber křížkem)."; return; }
+  const btn = document.getElementById("fmSave");
+  btn.disabled = true;
+  const res = await run(() => V.savePhases(FM.id, list, FM.fp), "Fáze uloženy.");
+  btn.disabled = false;
+  if (!res.ok) { err.textContent = res.error.message; return; }
+  closeModal("phasesModal");
+  FM = null;
+});
+
+// ── Start ────────────────────────────────────────────────────────────────
+if (!V) {
+  // Stará ft_loader.js z HTTP cache (až 10 min po nasazení) — bez pádu.
+  document.getElementById("readonlyNotice").hidden = false;
+  document.getElementById("readonlyNotice").textContent = "Aplikace byla právě aktualizována. Obnov prosím stránku (Ctrl+F5).";
+} else {
+  FTLoader.init({
+    onData: () => {
+      RAW = FTLoader.getRawJson();
+      if (!_permissionChecked) {
+        _permissionChecked = true;
+        V.canEdit().then(ok => {
+          CAN_EDIT = ok;
+          const n = document.getElementById("readonlyNotice");
+          n.hidden = ok;
+          n.textContent = FTLoader.hasOpravneni("projekty")
+            ? "Jen náhled — tvůj přístup k datům je pouze pro čtení."
+            : "Jen náhled — projekty zakládá a upravuje uživatel s oprávněním „projekty“ (zatím JK).";
+          render();
+        });
+      }
+      render();
+    },
+    onStatus: (msg, isError) => setSync(msg, isError),
+  });
+}
+</script>
+</body>
+</html>

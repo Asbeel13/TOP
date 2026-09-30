@@ -497,6 +497,9 @@
       font-size: 12px;
       font-weight: 700;
     }
+    /* Čip projektu u podúkolu = odkaz do modulu Řízení výroby (2026-09-30) */
+    a.chip { text-decoration: none; }
+    a.chip:hover { text-decoration: underline; }
     /* People assignment controls */
     .people-list label {
       display: flex;
@@ -1670,11 +1673,16 @@ function openModal(task) {
   ];
   const coOwners = FTLoader.getCoOwners ? FTLoader.getCoOwners(task) : []; // pojistka: stará ft_loader.js z HTTP cache
   if (coOwners.length) chips.push(`👥 Spoluřešitelé: ${coOwners.join(", ")}`);
-  if (task.projektOznaceni) chips.push(projectChip(task));
+  // Čip projektu = odkaz na detail projektu v modulu Řízení výroby.
+  if (task.projektOznaceni) chips.push(task.vyroba && task.vyroba.projekt
+    ? { text: projectChip(task), href: `vyroba.html#projekt=${encodeURIComponent(task.vyroba.projekt)}` }
+    : projectChip(task));
   if (task.auto) chips.push(`🚗 ${task.auto}`);
   if (task.recurring) chips.push("🔁 Opakující se");
   if (task.isMultiDay) chips.push(`📅 Den ${task.multiDayIndex}/${task.multiDayTotal}`);
-  els.modalChips.innerHTML = chips.map(ch => `<span class="chip">${escapeHtml(String(ch))}</span>`).join("");
+  els.modalChips.innerHTML = chips.map(ch => ch && ch.href
+    ? `<a class="chip" href="${escapeHtml(ch.href)}" target="top_vyroba_window" title="Otevřít projekt v modulu Řízení výroby">${escapeHtml(ch.text)} ↗</a>`
+    : `<span class="chip">${escapeHtml(String(ch))}</span>`).join("");
   if (task.id && !task.recurring) {
     // &datum= navíc (oprava 2026-09-17, nález č. 6): víc "zástupů" za stejné
     // opakující se pravidlo sdílí stejné id — bez data by Správa úkolů přes
@@ -2465,6 +2473,14 @@ function showReadOnlyRedirect(customMessage) {
 
 initDashboard();
 </script>
+
+<a class="fab-nav" href="vyroba.html" aria-label="Přejít do modulu Řízení výroby" style="bottom: 222px;">
+  <span class="fab-icon">🏭</span>
+  <span>
+    Řízení výroby
+    <span class="fab-sub">projekty, fáze a podúkoly</span>
+  </span>
+</a>
 
 <a class="fab-nav" href="http://192.168.0.4:3000/" aria-label="Přejít do evidence dovolených (SPA)" style="bottom: 156px;">
   <span class="fab-icon">🏖️</span>

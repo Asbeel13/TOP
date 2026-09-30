@@ -1213,7 +1213,7 @@ function renderTable(){
     <tr style="${task.cancelled ? 'opacity:0.5;background:var(--danger-soft);text-decoration:line-through;' : ''}">
       <td><input type="checkbox" ${task.selected ? "checked" : ""} onchange="toggleSelection(${task.rowIndex}, this.checked)" /></td>
       <td><strong>${escapeHtml(task.id || "—")}</strong><div class="muted">${escapeHtml(task.internalProject || "")}</div></td>
-      <td>${escapeHtml(task.task || "")}</td>
+      <td>${escapeHtml(task.task || "")}${projectMarkHtml(task)}</td>
       <td><span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority || "P2")}</span></td>
       <td><span class="badge ${stateClass(task.state)}">${escapeHtml(task.state || "Nový")}</span></td>
       <td>${escapeHtml(task.project || "")}</td>
@@ -1302,6 +1302,28 @@ function renderKanban() {
   }).join("");
 }
 
+// Modul Řízení výroby (etapa 2, 2026-09-30): hlavní úkol projektu i jeho
+// podúkoly jsou běžné úkoly — tady jen značka + odkaz do modulu (navrh
+// 6.6, 6.12). Vazba se ve Správě needituje, jen se zachová (`vyroba`).
+function projectMarkHtml(task) {
+  const v = task && task.vyroba;
+  if (!v || typeof v !== "object") return "";
+  let href = "", text = "", title = "";
+  if (v.druh === "projekt") {
+    href = task.id;
+    text = `📁 Projekt${v.oznaceni ? " " + v.oznaceni : ""}`;
+    title = "Hlavní úkol projektu — otevřít v modulu Řízení výroby";
+  } else if (v.druh === "podukol" && v.projekt) {
+    const p = tasks.find(x => x.id === v.projekt && x.vyroba && x.vyroba.druh === "projekt");
+    href = v.projekt;
+    text = `↳ projekt ${p ? (p.vyroba.oznaceni || p.task || p.id) : v.projekt}`;
+    title = "Podúkol projektu — otevřít projekt v modulu Řízení výroby";
+  } else {
+    return "";
+  }
+  return `<div class="muted" style="font-size:12px;margin-top:2px;"><a href="vyroba.html#projekt=${encodeURIComponent(href)}" target="top_vyroba_window" onclick="event.stopPropagation()" title="${escapeHtml(title)}" style="color:inherit;">${escapeHtml(text)}</a></div>`;
+}
+
 function kanbanCardHtml(task) {
   const overdue = !task.cancelled && isTaskOverdue(task);
   const draggable = !task.cancelled;
@@ -1320,6 +1342,7 @@ function kanbanCardHtml(task) {
         <span class="priority-tag ${prioKey}">${escapeHtml(task.priority || "P2")}</span>
       </div>
       <div class="title">${escapeHtml(task.id || "")} ${escapeHtml(task.task || "")}</div>
+      ${projectMarkHtml(task)}
       <div class="meta">
         <span${assigneeDanger ? ' class="danger"' : ""}>${escapeHtml(assigneeLabel)}</span>${taskCoOwners(task).length ? ` <span title="Spoluřešitelé">+ ${escapeHtml(taskCoOwners(task).join(", "))}</span>` : ""}
         ${task.plannedDate ? ` · ${escapeHtml(formatDate(task.plannedDate))}` : ""}
@@ -2962,6 +2985,14 @@ function loadFromRaw(raw) {
   }
 })();
 </script>
+
+<a class="fab-nav" href="vyroba.html" aria-label="Přejít do modulu Řízení výroby" style="bottom: 176px;">
+  <span class="fab-icon">🏭</span>
+  <span>
+    Řízení výroby
+    <span class="fab-sub">projekty, fáze a podúkoly</span>
+  </span>
+</a>
 
 <a class="fab-nav" href="http://192.168.0.4:3000/" aria-label="Přejít do evidence dovolených (SPA)" style="bottom: 100px;">
   <span class="fab-icon">🏖️</span>

@@ -37,6 +37,10 @@ const FTLoader = (() => {
   // ── Ověření tokenu proti předschválenému seznamu (žádná samoregistrace) ──
   const VERIFIED_FLAG_KEY = "ftUserVerified";
   const USER_ROLE_KEY = "ftUserRole";
+  // Příznaky oprávnění nad rámec role (modul výroby, 2026-09-30):
+  // users.json → "opravneni": ["projekty", "sablony"] (RIZENI_VYROBY_navrh.md
+  // 6.17, 3.35). Chybí = žádné. Stejně jako role jen omezení v UI.
+  const USER_OPRAVNENI_KEY = "ftUserOpravneni";
 
   async function resolveUserFromWhitelist(token) {
     const hash = await hashToken(token);
@@ -55,10 +59,13 @@ const FTLoader = (() => {
         localStorage.setItem(RESOLVED_USER_KEY, existing.zkratka);
         localStorage.setItem(VERIFIED_FLAG_KEY, "true");
         localStorage.setItem(USER_ROLE_KEY, role);
+        const opravneni = Array.isArray(existing.opravneni) ? existing.opravneni.filter(x => typeof x === "string") : [];
+        localStorage.setItem(USER_OPRAVNENI_KEY, JSON.stringify(opravneni));
         return { verified: true, zkratka: existing.zkratka, role };
       }
       localStorage.setItem(VERIFIED_FLAG_KEY, "false");
       localStorage.removeItem(USER_ROLE_KEY);
+      localStorage.removeItem(USER_OPRAVNENI_KEY);
       return { verified: false, zkratka: null, role: null };
     } catch (e) {
       console.warn("resolveUserFromWhitelist selhalo:", e);
@@ -75,6 +82,15 @@ const FTLoader = (() => {
     if (!isUserVerified()) return null;
     return localStorage.getItem(USER_ROLE_KEY) || "planovac";
   }
+
+  function getUserOpravneni() {
+    if (!isUserVerified()) return [];
+    try {
+      const list = JSON.parse(localStorage.getItem(USER_OPRAVNENI_KEY) || "[]");
+      return Array.isArray(list) ? list : [];
+    } catch (e) { return []; }
+  }
+  function hasOpravneni(name) { return getUserOpravneni().includes(name); }
 
   function showTokenDialog(onSuccess) {
     if (document.getElementById("ftTokenDialog")) return;
@@ -966,9 +982,10 @@ const FTLoader = (() => {
     title: "název", note: "poznámka", internalNote: "interní poznámka", state: "stav",
     owner: "řešitel", coOwners: "spoluřešitelé", plannedDate: "datum", priority: "priorita",
     auto: "auto", dueDate: "požadované ukončení", doneDate: "datum dokončení",
-    durationDays: "počet dní", activeDays: "aktivní dny", project: "projekt",
-    internalProject: "dodatečné označení projektu", sales: "obchodní zástupce",
+    durationDays: "počet dní", activeDays: "aktivní dny", project: "označení",
+    internalProject: "dodatečné označení", sales: "obchodní zástupce",
     subtask: "podúkol", createdDate: "datum zapsání", waiting: "čeká se",
+    vyroba: "údaje projektu (výroba)",
   };
 
   function historyMonthKey(d) {
@@ -1767,12 +1784,568 @@ const FTLoader = (() => {
     // druhá vrstva navíc.
     const suffix = Date.now().toString(36).toUpperCase().padStart(8, "0").slice(-8);
     let candidate = `*T${suffix}*`;
+    let attempts = 0;
     while (existingIds.has(candidate)) {
-      const rand = Math.floor(Math.random() * 36).toString(36).toUpperCase();
+      // Víc úkolů v jedné milisekundě (projekt ze šablony, 2026-09-30):
+      // po vyčerpání jednoznakových přípon dva znaky, aby smyčka nikdy
+      // nemohla uváznout.
+      const chars = ++attempts > 50 ? 2 : 1;
+      const rand = Math.floor(Math.random() * Math.pow(36, chars)).toString(36).toUpperCase().padStart(chars, "0");
       candidate = `*T${suffix}${rand}*`;
     }
     return candidate;
   }
+
+  // ── Modul Řízení výroby (etapa 2, 2026-09-30) ──────────────────────────
+  // Datová logika modulu na JEDNOM místě (Nástraha č. 10, RIZENI_VYROBY_
+  // navrh.md 11.2); vyroba.html jen zobrazuje a volá tyto funkce. Projekt =
+  // hlavní úkol s vyroba.druh "projekt", podúkol = běžný úkol s
+  // vyroba.druh "podukol" + ID hlavního úkolu (model v navrh.md 11.1).
+  // Každá změna: čerstvé čtení database.json → cílená úprava podle ID →
+  // saveToGitHub (SHA zámek + historie úprav). Při souběhu (409) až 3 pokusy
+  // nad čerstvými daty, takže cizí mezitímní změny ostatních úkolů zůstanou.
+  const VYROBA_STAVY = ["Nový", "Probíhá", "Čeká se", "Dokončeno"];
+  // Stav projektu = stávající task.state, v modulu jiné popisky (navrh 11.1).
+  const VYROBA_STAV_PROJEKTU = { "Nový": "Nový", "Probíhá": "Probíhá", "Čeká se": "Zamrzlý", "Dokončeno": "Hotový" };
+  const VYROBA_TYPY_DOKLADU = ["PO", "VO", "VY", "VZ", "SZ", "NA"];
+  const VYROBA_PRAZDNA_ID = "S-PRAZDNA";
+
+  // Výchozí šablony (etapa 2 — „připravené předem podle 6.2“). Úpravy šablon
+  // přinese etapa 3 (klíč `sablony` v database.json); dokud tam nic není,
+  // platí tyto. Řešitelé a délky jsou výchozí návrh, JK je upraví.
+  const vyrobaPol = (id, text) => ({ id, text });
+  const VYROBA_VYCHOZI_SABLONY = [
+    { id: "S-VY", nazev: "Zařízení (VY)", predpona: "VY",
+      popis: "Hydrogenerátor, agregát, filtrační jednotka — příprava, montáž, test, dokumenty, expedice.",
+      faze: [
+        { id: "S-VY-F1", nazev: "Příprava", ukoly: [
+          { id: "S-VY-U1", nazev: "Kontrola dílů na skladě", resitel: "JK", dny: 1, polozky: [] },
+          { id: "S-VY-U2", nazev: "Objednat materiál a externí služby (VO)", resitel: "JK", dny: 1, polozky: [] },
+          { id: "S-VY-U3", nazev: "Tisk výrobní průvodky a předání na dílnu", resitel: "JK", dny: 1, polozky: [] } ] },
+        { id: "S-VY-F2", nazev: "Montáž", ukoly: [
+          { id: "S-VY-U4", nazev: "Montáž mechanická", resitel: "", dny: 2, polozky: [] },
+          { id: "S-VY-U5", nazev: "Montáž elektrická", resitel: "", dny: 1, polozky: [] } ] },
+        { id: "S-VY-F3", nazev: "Test", ukoly: [
+          { id: "S-VY-U6", nazev: "Test funkčnosti", resitel: "", dny: 1, polozky: [] } ] },
+        { id: "S-VY-F4", nazev: "Kontrola a dokumenty", ukoly: [
+          { id: "S-VY-U7", nazev: "Výstupní kontrola", resitel: "JK", dny: 1, polozky: [
+            vyrobaPol("S-VY-P1", "Vyplněná průvodka zpět"), vyrobaPol("S-VY-P2", "Štítky (logo, výrobní štítek)"),
+            vyrobaPol("S-VY-P3", "Fotodokumentace vč. vnitřku rozvaděče") ] },
+          { id: "S-VY-U8", nazev: "Dokumentace", resitel: "JK", dny: 1, polozky: [
+            vyrobaPol("S-VY-P4", "CE prohlášení"), vyrobaPol("S-VY-P5", "Revize"), vyrobaPol("S-VY-P6", "Elektrické schéma"),
+            vyrobaPol("S-VY-P7", "Uživatelský manuál"), vyrobaPol("S-VY-P8", "Dodací list") ] } ] },
+        { id: "S-VY-F5", nazev: "Expedice", ukoly: [
+          { id: "S-VY-U9", nazev: "Balení a expedice", resitel: "", dny: 1, polozky: [
+            vyrobaPol("S-VY-P9", "Paleta a balení"), vyrobaPol("S-VY-P10", "Štítek dopravce") ] } ] } ] },
+    { id: "S-VZ", nazev: "Rám / konstrukce (VZ)", predpona: "VZ",
+      popis: "Rámy, konstrukce, držáky, polotovary — bez elektro a CE.",
+      faze: [
+        { id: "S-VZ-F1", nazev: "Příprava", ukoly: [
+          { id: "S-VZ-U1", nazev: "Kontrola dílů na skladě", resitel: "JK", dny: 1, polozky: [] },
+          { id: "S-VZ-U2", nazev: "Objednat materiál a externí služby (VO)", resitel: "JK", dny: 1, polozky: [] },
+          { id: "S-VZ-U3", nazev: "Tisk výrobní průvodky a předání na dílnu", resitel: "JK", dny: 1, polozky: [] } ] },
+        { id: "S-VZ-F2", nazev: "Montáž", ukoly: [
+          { id: "S-VZ-U4", nazev: "Montáž mechanická", resitel: "", dny: 2, polozky: [] } ] },
+        { id: "S-VZ-F3", nazev: "Kontrola", ukoly: [
+          { id: "S-VZ-U5", nazev: "Výstupní kontrola", resitel: "JK", dny: 1, polozky: [
+            vyrobaPol("S-VZ-P1", "Vyplněná průvodka zpět"), vyrobaPol("S-VZ-P2", "Štítek"), vyrobaPol("S-VZ-P3", "Fotodokumentace") ] } ] },
+        { id: "S-VZ-F4", nazev: "Expedice", ukoly: [
+          { id: "S-VZ-U6", nazev: "Balení a expedice", resitel: "", dny: 1, polozky: [vyrobaPol("S-VZ-P4", "Dodací list")] } ] } ] },
+    { id: "S-SZ", nazev: "Oprava / servis (SZ)", predpona: "SZ",
+      popis: "Oprava nebo servis zařízení; náklady se v PROFITu zapisují na SZ.",
+      faze: [
+        { id: "S-SZ-F1", nazev: "Diagnostika", ukoly: [
+          { id: "S-SZ-U1", nazev: "Diagnostika a posouzení závady", resitel: "", dny: 1, polozky: [] } ] },
+        { id: "S-SZ-F2", nazev: "Příprava", ukoly: [
+          { id: "S-SZ-U2", nazev: "Objednat díly a služby (VO)", resitel: "JK", dny: 1, polozky: [] } ] },
+        { id: "S-SZ-F3", nazev: "Oprava", ukoly: [
+          { id: "S-SZ-U3", nazev: "Oprava / servis", resitel: "", dny: 1, polozky: [] },
+          { id: "S-SZ-U4", nazev: "Test po opravě", resitel: "", dny: 1, polozky: [] } ] },
+        { id: "S-SZ-F4", nazev: "Uzavření", ukoly: [
+          { id: "S-SZ-U5", nazev: "Servisní protokol a předání", resitel: "JK", dny: 1, polozky: [
+            vyrobaPol("S-SZ-P1", "Servisní protokol"), vyrobaPol("S-SZ-P2", "Fotodokumentace"), vyrobaPol("S-SZ-P3", "Podklady k fakturaci") ] } ] } ] },
+    { id: "S-VYKRES", nazev: "Výkres", predpona: "",
+      popis: "Zpracování výkresové dokumentace.",
+      faze: [
+        { id: "S-VYKRES-F1", nazev: "Zadání", ukoly: [
+          { id: "S-VYKRES-U1", nazev: "Převzetí zadání a podkladů", resitel: "JK", dny: 1, polozky: [] } ] },
+        { id: "S-VYKRES-F2", nazev: "Kreslení", ukoly: [
+          { id: "S-VYKRES-U2", nazev: "Zpracování výkresu", resitel: "", dny: 2, polozky: [] } ] },
+        { id: "S-VYKRES-F3", nazev: "Kontrola a předání", ukoly: [
+          { id: "S-VYKRES-U3", nazev: "Kontrola a schválení výkresu", resitel: "JK", dny: 1, polozky: [] },
+          { id: "S-VYKRES-U4", nazev: "Předání výkresu", resitel: "", dny: 1, polozky: [] } ] } ] },
+    { id: VYROBA_PRAZDNA_ID, nazev: "Prázdná", predpona: "",
+      popis: "Bez šablony — fáze a podúkoly se doplní ručně (např. stavba, jednorázová akce).",
+      faze: [] },
+  ];
+
+  function vyrobaClone(v) { return JSON.parse(JSON.stringify(v)); }
+
+  function getSablony(raw) {
+    const list = raw && Array.isArray(raw.sablony) && raw.sablony.length ? raw.sablony : VYROBA_VYCHOZI_SABLONY;
+    const out = vyrobaClone(list);
+    if (!out.some(s => s && s.id === VYROBA_PRAZDNA_ID)) {
+      out.push(vyrobaClone(VYROBA_VYCHOZI_SABLONY.find(s => s.id === VYROBA_PRAZDNA_ID)));
+    }
+    return out;
+  }
+
+  // Typ projektu z hlavního označení (VY/VZ/SZ + číslo), jinak "Jiné".
+  function vyrobaTypFromOznaceni(oznaceni) {
+    const m = /^(VY|VZ|SZ)\d/i.exec(String(oznaceni || "").trim());
+    return m ? m[1].toUpperCase() : "Jiné";
+  }
+  function vyrobaNormCislo(v) {
+    return String(v || "").replace(/\s+/g, "").toUpperCase();
+  }
+  function vyrobaNormOznaceni(v) {
+    const s = String(v || "").trim().replace(/\s+/g, " ");
+    // Číslo z PROFITu sjednotit (mezery pryč, velká písmena); volný název nechat.
+    return /^[A-Za-z]{2,4}\s?\d{6,10}$/.test(s) ? vyrobaNormCislo(s) : s;
+  }
+
+  // Stabilní jedinečné ID fáze / dokladu / položky (budoucí primární klíč,
+  // navrh 6.15). Čas + pořadí + náhoda — jedinečné i při více záznamech v
+  // jedné milisekundě.
+  let _vyrobaIdSeq = 0;
+  function vyrobaNewId(prefix) {
+    _vyrobaIdSeq = (_vyrobaIdSeq + 1) % 1296;
+    return prefix + Date.now().toString(36) + _vyrobaIdSeq.toString(36).padStart(2, "0") +
+      Math.floor(Math.random() * 1296).toString(36).padStart(2, "0");
+  }
+
+  function vyrobaProjects(tasks) {
+    return (tasks || []).filter(isProjectTask);
+  }
+  function vyrobaSubtasks(tasks, projectId, { includeCancelled = false } = {}) {
+    return (tasks || []).filter(t => isProjectSubtask(t) && t.vyroba.projekt === projectId && (includeCancelled || !t.cancelled))
+      .sort((a, b) => (Number(a.vyroba.poradi) || 0) - (Number(b.vyroba.poradi) || 0));
+  }
+  // Postup = hotové / všechny nezrušené podúkoly (navrh 11.3). Neukládá se.
+  function vyrobaProgress(subtasks) {
+    const list = (subtasks || []).filter(t => !t.cancelled);
+    return { done: list.filter(t => t.state === "Dokončeno").length, total: list.length };
+  }
+  // Aktuální fáze = první (podle pořadí) s nehotovým podúkolem.
+  function vyrobaCurrentPhase(project, subtasks) {
+    const faze = (project && project.vyroba && Array.isArray(project.vyroba.faze)) ? project.vyroba.faze : [];
+    const open = (subtasks || []).filter(t => !t.cancelled && t.state !== "Dokončeno");
+    for (const f of faze) {
+      if (open.some(t => t.vyroba.faze === f.id)) return f;
+    }
+    if (open.length) return { id: "", nazev: "Bez fáze" };
+    return faze.length ? faze[faze.length - 1] : null;
+  }
+  function vyrobaFingerprint(task) { return shiftFingerprint(task); }
+
+  async function vyrobaCanEdit() {
+    return hasOpravneni("projekty") && await canActuallyWrite();
+  }
+
+  function vyrobaFindProject(raw, id) {
+    const list = (raw.tasks || []).filter(t => t && t.id === id);
+    if (list.length !== 1 || !isProjectTask(list[0])) {
+      throw new Error(list.length > 1 ? `Projekt ${id} má v databázi duplicitní ID, změna nebyla provedena.` : `Projekt ${id} nebyl v databázi nalezen (možná ho někdo mezitím smazal).`);
+    }
+    return list[0];
+  }
+  function vyrobaFindSubtask(raw, id) {
+    const list = (raw.tasks || []).filter(t => t && t.id === id);
+    if (list.length !== 1 || !isProjectSubtask(list[0])) {
+      throw new Error(list.length > 1 ? `Podúkol ${id} má v databázi duplicitní ID, změna nebyla provedena.` : `Podúkol ${id} nebyl v databázi nalezen (možná ho někdo mezitím smazal).`);
+    }
+    return list[0];
+  }
+  function vyrobaCheckFingerprint(task, expected, what) {
+    if (expected && vyrobaFingerprint(task) !== expected) {
+      throw new Error(`${what} mezitím upravil někdo jiný. Zavři okno, zkontroluj aktuální stav a úpravu zopakuj — nic nebylo uloženo.`);
+    }
+  }
+  function vyrobaValidDate(v) { return v === "" || validTaskDate(v); }
+  // Úkol bez řešitele má v TOP owner "Nezařazeno" (Správa úkolů prázdnou
+  // hodnotu při každém uložení přepíše na "Nezařazeno", 17 takových úkolů
+  // v živých datech) — modul zapisuje totéž, jinak by první uložení ve
+  // Správě zapsalo do historie falešnou změnu řešitele.
+  const VYROBA_BEZ_RESITELE = "Nezařazeno";
+  function vyrobaIsUnassigned(owner) {
+    const z = String(owner || "").trim();
+    return !z || z === VYROBA_BEZ_RESITELE;
+  }
+  function vyrobaOwner(raw, zkratka, { allow = "" } = {}) {
+    const z = String(zkratka || "").trim();
+    if (vyrobaIsUnassigned(z)) return VYROBA_BEZ_RESITELE;
+    if (z === allow) return z; // stávající (i vyřazený) řešitel zůstane
+    const r = (raw.resitele || []).find(x => x && x.zkratka === z);
+    if (!r) throw new Error(`Řešitel ${z} není v seznamu řešitelů.`);
+    if (r.vyrazen) throw new Error(`Řešitel ${z} je vyřazený.`);
+    return z;
+  }
+  function vyrobaDoklady(list) {
+    const seen = new Set(), out = [];
+    (Array.isArray(list) ? list : []).forEach(d => {
+      const cislo = vyrobaNormCislo(d && d.cislo);
+      if (!cislo) return;
+      let typ = String((d && d.typ) || "").toUpperCase();
+      if (!VYROBA_TYPY_DOKLADU.includes(typ)) {
+        const m = /^([A-Z]{2})\d/.exec(cislo);
+        typ = m && VYROBA_TYPY_DOKLADU.includes(m[1]) ? m[1] : "";
+      }
+      if (!typ) throw new Error(`U dokladu ${cislo} chybí typ (PO, VO, VY, VZ, SZ, NA).`);
+      const key = typ + "|" + cislo;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ id: (d && d.id) || vyrobaNewId("d"), typ, cislo });
+    });
+    return out;
+  }
+  // Položky k odškrtnutí: kdo/kdy se zapíše při odškrtnutí, při zrušení
+  // odškrtnutí se smaže. Existující položky se párují podle id.
+  function vyrobaPolozky(list, before, user, now) {
+    const old = new Map((Array.isArray(before) ? before : []).map(p => [p.id, p]));
+    return (Array.isArray(list) ? list : []).map(p => {
+      const text = String((p && p.text) || "").trim();
+      if (!text) return null;
+      const prev = p && p.id ? old.get(p.id) : null;
+      const hotovo = !!(p && p.hotovo);
+      const item = { id: prev ? prev.id : vyrobaNewId("p"), text, hotovo, kdo: "", kdy: "" };
+      if (hotovo) {
+        item.kdo = prev && prev.hotovo ? (prev.kdo || "") : user;
+        item.kdy = prev && prev.hotovo ? (prev.kdy || "") : now;
+      }
+      return item;
+    }).filter(Boolean);
+  }
+  // Změna stavu úkolu stejně jako Kanban ve Správě úkolů (kanbanDrop):
+  // Dokončeno → doneDate; odchod Z Dokončeno → doneDate a completedDays pryč.
+  function vyrobaApplyState(task, state, today) {
+    if (!VYROBA_STAVY.includes(state)) throw new Error(`Neznámý stav „${state}“.`);
+    if (task.state === state) return false;
+    const wasDone = task.state === "Dokončeno";
+    task.state = state;
+    if (state === "Dokončeno") {
+      if (!task.doneDate) task.doneDate = today;
+    } else if (wasDone) {
+      task.doneDate = "";
+      if (Array.isArray(task.completedDays) && task.completedDays.length > 0) task.completedDays = [];
+    }
+    return true;
+  }
+  function vyrobaTickAll(task, user, now) {
+    let n = 0;
+    (task.vyroba.polozky || []).forEach(p => {
+      if (p && !p.hotovo) { p.hotovo = true; p.kdo = user; p.kdy = now; n++; }
+    });
+    return n;
+  }
+
+  let _vyrobaBusy = false;
+  async function vyrobaMutate(message, mutator) {
+    if (_vyrobaBusy) throw new Error("Právě se ukládá jiná změna. Vyčkej na dokončení.");
+    _vyrobaBusy = true;
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Čerstvý celek dat + SHA; selhání čtení se nesmí spolknout.
+          await fetchFromGitHub(false, { force: true, strict: true });
+          if (!await vyrobaCanEdit()) throw new Error("Nemáš oprávnění upravovat projekty.");
+          const raw = getRawJson();
+          if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
+          raw.tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
+          const ctx = { raw, user: getCurrentUserFromConfig(), today: localTodayISO(), now: new Date().toISOString() };
+          const result = mutator(ctx);
+          if (result && result.unchanged) return result;
+          await saveToGitHub(raw, typeof message === "function" ? message(result, ctx) : message);
+          return result;
+        } catch (e) {
+          if (e.writeUncertain) {
+            throw new Error("Výsledek uložení se nepodařilo potvrdit. Obnov stránku a zkontroluj, jestli se změna uložila, než ji zopakuješ.");
+          }
+          if (String(e.message || "").includes("CONFLICT") && attempt < 2) continue;
+          throw e;
+        }
+      }
+    } finally { _vyrobaBusy = false; }
+  }
+
+  // Nový projekt ze šablony: hlavní úkol + podúkoly jedním uložením.
+  // input: { title, oznaceni, owner, dueDate, priority, note, doklady[],
+  //          sablonaId, vynechat[] (ID úkolů šablony, které se nezaloží) }
+  function vyrobaCreateProject(input) {
+    return vyrobaMutate(r => `Projekt ${r.oznaceni || r.title} (${r.id}) založen ze šablony ${r.sablona || "Prázdná"}, ${r.count} podúkolů, uživatelem ${getCurrentUserFromConfig()}`, ({ raw, today }) => {
+      const title = String(input.title || "").trim();
+      if (!title) throw new Error("Vyplň název projektu.");
+      const dueDate = String(input.dueDate || "");
+      if (!vyrobaValidDate(dueDate)) throw new Error("Termín projektu není platné datum.");
+      const priority = ["P0", "P1", "P2", "P3"].includes(input.priority) ? input.priority : "P2";
+      const sablona = getSablony(raw).find(s => s.id === input.sablonaId) || getSablony(raw).find(s => s.id === VYROBA_PRAZDNA_ID);
+      const vynechat = new Set(Array.isArray(input.vynechat) ? input.vynechat : []);
+      const oznaceni = vyrobaNormOznaceni(input.oznaceni);
+      const id = generateNextTaskId(raw.tasks);
+      const faze = [], fazeMap = {};
+      (sablona.faze || []).forEach(sf => {
+        const f = { id: vyrobaNewId("f"), nazev: String(sf.nazev || "").trim() || "Fáze" };
+        faze.push(f);
+        fazeMap[sf.id] = f.id;
+      });
+      raw.tasks.push({
+        id, title, priority, project: "", sales: "", state: "Nový",
+        createdDate: today, plannedDate: "", doneDate: "", dueDate,
+        owner: vyrobaOwner(raw, input.owner), note: String(input.note || "").trim(),
+        internalNote: "", internalProject: "", subtask: false, auto: "", cancelled: false,
+        lastUpdated: today,
+        vyroba: {
+          druh: "projekt", typ: vyrobaTypFromOznaceni(oznaceni), oznaceni,
+          doklady: vyrobaDoklady(input.doklady), faze,
+          sablona: sablona.id === VYROBA_PRAZDNA_ID ? "" : String(sablona.nazev || ""),
+          duvodZamrazeni: "",
+        },
+      });
+      let poradi = 0;
+      (sablona.faze || []).forEach(sf => (sf.ukoly || []).forEach(su => {
+        if (vynechat.has(su.id)) return;
+        let owner = VYROBA_BEZ_RESITELE;
+        try { owner = vyrobaOwner(raw, su.resitel); } catch (e) { owner = VYROBA_BEZ_RESITELE; } // neplatný výchozí řešitel → doplní se při plánování
+        const sub = {
+          id: generateNextTaskId(raw.tasks), title: String(su.nazev || "").trim() || "Podúkol", priority,
+          project: "", sales: "", state: "Nový", createdDate: today, plannedDate: "",
+          doneDate: "", dueDate: "", owner, note: "", internalNote: "", internalProject: "",
+          subtask: true, auto: "", cancelled: false, lastUpdated: today,
+          vyroba: {
+            druh: "podukol", projekt: id, faze: fazeMap[sf.id], poradi: ++poradi,
+            polozky: (su.polozky || []).map(p => ({ id: vyrobaNewId("p"), text: String(typeof p === "string" ? p : (p && p.text) || "").trim(), hotovo: false, kdo: "", kdy: "" })).filter(p => p.text),
+          },
+        };
+        const dny = parseInt(su.dny, 10) || 1;
+        if (dny > 1) sub.durationDays = dny;
+        raw.tasks.push(sub);
+      }));
+      return { id, title, oznaceni, sablona: sablona.nazev, count: poradi };
+    });
+  }
+
+  // Úprava hlavičky projektu. patch: { title, oznaceni, owner, dueDate,
+  // priority, note, doklady[], duvodZamrazeni } (jen uvedená pole).
+  function vyrobaUpdateProject(id, patch, expected) {
+    return vyrobaMutate(r => `Projekt ${r.label} (${id}) upraven uživatelem ${getCurrentUserFromConfig()}`, ({ raw, today }) => {
+      const p = vyrobaFindProject(raw, id);
+      vyrobaCheckFingerprint(p, expected, "Projekt");
+      if ("title" in patch) {
+        const title = String(patch.title || "").trim();
+        if (!title) throw new Error("Vyplň název projektu.");
+        p.title = title;
+      }
+      if ("oznaceni" in patch) {
+        p.vyroba.oznaceni = vyrobaNormOznaceni(patch.oznaceni);
+        p.vyroba.typ = vyrobaTypFromOznaceni(p.vyroba.oznaceni);
+      }
+      if ("owner" in patch) p.owner = vyrobaOwner(raw, patch.owner, { allow: p.owner });
+      if ("dueDate" in patch) {
+        if (!vyrobaValidDate(String(patch.dueDate || ""))) throw new Error("Termín projektu není platné datum.");
+        p.dueDate = String(patch.dueDate || "");
+      }
+      if ("priority" in patch && ["P0", "P1", "P2", "P3"].includes(patch.priority)) p.priority = patch.priority;
+      if ("note" in patch) p.note = String(patch.note || "").trim();
+      if ("doklady" in patch) p.vyroba.doklady = vyrobaDoklady(patch.doklady);
+      if ("duvodZamrazeni" in patch && p.state === "Čeká se") p.vyroba.duvodZamrazeni = String(patch.duvodZamrazeni || "").trim();
+      p.lastUpdated = today;
+      return { label: p.vyroba.oznaceni || p.title };
+    });
+  }
+
+  // Změna stavu projektu (přetažení v přehledu, navrh 6.18):
+  //  - do „Čeká se“ (Zamrzlý) s volitelným důvodem,
+  //  - do „Dokončeno“ (Hotový): nedokončené nezrušené podúkoly → Dokončeno,
+  //    u všech nezrušených podúkolů se odškrtnou položky (JK 3.33, 3.37),
+  //  - z „Dokončeno“ zpět jen stav hlavního úkolu, podúkoly beze změny.
+  function vyrobaSetProjectState(id, state, { reason = "" } = {}) {
+    return vyrobaMutate(r => `Projekt ${r.label} (${id}): ${VYROBA_STAV_PROJEKTU[r.from] || r.from} → ${VYROBA_STAV_PROJEKTU[state] || state}` +
+      (r.closed || r.ticked ? ` (uzavřeno podúkolů: ${r.closed}, odškrtnuto položek: ${r.ticked})` : "") +
+      ` uživatelem ${getCurrentUserFromConfig()}`, ({ raw, user, today, now }) => {
+      const p = vyrobaFindProject(raw, id);
+      const from = p.state;
+      const label = p.vyroba.oznaceni || p.title;
+      if (from === state && state !== "Čeká se") return { unchanged: true, label, from, closed: 0, ticked: 0 };
+      vyrobaApplyState(p, state, today);
+      p.vyroba.duvodZamrazeni = state === "Čeká se" ? String(reason || "").trim() : "";
+      if (state === "Čeká se" && from !== "Čeká se") p.vyroba.zamrazenoOd = today;
+      if (state !== "Čeká se") delete p.vyroba.zamrazenoOd;
+      p.lastUpdated = today;
+      let closed = 0, ticked = 0;
+      if (state === "Dokončeno") {
+        vyrobaSubtasks(raw.tasks, id).forEach(t => {
+          let changed = false;
+          if (t.state !== "Dokončeno") { vyrobaApplyState(t, "Dokončeno", today); closed++; changed = true; }
+          const n = vyrobaTickAll(t, user, now);
+          if (n) { ticked += n; changed = true; }
+          if (changed) t.lastUpdated = today;
+        });
+      }
+      return { label, from, closed, ticked };
+    });
+  }
+
+  // Zrušení / obnovení projektu. withSubtasks: zrušit i nedokončené podúkoly
+  // (navrh 11.3); ty dostanou značku a při obnovení projektu se obnoví s ním.
+  function vyrobaSetProjectCancelled(id, cancelled, { withSubtasks = false } = {}) {
+    return vyrobaMutate(r => `Projekt ${r.label} (${id}) ${cancelled ? "zrušen" : "obnoven"}${r.subs ? ` (podúkolů: ${r.subs})` : ""} uživatelem ${getCurrentUserFromConfig()}`, ({ raw, today }) => {
+      const p = vyrobaFindProject(raw, id);
+      const label = p.vyroba.oznaceni || p.title;
+      if (!!p.cancelled === !!cancelled) return { unchanged: true, label, subs: 0 };
+      p.cancelled = !!cancelled;
+      p.lastUpdated = today;
+      let subs = 0;
+      vyrobaSubtasks(raw.tasks, id, { includeCancelled: true }).forEach(t => {
+        if (cancelled && withSubtasks && !t.cancelled && t.state !== "Dokončeno") {
+          t.cancelled = true; t.vyroba.zrusenoSProjektem = true; t.lastUpdated = today; subs++;
+        } else if (!cancelled && t.cancelled && t.vyroba.zrusenoSProjektem) {
+          t.cancelled = false; delete t.vyroba.zrusenoSProjektem; t.lastUpdated = today; subs++;
+        }
+      });
+      return { label, subs };
+    });
+  }
+
+  // Fáze projektu v novém pořadí: [{ id?, nazev }]. Podúkoly odebraných fází
+  // zůstanou v projektu „bez fáze“.
+  function vyrobaSavePhases(id, faze, expected) {
+    return vyrobaMutate(r => `Projekt ${r.label} (${id}): fáze upraveny uživatelem ${getCurrentUserFromConfig()}`, ({ raw, today }) => {
+      const p = vyrobaFindProject(raw, id);
+      vyrobaCheckFingerprint(p, expected, "Projekt");
+      const old = new Set((p.vyroba.faze || []).map(f => f.id));
+      const next = (Array.isArray(faze) ? faze : []).map(f => {
+        const nazev = String((f && f.nazev) || "").trim();
+        if (!nazev) throw new Error("Každá fáze musí mít název.");
+        return { id: f && f.id && old.has(f.id) ? f.id : vyrobaNewId("f"), nazev };
+      });
+      const keep = new Set(next.map(f => f.id));
+      p.vyroba.faze = next;
+      p.lastUpdated = today;
+      vyrobaSubtasks(raw.tasks, id, { includeCancelled: true }).forEach(t => {
+        if (t.vyroba.faze && !keep.has(t.vyroba.faze)) { t.vyroba.faze = ""; t.lastUpdated = today; }
+      });
+      return { label: p.vyroba.oznaceni || p.title };
+    });
+  }
+
+  // Nový podúkol (subId = null) nebo úprava podúkolu. fields: { title,
+  // owner, plannedDate, durationDays, state, faze, priority, note, polozky[] }.
+  function vyrobaSaveSubtask(projectId, subId, fields, expected) {
+    return vyrobaMutate(r => `Projekt ${r.label}: podúkol ${r.id} ${subId ? "upraven" : "přidán"} uživatelem ${getCurrentUserFromConfig()}`, ({ raw, user, today, now }) => {
+      const p = vyrobaFindProject(raw, projectId);
+      let t;
+      if (subId) {
+        t = vyrobaFindSubtask(raw, subId);
+        if (t.vyroba.projekt !== projectId) throw new Error(`Podúkol ${subId} nepatří k tomuto projektu.`);
+        vyrobaCheckFingerprint(t, expected, "Podúkol");
+      } else {
+        const poradi = vyrobaSubtasks(raw.tasks, projectId, { includeCancelled: true })
+          .reduce((m, x) => Math.max(m, Number(x.vyroba.poradi) || 0), 0) + 1;
+        t = {
+          id: generateNextTaskId(raw.tasks), title: "", priority: p.priority || "P2",
+          project: "", sales: "", state: "Nový", createdDate: today, plannedDate: "",
+          doneDate: "", dueDate: "", owner: VYROBA_BEZ_RESITELE, note: "", internalNote: "", internalProject: "",
+          subtask: true, auto: "", cancelled: false, lastUpdated: today,
+          vyroba: { druh: "podukol", projekt: projectId, faze: "", poradi, polozky: [] },
+        };
+        raw.tasks.push(t);
+      }
+      const title = String(fields.title || "").trim();
+      if (!title) throw new Error("Vyplň název podúkolu.");
+      const plannedDate = String(fields.plannedDate || "");
+      if (!vyrobaValidDate(plannedDate)) throw new Error("Plánované datum není platné.");
+      const owner = vyrobaOwner(raw, fields.owner, { allow: subId ? t.owner : "" });
+      if (plannedDate && vyrobaIsUnassigned(owner)) throw new Error("Podúkol s plánovaným datem musí mít řešitele — jinak by se v týdenním plánu u nikoho neukázal.");
+      const dny = Math.max(1, Math.min(60, parseInt(fields.durationDays, 10) || 1));
+      const fazeIds = new Set((p.vyroba.faze || []).map(f => f.id));
+      t.title = title;
+      t.owner = owner;
+      // Nový hlavní řešitel nesmí zůstat zároveň spoluřešitelem.
+      if (Array.isArray(t.coOwners)) {
+        t.coOwners = t.coOwners.filter(c => c !== owner);
+        if (!t.coOwners.length) delete t.coOwners;
+      }
+      t.plannedDate = plannedDate;
+      if (dny > 1) t.durationDays = dny; else delete t.durationDays;
+      if (["P0", "P1", "P2", "P3"].includes(fields.priority)) t.priority = fields.priority;
+      if ("note" in fields) t.note = String(fields.note || "").trim();
+      t.vyroba.faze = fazeIds.has(fields.faze) ? fields.faze : "";
+      if (fields.state) vyrobaApplyState(t, fields.state, today);
+      if ("polozky" in fields) t.vyroba.polozky = vyrobaPolozky(fields.polozky, t.vyroba.polozky, user, now);
+      t.lastUpdated = today;
+      return { id: t.id, label: p.vyroba.oznaceni || p.title };
+    });
+  }
+
+  // Přetažení karty podúkolu v detailu projektu: stav a/nebo fáze.
+  function vyrobaMoveSubtask(subId, { state, faze } = {}) {
+    return vyrobaMutate(r => `Podúkol ${subId}${r.state ? `: stav ${r.state}` : ""}${r.faze ? ", přesunut do jiné fáze" : ""} uživatelem ${getCurrentUserFromConfig()}`, ({ raw, today }) => {
+      const t = vyrobaFindSubtask(raw, subId);
+      if (t.cancelled) throw new Error("Zrušený podúkol nejde přesouvat.");
+      const p = vyrobaFindProject(raw, t.vyroba.projekt);
+      let changedState = false, changedFaze = false;
+      if (state) changedState = vyrobaApplyState(t, state, today);
+      if (faze !== undefined) {
+        const target = (p.vyroba.faze || []).some(f => f.id === faze) ? faze : "";
+        if ((t.vyroba.faze || "") !== target) { t.vyroba.faze = target; changedFaze = true; }
+      }
+      if (!changedState && !changedFaze) return { unchanged: true };
+      t.lastUpdated = today;
+      return { state: changedState ? state : "", faze: changedFaze };
+    });
+  }
+
+  function vyrobaSetSubtaskCancelled(subId, cancelled) {
+    return vyrobaMutate(`Podúkol ${subId} ${cancelled ? "zrušen" : "obnoven"} uživatelem ${getCurrentUserFromConfig()}`, ({ raw, today }) => {
+      const t = vyrobaFindSubtask(raw, subId);
+      if (!!t.cancelled === !!cancelled) return { unchanged: true };
+      t.cancelled = !!cancelled;
+      delete t.vyroba.zrusenoSProjektem;
+      t.lastUpdated = today;
+      return {};
+    });
+  }
+
+  // Odškrtnutí jedné položky (zatím jen JK v modulu, JK 3.36).
+  function vyrobaSetItemDone(subId, itemId, hotovo) {
+    return vyrobaMutate(`Podúkol ${subId}: položka ${hotovo ? "odškrtnuta" : "vrácena"} uživatelem ${getCurrentUserFromConfig()}`, ({ raw, user, today, now }) => {
+      const t = vyrobaFindSubtask(raw, subId);
+      const item = (t.vyroba.polozky || []).find(p => p && p.id === itemId);
+      if (!item) throw new Error("Položka nebyla nalezena (možná ji někdo mezitím smazal).");
+      if (!!item.hotovo === !!hotovo) return { unchanged: true };
+      item.hotovo = !!hotovo;
+      item.kdo = hotovo ? user : "";
+      item.kdy = hotovo ? now : "";
+      t.lastUpdated = today;
+      return {};
+    });
+  }
+
+  const vyroba = {
+    STAVY: VYROBA_STAVY,
+    STAV_PROJEKTU: VYROBA_STAV_PROJEKTU,
+    TYPY_DOKLADU: VYROBA_TYPY_DOKLADU,
+    PRAZDNA_ID: VYROBA_PRAZDNA_ID,
+    BEZ_RESITELE: VYROBA_BEZ_RESITELE,
+    isUnassigned: vyrobaIsUnassigned,
+    getSablony,
+    typFromOznaceni: vyrobaTypFromOznaceni,
+    normOznaceni: vyrobaNormOznaceni,
+    projects: vyrobaProjects,
+    subtasks: vyrobaSubtasks,
+    progress: vyrobaProgress,
+    currentPhase: vyrobaCurrentPhase,
+    fingerprint: vyrobaFingerprint,
+    canEdit: vyrobaCanEdit,
+    createProject: vyrobaCreateProject,
+    updateProject: vyrobaUpdateProject,
+    setProjectState: vyrobaSetProjectState,
+    setProjectCancelled: vyrobaSetProjectCancelled,
+    savePhases: vyrobaSavePhases,
+    saveSubtask: vyrobaSaveSubtask,
+    moveSubtask: vyrobaMoveSubtask,
+    setSubtaskCancelled: vyrobaSetSubtaskCancelled,
+    setItemDone: vyrobaSetItemDone,
+  };
 
   return {
     init, reload, saveToGitHub, getRawJson,
@@ -1784,6 +2357,8 @@ const FTLoader = (() => {
     canMarkDone,
     isUserVerified,
     getUserRole,
+    getUserOpravneni,
+    hasOpravneni,
     resolveUserFromWhitelist,
     signalEditing,
     checkActivity,
@@ -1811,6 +2386,7 @@ const FTLoader = (() => {
     configureTaskShiftButton,
     shiftSingleDayTask,
     shiftTaskFromButton,
+    vyroba,
   };
 
 })();
