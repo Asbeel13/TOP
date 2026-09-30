@@ -1,12 +1,9 @@
 # Řízení výroby — návrh modulu (TOP)
 
-**Stav (2026-09-29):** teoretická fáze, brainstorming. Kola 1–4
-zodpovězena, kolo 5 = zpětná vazba k náčrtu (JK: „velmi dobrá
-práce“), kolo 6 zodpovězeno. Náčrt verze 2 (sekce 10). **Sepsán
-technický koncept (sekce 11), kola 7 a 8 zodpovězena. **Etapa 1
-včetně opravy `completedDays` NASAZENA a ověřena (`8531e16`,
-`761dec7`, sekce 12).** Další etapy jen na nový výslovný pokyn. **Programovat se začne až po přímém příkazu JK** (např.
-„Koncept schválen, programuj“) — do té doby žádné změny kódu appky.
+**Stav (2026-09-30):** Etapa 1 včetně opravy `completedDays` NASAZENA
+a ověřena (`8531e16`, `761dec7`). **Etapa 2 (stránka modulu
+`vyroba.html`) NASAZENA a ověřena (`d8ffaae`, 2026-09-30)** (sekce 12). Etapy 3–6 jen na nový
+výslovný pokyn JK.
 
 Průvodní dokument modulu (JK 2026-09-29: „bude to větší modul,
 informace držet v samostatném souboru“). V `TOP/CLAUDE.md` je jen
@@ -601,6 +598,13 @@ otevřená otázka; čeká se na pokyn JK k programování.
   čeká na nahrání `sprava_ukolu_linked.html`.
 - **2026-09-29** — JK nahrál opravu (`761dec7`, 13:45), ověřeno GitHub
   i Pages. **Etapa 1 uzavřena.**
+- **2026-09-29/30** — Souběžně ChatGPT: posun úkolu na další pracovní
+  den (`612b2ac`) a tlačítka v detailu Dashboardu (`db6e6a2`); ověřeno
+  mockem, že modul nerozbíjí. JK: s etapou 2 počkat na jejich nasazení.
+- **2026-09-30** — JK: „Programuj etapu 2“. Stránka `vyroba.html` +
+  datová vrstva v `ft_loader.js` + odkazy z Dashboardu a Správy hotové
+  lokálně a otestované (sekce 12); oprávnění JK v `users.json`
+  (`37c92c1`); JK nahrál (`d8ffaae`), ověřeno GitHub i Pages.
 
 ## 10. Náčrt obrazovek
 
@@ -696,6 +700,13 @@ vazba:
   } }
 ```
 
+- **Doplněno při etapě 2 (2026-09-30):** `vyroba.zamrazenoOd` (datum
+  zamrazení, jen ve stavu „Čeká se“), `vyroba.zrusenoSProjektem` na
+  podúkolu (zrušen spolu s projektem → při obnovení projektu se obnoví
+  s ním). Podúkol bez řešitele má `owner: "Nezařazeno"` — stejná
+  konvence jako Správa úkolů (ta prázdnou hodnotu při každém uložení
+  přepisuje na „Nezařazeno“); modul bere „Nezařazeno“ i „“ jako „bez
+  řešitele“. PostgreSQL: `projekt.zamrazeno_od`, řešitel NULL.
 - **Stav projektu = stávající `state`** (Nový / Probíhá / Čeká se /
   Dokončeno), v modulu zobrazený jako Nový / Probíhá / Zamrzlý /
   Hotový. Žádná nová hodnota — Kanban ve Správě úkolů i úklid dat z
@@ -787,6 +798,139 @@ kopii živé databáze, nahrává JK (Konvence č. 4).
 
 Každá etapa jen na výslovný pokyn JK (programuje se jen schválená
 etapa). Kódové soubory nahrává výhradně JK (Konvence č. 4).
+
+### Etapa 2 — stránka modulu (2026-09-30, NASAZENA a ověřena — `d8ffaae`)
+
+**✅ Nahráno JK 2026-09-30 15:03, commit `d8ffaae` (4 soubory)** —
+`git fetch` + `cmp`: všechny 4 bajtově shodné s otestovanou verzí;
+GitHub Pages (stažení bez cache): SHA-256 všech 4 sedí (15:05).
+Nasazená `vyroba.html` bez tokenu: načte se bez chyb v konzoli,
+`FTLoader.vyroba` s 5 výchozími šablonami, přihlašovací dialog. Skutečná
+data (projekt, přetahování) ověří JK v appce — token se nezadává.
+
+JK: „Programuj etapu 2“ (po nasazení posunu úkolu od ChatGPT `612b2ac`
+a úpravy tlačítek `db6e6a2` — etapa 2 na nich staví).
+
+**Soubory (4):**
+- **nový `vyroba.html`** — stránka modulu (jen počítač, mobil zatím ne):
+  - **Přehled projektů** = Kanban Nový / Probíhá / Zamrzlý / Hotový (+
+    sloupec pro neznámý stav, aby nic tiše nezmizelo). Karta: typ
+    (VY/VZ/SZ/Jiné), hlavní označení (bez čísla název), název,
+    zodpovědný, termín, aktuální fáze, postup x/y, doklady; štítek „Po
+    termínu N dní“ / „Hotovo d. m.“; upozornění „všechny podúkoly hotové“
+    (6.9) a „Zamrzlé od … : důvod“. Filtry: hledání (číslo, název,
+    doklady, ID), typ, zodpovědný, jen po termínu, starší hotové (Hotový
+    jinak jen posledních 30 dní), zrušené; pamatují se v prohlížeči.
+  - **Přetažení karty = změna stavu** s pojistkami 6.18: do Zamrzlý dotaz
+    na důvod (volitelný), do Hotový potvrzení se seznamem nehotových
+    podúkolů → všechny nezrušené podúkoly Dokončeno + odškrtnou se
+    položky (3.33, 3.37), jedním uložením; z Hotový zpět jen stav
+    hlavního úkolu (doneDate pryč, podúkoly beze změny).
+  - **Detail projektu** (`vyroba.html#projekt=<ID>`, odkazovatelný):
+    hlavička (typ, označení, stav — výběr se stejnými pojistkami, ID,
+    zodpovědný, termín, priorita, šablona, založeno, postup, doklady,
+    poznámka, důvod zamrazení), upozornění (nesoulad, po termínu, N
+    podúkolů bez data), Historie (společný panel z `ft_loader.js`),
+    Upravit projekt, Zrušit / Obnovit projekt (volitelně i nedokončené
+    podúkoly — navrh 11.3), Upravit fáze (přejmenovat, pořadí, přidat,
+    odebrat → podúkoly „Bez fáze“).
+  - **Kanban podúkolů**: řádky = fáze (+ „Bez fáze“), sloupce = stav;
+    přetažení mění stav i fázi (Dokončeno → doneDate, odchod z Dokončeno
+    → doneDate a completedDays pryč — stejně jako Kanban ve Správě).
+    Karta: řešitel / „bez řešitele“, dny / „bez data“, položky ☑ x/y —
+    rozbalí seznam a odškrtává se přímo (kdo + kdy). „+ Podúkol“ v každé
+    fázi.
+  - **Dialog podúkolu**: název, fáze, stav, řešitel, priorita, datum,
+    počet dní, upřesnění, položky (přidat / přejmenovat / odebrat /
+    odškrtnout), Zrušit / Obnovit, Historie, odkaz do Správy úkolů (pro
+    auto, spoluřešitele, dny v týdnu — modul je zachová). Datum bez
+    řešitele nejde (v plánu by se u nikoho neukázal).
+  - **Nový projekt ze šablony**: šablona (předvybere se podle předpony
+    označení VY/VZ/SZ, dokud ji uživatel nezmění), označení, název,
+    zodpovědný (výchozí přihlášený), termín, priorita, doklady (typ se
+    doplní z předpony), poznámka, náhled „Co se vytvoří“ se zaškrtávátky
+    (podúkoly jde vyřadit). Stejné označení u jiného projektu → dotaz.
+  - Jen náhled bez oprávnění (pruh nahoře, nic nejde přetáhnout ani
+    uložit). Stará `ft_loader.js` z HTTP cache → hláška „Obnov stránku“.
+  - Barvy jen z `theme.css`, hlavička trvale tmavá jako sidebar
+    Dashboardu, tmavý režim sdílený s ostatními stránkami.
+- **`ft_loader.js`** — datová logika modulu na jednom místě
+  (`FTLoader.vyroba.*`, Nástraha č. 10): výchozí šablony (Zařízení VY,
+  Rám/konstrukce VZ, Oprava/servis SZ, Výkres, Prázdná — podle 6.2,
+  řešitelé a délky jako návrh; úpravy šablon = etapa 3, klíč `sablony` v
+  database.json zatím nevzniká), `createProject`, `updateProject`,
+  `setProjectState`, `setProjectCancelled`, `savePhases`, `saveSubtask`,
+  `moveSubtask`, `setSubtaskCancelled`, `setItemDone` + výpočty
+  (postup, aktuální fáze, typ z označení). **Každá změna = čerstvé čtení
+  + cílená úprava podle ID + `saveToGitHub`** (SHA zámek, historie); při
+  409 až 3 pokusy nad čerstvými daty (cizí změny zůstanou); při
+  nejasném výsledku zápisu žádné slepé opakování. U úprav z dialogu
+  (projekt, podúkol, fáze) kontrola otisku: když úkol mezitím upravil
+  někdo jiný, nic se neuloží a přijde hláška. Oprávnění:
+  `getUserOpravneni()` / `hasOpravneni()` z nového pole `opravneni` v
+  `users.json` (6.17); zápis smí jen plánovač s příznakem `projekty`.
+  ID fází / dokladů / položek jedinečná (čas + pořadí + náhoda, 6.15).
+  Drobnosti: `generateNextTaskId` přejde po 50 kolizích na dvouznakovou
+  příponu (víc úkolů v jedné milisekundě nesmí zacyklit smyčku);
+  popisky historie „projekt“ → „označení“, „dodatečné označení“, nové
+  „údaje projektu (výroba)“.
+- **`tydenni_dashboard_live_reload_local_linked.html`** — čip „📁 Projekt …“
+  v detailu podúkolu je odkaz na detail projektu (okno
+  `top_vyroba_window`); nové plovoucí tlačítko „🏭 Řízení výroby“.
+- **`sprava_ukolu_linked.html`** — u hlavního úkolu „📁 Projekt <označení>“,
+  u podúkolu „↳ projekt <označení>“ (tabulka i Kanban, odkaz do modulu,
+  jen ke čtení — 6.6, 6.12); plovoucí tlačítko „🏭 Řízení výroby“.
+  Uložení beze změny (`vyroba` už zachovává z etapy 1).
+
+**Test** (podvržené GitHub API, čerstvá kopie živé DB 748 kB / 1 687
+úkolů, dočasný lokální server, okno 1600×1000, světlý i tmavý režim):
+- Založení projektu přes dialog (VY, 1 podúkol vyřazen): +9 úkolů,
+  ostatních 1 687 beze změny, fáze s novými ID, doklady normalizované
+  (`po26001357` → PO, `VO 26000311` → VO), commit „Projekt … založen ze
+  šablony …“, 9 záznamů historie. Předvýběr šablony podle předpony i s
+  mezerou („vz 26000050“ → VZ).
+- Podúkol: datum bez řešitele odmítnuto; řešitel + datum + 2 dny + stav
+  + nová položka → změněn jen ten podúkol; v Dashboardu se ukáže u RS na
+  2 dny se štítkem a odkazem na projekt, hlavní úkol ani podúkoly bez
+  data v plánu nejsou; `DATA.tasks` Dashboardu i počítadla bajtově
+  shodné s nasazenou verzí.
+- Položka odškrtnutá z karty (kdo JK, kdy ISO čas), přetažení podúkolu do
+  jiné fáze a do Dokončeno (doneDate), fáze přejmenovat / přesunout /
+  odebrat / přidat (podúkoly odebrané fáze → „Bez fáze“).
+- Projekt: Zamrzlý — „Zpět“ nic nezmění, s důvodem → stav Čeká se, důvod
+  + „Zamrzlé od“ na kartě; Hotový — potvrzení se seznamem 7 nehotových
+  → 7 podúkolů Dokončeno, 10 položek odškrtnuto, žádný jiný úkol
+  nezměněn; zpět do Probíhá — změní se jen hlavní úkol. Zrušení s
+  nedokončenými podúkoly (2) → zmizí z přehledu, obnovení vrátí i je.
+- Souběh: kolega mezitím upraví otevřený podúkol → „mezitím upravil
+  někdo jiný“, 0 zápisů; 409 při zápisu → 2. pokus nad čerstvými daty,
+  kolegova změna jiného úkolu zachována.
+- Bez příznaku `projekty`: pruh „Jen náhled“, žádné přetahování ani
+  tlačítka, dialog jen ke čtení, přímé volání funkce odmítnuto, 0 zápisů.
+- Správa úkolů: značky projektu v tabulce i Kanbanu; uložení jiného úkolu
+  zachová `vyroba` u všech, historie zapíše jen ten úkol. **Nález
+  cestou:** Správa mění prázdného řešitele na „Nezařazeno“ → modul
+  zapisuje rovnou „Nezařazeno“ (jinak by první uložení ve Správě
+  zapsalo falešnou změnu řešitele u každého nepřiřazeného podúkolu).
+  Zbývá jen `waiting: false`, které Správa doplňuje všem úkolům
+  (i z Dashboardu) — historie ho nepočítá jako změnu.
+- Žádné JS chyby nového kódu (v konzoli jen zbytky ranního testu a
+  záměrně zablokovaný `sw.js`), žádný požadavek na skutečný GitHub.
+  `{}`/`()` vyvážené, CRLF, bez BOM, žádná barva natvrdo. Řádek, podle
+  kterého testy ChatGPT (`tests/task-shift.test.cjs`) upravují
+  `ft_loader.js`, zůstal beze změny (testy samotné nešly spustit —
+  chybí Node.js).
+
+**Oprávnění:** ✅ JK schválil 2026-09-30 — do `users.json` (top-data)
+doplněno u JK `"opravneni": ["projekty", "sablony"]` (commit `37c92c1`,
+jen tento záznam, ostatní beze změny, ověřeno na GitHubu). Ostatní
+uživatelé mají modul jen jako náhled (záměr 6.17). Nasazená
+`ft_loader.js` pole zatím ignoruje, načte ho až verze z etapy 2.
+
+**Záměrně mimo etapu 2 / otevřené:** správa šablon (etapa 3), Gantt (4),
+kalendář (5); ve Správě úkolů se při zrušení hlavního úkolu zatím
+nenabízí zrušení podúkolů (v modulu ano); Přehled (desktop i mobil) a
+mobilní Dashboard odkaz do modulu nemají; mobilní verze modulu není.
 
 ### Etapa 1 — datový základ (2026-09-29, NASAZENO a ověřeno včetně opravy completedDays — HOTOVO)
 

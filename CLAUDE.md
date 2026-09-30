@@ -101,7 +101,7 @@ ve stávajících formulářích stále uvádí trvalý stav auta i při denním
 `volné`; posun používá denní výjimku. Případné sjednocení starých
 formulářů je samostatná změna vyžadující svolení JK.
 
-## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapa 1 NASAZENA a uzavřena, `8531e16` + `761dec7`)
+## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapa 1 NASAZENA, etapa 2 NASAZENA `d8ffaae`)
 
 JK zahájil návrh modulu pro plánování a řízení výroby (projekty =
 hlavní úkol + podúkoly, fáze, šablony, doklady PROFIT, Kanban, Gantt,
@@ -112,7 +112,22 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
 
 - **Programuje se jen etapa, kterou JK výslovně schválí.** 2026-09-29:
   „Koncept schválen, programuj etapu 1“ (datový základ ve stávajících
-  stránkách). Etapy 2–6 zatím NE.
+  stránkách). 2026-09-30: „Programuj etapu 2“. Etapy 3–6 zatím NE.
+- **Etapa 2 — ✅ NASAZENA (JK 2026-09-30 15:03, commit `d8ffaae`;
+  GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí)** — 4
+  soubory: **nový `vyroba.html`** (přehled projektů = Kanban podle stavu s
+  přetahováním a pojistkami, detail projektu s Kanbanem podúkolů podle
+  fází, položky, fáze, nový projekt ze šablony, zrušení/obnovení,
+  historie), `ft_loader.js` (`FTLoader.vyroba.*` — veškerá datová logika
+  modulu, výchozí šablony, `getUserOpravneni`/`hasOpravneni` z pole
+  `opravneni` v `users.json`), Dashboard (čip projektu = odkaz, plovoucí
+  tlačítko „🏭 Řízení výroby“), Správa úkolů (značka projektu/podúkolu +
+  odkaz, plovoucí tlačítko). Zápis v modulu smí jen plánovač s
+  příznakem **`projekty`** — u JK v `users.json` doplněno
+  `"opravneni": ["projekty", "sablony"]` (top-data `37c92c1`, 2026-09-30),
+  ostatní mají modul jen jako náhled.
+  **Konvence:** podúkol bez řešitele = `owner: "Nezařazeno"` (jako
+  Správa úkolů). Test a detail v navrh.md sekce 12.
 - **Etapa 1 NASAZENA a ověřena (2026-09-29 13:35, commit `8531e16`,
   GitHub i Pages bajtově shodné s otestovanou verzí)** — 6 souborů:
   `ft_loader.js`, `sprava_ukolu_linked.html`,
