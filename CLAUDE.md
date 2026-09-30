@@ -5,6 +5,30 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## Detail úkolu v počítačovém Dashboardu — tlačítka v jedné řadě (2026-09-30, NASAZENO — commit `db6e6a2`)
+
+JK po screenshotu schválil úpravu. V
+`tydenni_dashboard_live_reload_local_linked.html` obecné pravidlo
+`input, select, button { width: 100%; }` roztahovalo „Hotovo“ a „Smazat“
+na celou šířku; akční lišta se proto lámala do několika řádků.
+Akční lišta nyní drží tlačítka v jedné vodorovné řadě pod názvem úkolu,
+její přímé akce mají šířku podle obsahu a vodorovná mezera je 6 px.
+„Hotovo“ a „Smazat“ mají menší boční odsazení (10 px místo 16 px).
+Při neobvykle úzkém okně zůstane lišta vodorovně posuvná, aby akce
+nepřetékaly mimo kartu. Popisky, barvy a chování tlačítek zůstaly.
+Mobilní Dashboard používá vlastní detail a nebyl součástí této úpravy.
+Připravil ChatGPT.
+
+**✅ Nahráno JK 2026-09-30 05:14, commit `db6e6a2`** (jen Dashboard).
+`git fetch` + `cmp`: GitHub bajtově shodný s lokální verzí; GitHub Pages:
+SHA-256 sedí. Claude Code ověřil mockem GitHub API na kopii živé DB
+(1600×1000, světlý i tmavý režim): běžný úkol (Posunout, Hotovo,
+Upravit, Smazat, Historie, Zavřít — 661 z 720 px), opakovaný (Hotovo,
+Zástup, Zrušit dnes, Historie, Zavřít) i dokončený úkol mají akce v
+jedné řadě bez posuvníku, běžný úkol se vejde i v okně 760 px; Hotovo
+81 px, Smazat 83 px (odsazení 10 px). Žádná změna JS, žádné chyby v
+konzoli, bez vlivu na modul výroby.
+
 ## Posun jednodenního úkolu z Dashboardu (2026-09-29, NASAZENO — commit `612b2ac`)
 
 JK schválil lokální implementaci po teoretickém návrhu (připravil ChatGPT).
