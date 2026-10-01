@@ -101,7 +101,7 @@ ve stávajících formulářích stále uvádí trvalý stav auta i při denním
 `volné`; posun používá denní výjimku. Případné sjednocení starých
 formulářů je samostatná změna vyžadující svolení JK.
 
-## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapa 1 NASAZENA, etapa 2 NASAZENA `d8ffaae`)
+## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapa 1 NASAZENA, etapa 2 NASAZENA `d8ffaae`, etapa 3 NASAZENA `a93fdb1`)
 
 JK zahájil návrh modulu pro plánování a řízení výroby (projekty =
 hlavní úkol + podúkoly, fáze, šablony, doklady PROFIT, Kanban, Gantt,
@@ -112,7 +112,16 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
 
 - **Programuje se jen etapa, kterou JK výslovně schválí.** 2026-09-29:
   „Koncept schválen, programuj etapu 1“ (datový základ ve stávajících
-  stránkách). 2026-09-30: „Programuj etapu 2“. Etapy 3–6 zatím NE.
+  stránkách). 2026-09-30: „Programuj etapu 2“. 2026-10-01: „Programuj
+  etapu 3“. Etapy 4–6 zatím NE.
+- **Etapa 3 — ✅ NASAZENA (JK 2026-10-01 08:56, commit `a93fdb1`;
+  GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí)** — 2
+  soubory (`vyroba.html`, `ft_loader.js`): záložka **Šablony** (seznam,
+  editor fází / podúkolů / položek s přetahováním, nová / duplikovat /
+  smazat / ze stávajícího projektu), v detailu projektu „Uložit jako
+  šablonu“. Šablony v klíči `sablony` v database.json (vznikne prvním
+  uložením), upravuje jen příznak **`sablony`**. Projekt nově nese
+  `vyroba.sablonaId`. Detail a test v navrh.md sekce 12.
 - **Etapa 2 — ✅ NASAZENA (JK 2026-09-30 15:03, commit `d8ffaae`;
   GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí)** — 4
   soubory: **nový `vyroba.html`** (přehled projektů = Kanban podle stavu s

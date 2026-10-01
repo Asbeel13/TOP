@@ -1,9 +1,10 @@
 # Řízení výroby — návrh modulu (TOP)
 
-**Stav (2026-09-30):** Etapa 1 včetně opravy `completedDays` NASAZENA
+**Stav (2026-10-01):** Etapa 1 včetně opravy `completedDays` NASAZENA
 a ověřena (`8531e16`, `761dec7`). **Etapa 2 (stránka modulu
-`vyroba.html`) NASAZENA a ověřena (`d8ffaae`, 2026-09-30)** (sekce 12). Etapy 3–6 jen na nový
-výslovný pokyn JK.
+`vyroba.html`) NASAZENA a ověřena (`d8ffaae`, 2026-09-30)** (sekce 12).
+**Etapa 3 (správa šablon) NASAZENA a ověřena (`a93fdb1`, 2026-10-01)**
+(sekce 12). Etapy 4–6 jen na nový výslovný pokyn JK.
 
 Průvodní dokument modulu (JK 2026-09-29: „bude to větší modul,
 informace držet v samostatném souboru“). V `TOP/CLAUDE.md` je jen
@@ -605,6 +606,10 @@ otevřená otázka; čeká se na pokyn JK k programování.
   datová vrstva v `ft_loader.js` + odkazy z Dashboardu a Správy hotové
   lokálně a otestované (sekce 12); oprávnění JK v `users.json`
   (`37c92c1`); JK nahrál (`d8ffaae`), ověřeno GitHub i Pages.
+- **2026-09-30** — Doplněk čitelnosti v tmavém režimu (`962ce20`).
+- **2026-10-01** — JK: „Programuj etapu 3“. Správa šablon (záložka
+  Šablony, „Uložit jako šablonu“) hotová lokálně a otestovaná (sekce
+  12); JK nahrál (`a93fdb1`), ověřeno GitHub i Pages.
 
 ## 10. Náčrt obrazovek
 
@@ -700,6 +705,16 @@ vazba:
   } }
 ```
 
+- **Doplněno při etapě 3 (2026-10-01):** projekt nově nese i
+  `vyroba.sablonaId` (ID šablony, ze které vznikl — počítání použití;
+  `vyroba.sablona` = název zůstává jako údaj i po přejmenování / smazání
+  šablony). Projekty z etapy 2 ID nemají → použití se u nich počítá podle
+  názvu. Klíč `sablony` v database.json vznikne až prvním uložením
+  šablony (do té doby výchozí šablony z kódu); prázdný seznam = JK
+  smazal všechny (už se nevrací výchozí). Systémová „Prázdná“ se
+  neukládá. Šablona: `{ id, nazev, popis, predpona, faze: [{ id, nazev,
+  ukoly: [{ id, nazev, resitel ("" = doplnit při plánování), dny,
+  polozky: [{ id, text }] }] }] }`.
 - **Doplněno při etapě 2 (2026-09-30):** `vyroba.zamrazenoOd` (datum
   zamrazení, jen ve stavu „Čeká se“), `vyroba.zrusenoSProjektem` na
   podúkolu (zrušen spolu s projektem → při obnovení projektu se obnoví
@@ -798,6 +813,89 @@ kopii živé databáze, nahrává JK (Konvence č. 4).
 
 Každá etapa jen na výslovný pokyn JK (programuje se jen schválená
 etapa). Kódové soubory nahrává výhradně JK (Konvence č. 4).
+
+### Etapa 3 — správa šablon (2026-10-01, NASAZENA a ověřena — `a93fdb1`)
+
+**✅ Nahráno JK 2026-10-01 08:56, commit `a93fdb1` (2 soubory)** —
+`git fetch` + `cmp`: `ft_loader.js` i `vyroba.html` bajtově shodné s
+otestovanou verzí; GitHub Pages (stažení bez cache): SHA-256 obou sedí.
+Nasazená `vyroba.html` bez tokenu: načte se bez chyb v konzoli, záložky
+Přehled projektů / Šablony, `FTLoader.vyroba.saveSablona` /
+`deleteSablona` / `sablonaFromProject` / `sablonaUsage` /
+`canEditSablony` / `isSystemSablona` k dispozici, 5 výchozích šablon,
+přihlašovací dialog. Skutečnou úpravu šablon ověří JK v appce — token
+se nezadává. Klíč `sablony` v database.json vznikne až prvním uložením
+šablony.
+
+JK: „Programuj etapu 3“. Podle 6.17 (schváleno v kolech 5–7).
+
+**Soubory (2):**
+- **`vyroba.html`** — nová záložka **Šablony** (`vyroba.html#sablony`):
+  - Vlevo seznam šablon: název, předpona (VY/VZ/SZ), počet podúkolů,
+    „použito u N projektů“, systémová „Prázdná“ poslední. Tlačítka
+    „+ Nová šablona“ a „Ze stávajícího projektu“ (výběr projektu).
+  - Vpravo editor: název, „Nabízet automaticky pro čísla“ (VY/VZ/SZ/
+    nenabízet; upozornění, když stejnou předponu má jiná šablona — pak
+    se předvybere ta výš v seznamu), popis; fáze a v nich podúkoly
+    (název, výchozí řešitel / „doplnit při plánování“, počet dní,
+    položky — rozbalí se pole „každá položka na řádek“). Pořadí fází i
+    podúkolů **přetažením za úchyt ⠿** (podúkol i do jiné fáze) nebo
+    šipkami ↑↓; přidat / odebrat fázi (s podúkoly → dotaz) i podúkol.
+  - Uložit šablonu / Zahodit změny / Duplikovat / Smazat (u použité
+    šablony dotaz připomene, že projekty mají vlastní kopii). Neuložené
+    změny hlídá dotaz při přepnutí šablony, odchodu ze záložky i
+    zavření stránky. „Prázdná“ jen ke čtení.
+  - Detail projektu: tlačítko **„Uložit jako šablonu“** — návrh šablony
+    z projektu (fáze, nezrušené podúkoly bez dat a stavů, řešitel jako
+    výchozí, délka, položky neodškrtnuté; podúkoly bez fáze → fáze
+    „Ostatní“) se otevře v editoru, JK ho upraví a uloží.
+  - Dialog Nový projekt: odkaz „Spravovat šablony“.
+  - Upravuje jen držitel příznaku **`sablony`** (u JK v `users.json` od
+    `37c92c1`); ostatní vidí šablony jen pro čtení. Oprávnění projektů a
+    šablon jsou oddělená (3.35).
+- **`ft_loader.js`** — `FTLoader.vyroba.saveSablona` / `deleteSablona`
+  (čerstvé čtení + SHA zámek + až 3 pokusy jako u projektů; oprávnění
+  `sablony`; otisk šablony při otevření editoru → když ji mezitím
+  změnila jiná záložka, nic se neuloží), `sablonaFromProject`,
+  `sablonaUsage`, `canEditSablony`, `isSystemSablona`. Kontroly při
+  uložení: název (povinný, jedinečný, ne „Prázdná“), názvy fází a
+  podúkolů, počet dní 1–60, řešitel ze seznamu a nevyřazený (stávající
+  vyřazený u šablony zůstat smí). ID existujících částí se zachovají,
+  nové dostanou vlastní. Uložení beze změny nic nezapíše. `getSablony`
+  bere uložený seznam i prázdný; `createProject` ukládá `sablonaId`.
+
+**Test** (podvržené GitHub API, čerstvá kopie živé DB 762 kB, okno
+1600×1000, světlý i tmavý režim):
+- Výchozí šablony v seznamu, „Zařízení (VY)“ použita u 1 projektu
+  (skutečný VY26000014 podle názvu).
+- Úprava výchozí VY: přejmenování podúkolu, řešitel RS, 2 položky,
+  přetažení „Test funkčnosti“ do fáze Montáž, odebrání prázdné fáze,
+  nová fáze s podúkolem → `sablony` v DB = 4 výchozí (bez Prázdné),
+  ID nezměněných částí zachována, nové části s vlastními ID, žádný úkol
+  nezměněn. Uložení beze změny → 0 zápisů.
+- Nová šablona (název „výkres“ odmítnut jako duplicitní, fáze bez názvu
+  odmítnuta), předpona VZ s upozorněním na shodu; Duplikovat → „(kopie)“;
+  Smazat kopie.
+- „Ze stávajícího projektu“ i „Uložit jako šablonu“ z detailu skutečného
+  projektu (5 fází, 10 podúkolů s řešiteli a položkami) → uloženo.
+- Neuložené změny: přepnutí na Přehled → dotaz; „Zpět“ zůstane na
+  šablonách s rozpracovanou kopií, „Zahodit“ odejde.
+- Nový projekt VY26000999: předvybrána upravená VY, projekt má fázi
+  Lakování, „Test funkčnosti“ v Montáži s položkami, RS u montáže,
+  `sablonaId: "S-VY"`; počet použití 1 → 2.
+- Souběh: jiná záložka změní šablonu → uložení odmítnuto, 0 zápisů;
+  „Zahodit změny“ ukáže aktuální stav.
+- Bez příznaku `sablony` (jen `projekty`): šablony jen pro čtení, bez
+  „Uložit jako šablonu“, projekty dál upravitelné; přímé volání odmítnuto.
+- Uložení jiného úkolu ve Správě úkolů klíč `sablony` zachová beze změny.
+- V konzoli jen očekávané hlášky ověřování (duplicitní název, fáze bez
+  názvu, souběh), žádný požadavek na skutečný GitHub. `{}`/`()`/`[]`
+  vyvážené, CRLF, bez BOM, žádná barva natvrdo (`--accent` se jako text
+  nepoužívá — poučení z `962ce20`).
+
+**Nahrání:** `ft_loader.js` + `vyroba.html` najednou. Se starou
+`ft_loader.js` z HTTP cache (až 10 min) záložka Šablony jen napíše
+„Obnov stránku (Ctrl+F5)“, přehled a detail projektů fungují dál.
 
 ### Etapa 2 — stránka modulu (2026-09-30, NASAZENA a ověřena — `d8ffaae`)
 
