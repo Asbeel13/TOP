@@ -1882,13 +1882,15 @@ const FTLoader = (() => {
   function vyrobaClone(v) { return JSON.parse(JSON.stringify(v)); }
 
   function getSablony(raw) {
-    const list = raw && Array.isArray(raw.sablony) && raw.sablony.length ? raw.sablony : VYROBA_VYCHOZI_SABLONY;
-    const out = vyrobaClone(list);
-    if (!out.some(s => s && s.id === VYROBA_PRAZDNA_ID)) {
-      out.push(vyrobaClone(VYROBA_VYCHOZI_SABLONY.find(s => s.id === VYROBA_PRAZDNA_ID)));
-    }
+    // Uložený seznam (i prázdný = JK smazal všechny) má přednost; výchozí
+    // šablony jen dokud se šablony nikdy neuložily (etapa 3, 2026-10-01).
+    const list = raw && Array.isArray(raw.sablony) ? raw.sablony : VYROBA_VYCHOZI_SABLONY;
+    const out = vyrobaClone(list.filter(s => s && s.id !== VYROBA_PRAZDNA_ID));
+    // Systémová „Prázdná“ je vždy poslední a nejde upravit ani smazat (6.17).
+    out.push(vyrobaClone(VYROBA_VYCHOZI_SABLONY.find(s => s.id === VYROBA_PRAZDNA_ID)));
     return out;
   }
+  function vyrobaIsSystemSablona(s) { return !!s && s.id === VYROBA_PRAZDNA_ID; }
 
   // Typ projektu z hlavního označení (VY/VZ/SZ + číslo), jinak "Jiné".
   function vyrobaTypFromOznaceni(oznaceni) {
@@ -1940,6 +1942,11 @@ const FTLoader = (() => {
 
   async function vyrobaCanEdit() {
     return hasOpravneni("projekty") && await canActuallyWrite();
+  }
+  // Šablony upravuje jen držitel příznaku "sablony" (JK 3.32, 6.17) —
+  // oddělené od projektů, aby šlo projekty později svěřit i jiným.
+  async function vyrobaCanEditSablony() {
+    return hasOpravneni("sablony") && await canActuallyWrite();
   }
 
   function vyrobaFindProject(raw, id) {
@@ -2039,7 +2046,7 @@ const FTLoader = (() => {
   }
 
   let _vyrobaBusy = false;
-  async function vyrobaMutate(message, mutator) {
+  async function vyrobaMutate(message, mutator, { sablony = false } = {}) {
     if (_vyrobaBusy) throw new Error("Právě se ukládá jiná změna. Vyčkej na dokončení.");
     _vyrobaBusy = true;
     try {
@@ -2047,7 +2054,9 @@ const FTLoader = (() => {
         try {
           // Čerstvý celek dat + SHA; selhání čtení se nesmí spolknout.
           await fetchFromGitHub(false, { force: true, strict: true });
-          if (!await vyrobaCanEdit()) throw new Error("Nemáš oprávnění upravovat projekty.");
+          if (sablony ? !await vyrobaCanEditSablony() : !await vyrobaCanEdit()) {
+            throw new Error(sablony ? "Nemáš oprávnění upravovat šablony." : "Nemáš oprávnění upravovat projekty.");
+          }
           const raw = getRawJson();
           if (!raw) throw new Error("Data ještě nejsou načtena, zkus to za chvíli znovu.");
           raw.tasks = Array.isArray(raw.tasks) ? raw.tasks : [];
@@ -2097,6 +2106,9 @@ const FTLoader = (() => {
           druh: "projekt", typ: vyrobaTypFromOznaceni(oznaceni), oznaceni,
           doklady: vyrobaDoklady(input.doklady), faze,
           sablona: sablona.id === VYROBA_PRAZDNA_ID ? "" : String(sablona.nazev || ""),
+          // ID šablony (etapa 3) — počítání použití; název výše zůstává jako
+          // údaj i po přejmenování nebo smazání šablony (6.17).
+          ...(sablona.id === VYROBA_PRAZDNA_ID ? {} : { sablonaId: sablona.id }),
           duvodZamrazeni: "",
         },
       });
@@ -2320,6 +2332,152 @@ const FTLoader = (() => {
     });
   }
 
+  // ── Správa šablon (etapa 3, 2026-10-01, navrh 6.17) ───────────────────
+  // Šablony = klíč `sablony` v database.json: seznam, každá šablona s
+  // vnořenými fázemi → podúkoly → položkami, vše s vlastním ID, pořadí =
+  // pořadí v poli (PostgreSQL: sablona / sablona_faze / sablona_ukol /
+  // sablona_polozka). Dokud se nic neuložilo, platí VYROBA_VYCHOZI_SABLONY;
+  // první uložení je zkopíruje do databáze. Změna šablony se týká jen nově
+  // zakládaných projektů (projekt si při založení dělá vlastní kopii).
+  // Systémová „Prázdná“ se neukládá a nejde upravit ani smazat.
+  const VYROBA_PREDPONY = ["VY", "VZ", "SZ"];
+
+  function vyrobaStoredSablony(raw) {
+    if (!Array.isArray(raw.sablony)) {
+      raw.sablony = vyrobaClone(VYROBA_VYCHOZI_SABLONY.filter(s => s.id !== VYROBA_PRAZDNA_ID));
+    }
+    raw.sablony = raw.sablony.filter(s => s && s.id !== VYROBA_PRAZDNA_ID);
+    return raw.sablony;
+  }
+
+  // Ověří a sjednotí šablonu z editoru. ID z původní šablony se zachovají,
+  // nové části dostanou vlastní. resitel "" = doplnit při plánování.
+  function vyrobaNormSablona(raw, input, prev) {
+    const nazev = String((input && input.nazev) || "").trim().replace(/\s+/g, " ");
+    if (!nazev) throw new Error("Vyplň název šablony.");
+    if (nazev.toLocaleLowerCase("cs") === "prázdná") throw new Error("Název „Prázdná“ patří systémové šabloně.");
+    const oldIds = new Set(), oldTasks = new Map();
+    ((prev && prev.faze) || []).forEach(f => {
+      oldIds.add(f.id);
+      (f.ukoly || []).forEach(u => {
+        oldIds.add(u.id);
+        oldTasks.set(u.id, u);
+        (u.polozky || []).forEach(p => oldIds.add(p && p.id));
+      });
+    });
+    const used = new Set();
+    const keepId = (id, prefix) => {
+      const v = id && oldIds.has(id) && !used.has(id) ? id : vyrobaNewId(prefix);
+      used.add(v);
+      return v;
+    };
+    const faze = (Array.isArray(input.faze) ? input.faze : []).map((f, fi) => {
+      const fn = String((f && f.nazev) || "").trim();
+      if (!fn) throw new Error(`Fáze č. ${fi + 1} nemá název.`);
+      const ukoly = (Array.isArray(f.ukoly) ? f.ukoly : []).map((u, ui) => {
+        const un = String((u && u.nazev) || "").trim();
+        if (!un) throw new Error(`Podúkol č. ${ui + 1} ve fázi „${fn}“ nemá název.`);
+        const dny = parseInt(u.dny, 10);
+        if (!(dny >= 1 && dny <= 60)) throw new Error(`Podúkol „${un}“: počet dní musí být 1–60.`);
+        let resitel = String(u.resitel || "").trim();
+        if (vyrobaIsUnassigned(resitel)) resitel = "";
+        const prevU = oldTasks.get(u.id);
+        const keep = prevU && prevU.resitel === resitel; // stávající (i vyřazený) zůstane
+        if (resitel && !keep) {
+          const r = (raw.resitele || []).find(x => x && x.zkratka === resitel);
+          if (!r) throw new Error(`Podúkol „${un}“: řešitel ${resitel} není v seznamu řešitelů.`);
+          if (r.vyrazen) throw new Error(`Podúkol „${un}“: řešitel ${resitel} je vyřazený.`);
+        }
+        const polozky = (Array.isArray(u.polozky) ? u.polozky : []).map(p => {
+          const text = String(typeof p === "string" ? p : (p && p.text) || "").trim();
+          return text ? { id: keepId(p && p.id, "sp"), text } : null;
+        }).filter(Boolean);
+        return { id: keepId(u.id, "su"), nazev: un, resitel, dny, polozky };
+      });
+      return { id: keepId(f.id, "sf"), nazev: fn, ukoly };
+    });
+    return {
+      id: prev ? prev.id : vyrobaNewId("s"), nazev,
+      popis: String(input.popis || "").trim(),
+      predpona: VYROBA_PREDPONY.includes(input.predpona) ? input.predpona : "",
+      faze,
+    };
+  }
+
+  // Nová šablona (input bez id, nebo id, které ještě není uložené) nebo
+  // úprava existující. expected = otisk šablony při otevření editoru.
+  function vyrobaSaveSablona(input, expected) {
+    return vyrobaMutate(r => `Šablona „${r.nazev}“ ${r.created ? "založena" : "uložena"} uživatelem ${getCurrentUserFromConfig()}`, ({ raw }) => {
+      if (input && input.id === VYROBA_PRAZDNA_ID) throw new Error("Systémovou šablonu „Prázdná“ nejde upravit.");
+      const list = vyrobaStoredSablony(raw);
+      const idx = input && input.id ? list.findIndex(s => s.id === input.id) : -1;
+      const prev = idx >= 0 ? list[idx] : null;
+      if (input && input.id && !prev && expected) {
+        throw new Error("Šablonu mezitím někdo smazal — nic nebylo uloženo. Můžeš ji uložit znovu jako novou (Duplikovat).");
+      }
+      if (prev && expected && vyrobaFingerprint(prev) !== expected) {
+        throw new Error("Šablonu mezitím upravil někdo jiný (nebo jiná záložka). Nic nebylo uloženo — otevři ji znovu a úpravu zopakuj.");
+      }
+      const s = vyrobaNormSablona(raw, input || {}, prev);
+      const dup = list.find(x => x.id !== s.id && String(x.nazev || "").trim().toLocaleLowerCase("cs") === s.nazev.toLocaleLowerCase("cs"));
+      if (dup) throw new Error(`Šablona s názvem „${s.nazev}“ už existuje.`);
+      if (prev && vyrobaFingerprint(prev) === vyrobaFingerprint(s)) return { unchanged: true, id: s.id, nazev: s.nazev };
+      if (idx >= 0) list[idx] = s; else list.push(s);
+      return { id: s.id, nazev: s.nazev, created: idx < 0 };
+    }, { sablony: true });
+  }
+
+  function vyrobaDeleteSablona(id, expected) {
+    return vyrobaMutate(r => `Šablona „${r.nazev}“ smazána uživatelem ${getCurrentUserFromConfig()}`, ({ raw }) => {
+      if (id === VYROBA_PRAZDNA_ID) throw new Error("Systémovou šablonu „Prázdná“ nejde smazat.");
+      const list = vyrobaStoredSablony(raw);
+      const idx = list.findIndex(s => s.id === id);
+      if (idx < 0) return { unchanged: true, nazev: "" };
+      if (expected && vyrobaFingerprint(list[idx]) !== expected) {
+        throw new Error("Šablonu mezitím upravil někdo jiný — nic nebylo smazáno. Zkontroluj ji a akci zopakuj.");
+      }
+      const [s] = list.splice(idx, 1);
+      return { nazev: s.nazev };
+    }, { sablony: true });
+  }
+
+  // Návrh šablony z projektu (6.17 „Vytvořit ze stávajícího projektu“ /
+  // „Uložit jako šablonu“): fáze, nezrušené podúkoly (bez dat a stavů,
+  // řešitel jako výchozí, délka) a jejich položky (neodškrtnuté). Nic
+  // neukládá — výsledek se otevře v editoru jako nová šablona.
+  function vyrobaSablonaFromProject(raw, projectId) {
+    const p = vyrobaFindProject(raw, projectId);
+    const label = p.vyroba.oznaceni || p.title;
+    const faze = (p.vyroba.faze || []).map(f => ({ src: f.id, nazev: f.nazev, ukoly: [] }));
+    let ostatni = null;
+    vyrobaSubtasks(raw.tasks, projectId).forEach(t => {
+      let f = faze.find(x => x.src === t.vyroba.faze);
+      if (!f) f = ostatni || (ostatni = { src: "", nazev: "Ostatní", ukoly: [] });
+      const r = (raw.resitele || []).find(x => x && x.zkratka === t.owner);
+      f.ukoly.push({
+        nazev: t.title,
+        resitel: !vyrobaIsUnassigned(t.owner) && r && !r.vyrazen ? t.owner : "",
+        dny: Math.max(1, Math.min(60, parseInt(t.durationDays, 10) || 1)),
+        polozky: (t.vyroba.polozky || []).map(x => ({ text: x.text })).filter(x => x.text),
+      });
+    });
+    if (ostatni) faze.push(ostatni);
+    return {
+      nazev: `Podle projektu ${label}`,
+      popis: `Vytvořeno z projektu ${label} (${p.title}).`,
+      predpona: VYROBA_PREDPONY.includes(p.vyroba.typ) ? p.vyroba.typ : "",
+      faze: faze.map(f => ({ nazev: f.nazev, ukoly: f.ukoly })),
+    };
+  }
+
+  // Kolik projektů vzniklo ze šablony (podle ID; projekty z etapy 2 ID
+  // nemají → podle názvu). Jen informace v seznamu šablon.
+  function vyrobaSablonaUsage(raw, s) {
+    return vyrobaProjects((raw && raw.tasks) || []).filter(p => !p.cancelled && (p.vyroba.sablonaId
+      ? p.vyroba.sablonaId === s.id
+      : (p.vyroba.sablona || "") !== "" && p.vyroba.sablona === s.nazev)).length;
+  }
+
   const vyroba = {
     STAVY: VYROBA_STAVY,
     STAV_PROJEKTU: VYROBA_STAV_PROJEKTU,
@@ -2345,6 +2503,13 @@ const FTLoader = (() => {
     moveSubtask: vyrobaMoveSubtask,
     setSubtaskCancelled: vyrobaSetSubtaskCancelled,
     setItemDone: vyrobaSetItemDone,
+    PREDPONY: VYROBA_PREDPONY,
+    canEditSablony: vyrobaCanEditSablony,
+    isSystemSablona: vyrobaIsSystemSablona,
+    saveSablona: vyrobaSaveSablona,
+    deleteSablona: vyrobaDeleteSablona,
+    sablonaFromProject: vyrobaSablonaFromProject,
+    sablonaUsage: vyrobaSablonaUsage,
   };
 
   return {

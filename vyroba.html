@@ -188,6 +188,33 @@
     .vnotice button { margin-left: auto; }
     body.busy, body.busy * { cursor: progress !important; }
 
+    /* ── Šablony postupu (etapa 3) ── */
+    .sb-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+    .sb-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .sb-list { display: flex; flex-direction: column; gap: 6px; }
+    .sb-item { text-align: left; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--text); font: inherit; }
+    .sb-item:hover { border-color: var(--line-medium); }
+    .sb-item.on { border-color: var(--brand-accent); box-shadow: inset 0 0 0 1px var(--brand-accent); }
+    .sb-name { font-weight: 600; font-size: 14px; }
+    .sb-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .sb-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    .sb-bar .spacer { flex: 1; }
+    .sb-phase { background: color-mix(in srgb, var(--text) 5%, var(--bg)); border: 1px solid transparent; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+    .sb-phase-head, .sb-task-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .sb-phase-head .inp { flex: 1 1 240px; font-weight: 600; }
+    .sb-tasks { display: flex; flex-direction: column; gap: 6px; min-height: 30px; border-radius: 8px; }
+    .sb-task { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+    .sb-tname { flex: 1 1 220px; }
+    .sb-tres { flex: 0 1 210px; }
+    .sb-days { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
+    .sb-days .inp { width: 66px; }
+    .sb-items { min-height: 90px; }
+    .sb-editor .mini { width: 32px; height: 32px; border: 1px solid var(--line-medium); background: var(--panel); color: var(--text-muted); border-radius: var(--radius-xs); cursor: pointer; flex-shrink: 0; }
+    .sb-editor .mini:disabled { opacity: .35; cursor: default; }
+    .handle { cursor: grab; color: var(--text-faint); padding: 0 4px; user-select: none; font-size: 17px; line-height: 1; }
+    .sb-phase.drop-over, .sb-task.drop-over, .sb-tasks.drop-over { outline: 2px dashed var(--brand-accent); outline-offset: 2px; }
+    @media (max-width: 900px) { .sb-layout { grid-template-columns: 1fr; } }
+
     @media (max-width: 900px) {
       .fgrid { grid-template-columns: 1fr; }
       .hdr { padding: 0 14px; }
@@ -203,7 +230,8 @@
     <div><div class="brand-name">TOP · Řízení výroby</div><div class="brand-sub">Projekty, fáze a podúkoly</div></div>
   </a>
   <nav class="tabs" aria-label="Zobrazení modulu">
-    <a class="tab on" href="#">Přehled projektů</a>
+    <a class="tab" data-tab="prehled" href="#">Přehled projektů</a>
+    <a class="tab" data-tab="sablony" href="#sablony">Šablony</a>
   </nav>
   <div class="hdr-right">
     <span id="syncStatus" class="sync">Načítám data z GitHubu…</span>
@@ -248,6 +276,22 @@
   </section>
 
   <section id="viewDetail" hidden></section>
+
+  <section id="viewSablony" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Šablony postupu</h1>
+        <div class="sub" id="sbSub">Fáze, podúkoly a položky, které se zkopírují do nově zakládaného projektu. Změna šablony už založené projekty nemění.</div>
+      </div>
+    </div>
+    <div class="sb-layout">
+      <aside class="sb-side">
+        <div class="sb-actions" id="sbActions"></div>
+        <div class="sb-list" id="sbList"></div>
+      </aside>
+      <div class="sb-editor" id="sbEditor"></div>
+    </div>
+  </section>
 </main>
 
 <!-- Nový projekt / úprava projektu -->
@@ -257,7 +301,7 @@
     <div class="vmodal-body">
       <div class="fgrid">
         <div class="field wide" id="pmSablonaWrap">
-          <label class="lbl" for="pmSablona">Šablona postupu</label>
+          <label class="lbl" for="pmSablona">Šablona postupu <a href="#sablony" id="pmSablonyLink" style="margin-left:8px;font-weight:600;color:var(--brand-accent)">Spravovat šablony</a></label>
           <select id="pmSablona" class="inp"></select>
           <div class="typ-hint" id="pmSablonaPopis"></div>
         </div>
@@ -401,6 +445,7 @@
       <div id="amText" style="white-space:pre-line"></div>
       <label class="chk" id="amCheckWrap" hidden style="height:auto"><input type="checkbox" id="amCheck" /><span id="amCheckText"></span></label>
       <input id="amInput" class="inp" hidden />
+      <select id="amSelect" class="inp" hidden></select>
     </div>
     <div class="vmodal-foot">
       <span class="spacer"></span>
@@ -452,6 +497,7 @@ const FILTER_KEY = "ftVyrobaFiltry";
 
 let RAW = null;              // surová data (FTLoader.getRawJson), jediný zdroj
 let CAN_EDIT = false;
+let CAN_SABLONY = false;     // oprávnění „sablony“ (etapa 3)
 let _permissionChecked = false;
 const EXPANDED = new Set();  // podúkoly s rozbaleným seznamem položek
 let SHOW_CANCELLED_SUBS = false;
@@ -583,8 +629,9 @@ document.addEventListener("keydown", e => {
 });
 
 // Náhrada prompt/confirm ve stylu appky. Vrací: input → text | null,
-// jinak true/false; s checkboxem { ok, checked }.
-function ask({ title, text, input = false, value = "", okText = "OK", danger = false, check = null }) {
+// options (výběr ze seznamu) → hodnota | null, jinak true/false;
+// s checkboxem { ok, checked }.
+function ask({ title, text, input = false, value = "", okText = "OK", danger = false, check = null, options = null }) {
   return new Promise(resolve => {
     const m = document.getElementById("askModal");
     document.getElementById("amTitleH").textContent = title || "";
@@ -592,6 +639,9 @@ function ask({ title, text, input = false, value = "", okText = "OK", danger = f
     const inp = document.getElementById("amInput");
     inp.hidden = !input;
     inp.value = value || "";
+    const sel = document.getElementById("amSelect");
+    sel.hidden = !options;
+    sel.innerHTML = (options || []).map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
     const cw = document.getElementById("amCheckWrap"), cb = document.getElementById("amCheck");
     cw.hidden = !check;
     cb.checked = !!(check && check.checked);
@@ -604,31 +654,53 @@ function ask({ title, text, input = false, value = "", okText = "OK", danger = f
       m.hidden = true;
       resolve(val);
     };
-    ok.onclick = () => done(input ? inp.value : (check ? { ok: true, checked: cb.checked } : true));
-    cancel.onclick = () => done(input ? null : (check ? { ok: false, checked: cb.checked } : false));
+    ok.onclick = () => done(options ? sel.value : input ? inp.value : (check ? { ok: true, checked: cb.checked } : true));
+    cancel.onclick = () => done(options || input ? null : (check ? { ok: false, checked: cb.checked } : false));
     inp.onkeydown = e => { if (e.key === "Enter") ok.click(); };
     m.hidden = false;
-    (input ? inp : ok).focus();
+    (options ? sel : input ? inp : ok).focus();
   });
 }
 
-// ── Směrování: #projekt=<ID> = detail, jinak přehled ─────────────────────
+// ── Směrování: #projekt=<ID> = detail, #sablony = šablony, jinak přehled ─
 function currentProjectId() {
   const m = /^#projekt=(.+)$/.exec(location.hash || "");
   return m ? decodeURIComponent(m[1]) : null;
 }
+function isSablonyView() { return location.hash === "#sablony"; }
 function goProject(id) { location.hash = "projekt=" + encodeURIComponent(id); }
 function goOverview() { location.hash = ""; }
-window.addEventListener("hashchange", () => { window.scrollTo(0, 0); render(); });
+// Odchod ze Šablon s neuloženými změnami → dotaz; při „Zpět“ se vrátí.
+let _lastHash = location.hash, _hashRevert = false;
+window.addEventListener("hashchange", async () => {
+  if (_hashRevert) { _hashRevert = false; _lastHash = location.hash; return; }
+  if (_lastHash === "#sablony" && !isSablonyView() && SB.dirty) {
+    const target = location.hash;
+    _hashRevert = true;
+    location.hash = "sablony";
+    if (!(await ask({ title: "Neuložené změny", text: "Šablona má neuložené změny. Zahodit je?", okText: "Zahodit změny", danger: true }))) return;
+    sbReset();
+    location.hash = target.replace(/^#/, "");
+    return;
+  }
+  _lastHash = location.hash;
+  window.scrollTo(0, 0);
+  render();
+});
+window.addEventListener("beforeunload", e => {
+  if (SB.dirty) { e.preventDefault(); e.returnValue = ""; }
+});
 
 function render() {
   if (!V) return;
   document.getElementById("newProjectBtn").hidden = !CAN_EDIT;
+  const id = currentProjectId(), sab = isSablonyView();
+  document.querySelectorAll(".tabs .tab").forEach(t => t.classList.toggle("on", sab ? t.dataset.tab === "sablony" : t.dataset.tab === "prehled"));
   if (!RAW) return;
-  const id = currentProjectId();
-  document.getElementById("viewOverview").hidden = !!id;
+  document.getElementById("viewOverview").hidden = !!id || sab;
   document.getElementById("viewDetail").hidden = !id;
-  if (id) renderDetail(id); else renderOverview();
+  document.getElementById("viewSablony").hidden = !sab;
+  if (sab) renderSablony(); else if (id) renderDetail(id); else renderOverview();
 }
 
 // ── Přehled projektů ─────────────────────────────────────────────────────
@@ -856,6 +928,7 @@ function renderDetail(id) {
           ${stateSel}
           ${edit ? `<button class="btn btn-secondary btn-sm" type="button" id="dEdit">Upravit projekt</button>` : ""}
           <button class="btn btn-secondary btn-sm" type="button" id="dHistory">🕘 Historie</button>
+          ${CAN_SABLONY ? `<button class="btn btn-secondary btn-sm" type="button" id="dToTemplate" title="Převezme fáze, podúkoly a položky (bez dat a stavů) do nové šablony">Uložit jako šablonu</button>` : ""}
           ${CAN_EDIT ? (p.cancelled
             ? `<button class="btn btn-secondary btn-sm" type="button" id="dRestore">Obnovit projekt</button>`
             : `<button class="btn btn-danger btn-sm" type="button" id="dCancel">Zrušit projekt</button>`) : ""}
@@ -897,6 +970,7 @@ function renderDetail(id) {
   byId("dHistory").addEventListener("click", () =>
     FTLoader.toggleTaskHistory(byId("dHistoryPanel"), p, { tasks: allTasks(), ruleIds: (RAW.opakovaci || []).map(o => o.id) }));
   if (byId("dCancel")) byId("dCancel").addEventListener("click", () => cancelProject(p.id));
+  if (byId("dToTemplate")) byId("dToTemplate").addEventListener("click", () => sbFromProject(p.id));
   if (byId("dRestore")) byId("dRestore").addEventListener("click", () => restoreProject(p.id));
   const tog = byId("dShowCancelled");
   if (tog) tog.addEventListener("click", () => { SHOW_CANCELLED_SUBS = !SHOW_CANCELLED_SUBS; renderDetail(p.id); });
@@ -1350,6 +1424,386 @@ document.getElementById("fmSave").addEventListener("click", async () => {
   FM = null;
 });
 
+// ── Šablony postupu (etapa 3, 2026-10-01, navrh 6.17) ────────────────────
+// Editor pracuje s rozpracovanou kopií (SB.draft) a ukládá celou šablonu
+// najednou přes FTLoader.vyroba.saveSablona. Upravuje jen držitel
+// oprávnění „sablony“ (JK); ostatní vidí šablony jen pro čtení.
+const SB = { selId: null, draft: null, fp: null, dirty: false, isNew: false };
+let _sbRendered = { draft: null, editable: null }; // kvůli fokusu: editor se při příchodu dat nepřekresluje
+
+function sbList() { return V.getSablony(RAW); }
+function sbFind(id) { return id ? sbList().find(s => s.id === id) || null : null; }
+function sbIsSystem() { return !!SB.selId && V.isSystemSablona({ id: SB.selId }); }
+function sbEditable() { return CAN_SABLONY && !!SB.draft && !sbIsSystem(); }
+function sbReset() { SB.selId = null; SB.draft = null; SB.fp = null; SB.dirty = false; SB.isNew = false; }
+function sbLoad(id) {
+  const s = sbFind(id);
+  sbReset();
+  if (!s) return;
+  SB.selId = s.id;
+  SB.draft = JSON.parse(JSON.stringify(s));
+  SB.fp = V.fingerprint(s);
+}
+function sbStartNew(draft) {
+  sbReset();
+  SB.draft = draft;
+  SB.isNew = true;
+  SB.dirty = true;
+}
+function sbUniqueName(base) {
+  const names = new Set(sbList().map(s => String(s.nazev || "").toLocaleLowerCase("cs")));
+  if (!names.has(base.toLocaleLowerCase("cs"))) return base;
+  for (let i = 2; ; i++) if (!names.has(`${base} ${i}`.toLocaleLowerCase("cs"))) return `${base} ${i}`;
+}
+function sbStripIds(s) {
+  return {
+    nazev: s.nazev, popis: s.popis || "", predpona: s.predpona || "",
+    faze: (s.faze || []).map(f => ({ nazev: f.nazev, ukoly: (f.ukoly || []).map(u => ({
+      nazev: u.nazev, resitel: u.resitel || "", dny: u.dny || 1, polozky: (u.polozky || []).map(p => ({ text: p.text })),
+    })) })),
+  };
+}
+async function sbConfirmDiscard() {
+  if (!SB.dirty) return true;
+  return ask({ title: "Neuložené změny", text: "Šablona má neuložené změny. Zahodit je?", okText: "Zahodit změny", danger: true });
+}
+function sbTaskCount(s) { return (s.faze || []).reduce((n, f) => n + (f.ukoly || []).length, 0); }
+
+function renderSablony({ force = false } = {}) {
+  document.title = "Šablony — Řízení výroby";
+  if (!V.saveSablona) {
+    // Nová stránka se starou ft_loader.js z HTTP cache (až 10 min po nasazení).
+    document.getElementById("sbActions").innerHTML = "";
+    document.getElementById("sbList").innerHTML = "";
+    document.getElementById("sbEditor").innerHTML = `<div class="notice">Aplikace byla právě aktualizována. Obnov prosím stránku (Ctrl+F5).</div>`;
+    return;
+  }
+  if (SB.draft && !SB.isNew && SB.selId && !sbFind(SB.selId)) sbReset(); // mezitím smazaná
+  if (!SB.draft) { const first = sbList()[0]; if (first) sbLoad(first.id); }
+  renderSbSide();
+  if (force || _sbRendered.draft !== SB.draft || _sbRendered.editable !== sbEditable()) renderSbEditor();
+}
+
+function renderSbSide() {
+  document.getElementById("sbActions").innerHTML = CAN_SABLONY
+    ? `<button class="btn btn-primary btn-sm" type="button" data-sb="new">+ Nová šablona</button>
+       <button class="btn btn-secondary btn-sm" type="button" data-sb="fromProject">Ze stávajícího projektu</button>`
+    : `<div class="muted" style="font-size:12.5px">Jen náhled — šablony upravuje uživatel s oprávněním „šablony“ (zatím JK).</div>`;
+  const items = [];
+  if (SB.isNew && SB.draft) {
+    items.push(`<button class="sb-item on" type="button"><div class="sb-name">${esc(SB.draft.nazev || "Nová šablona")}</div><div class="sb-meta"><span class="badge b-warn">Neuloženo</span>${sbTaskCount(SB.draft)} podúkolů</div></button>`);
+  }
+  sbList().forEach(s => {
+    const sys = V.isSystemSablona(s);
+    const used = sys ? 0 : V.sablonaUsage(RAW, s);
+    const on = !SB.isNew && s.id === SB.selId;
+    items.push(`<button class="sb-item${on ? " on" : ""}" type="button" data-sel="${esc(s.id)}">
+      <div class="sb-name">${esc(on && SB.draft ? SB.draft.nazev || s.nazev : s.nazev)}${on && SB.dirty ? " *" : ""}</div>
+      <div class="sb-meta">${s.predpona ? `<span class="badge b-${esc(s.predpona)}">${esc(s.predpona)}</span>` : ""}${sys ? `<span class="badge b-grey">Systémová</span>` : ""}
+        ${sbTaskCount(s)} ${plural(sbTaskCount(s), "podúkol", "podúkoly", "podúkolů")}${sys ? "" : ` · použito u ${used} ${plural(used, "projektu", "projektů", "projektů")}`}</div>
+    </button>`);
+  });
+  document.getElementById("sbList").innerHTML = items.join("");
+}
+
+function sbOwnerOptions(current) {
+  const active = resitele().filter(r => r && r.zkratka && !r.vyrazen).sort((a, b) => a.zkratka.localeCompare(b.zkratka, "cs"));
+  let html = `<option value="" ${current ? "" : "selected"}>— doplnit při plánování —</option>` +
+    active.map(r => `<option value="${esc(r.zkratka)}" ${r.zkratka === current ? "selected" : ""}>${esc(r.zkratka)} – ${esc(resitelName(r.zkratka))}</option>`).join("");
+  if (current && !active.some(r => r.zkratka === current)) html += `<option value="${esc(current)}" selected>${esc(current)} (vyřazený)</option>`;
+  return html;
+}
+
+function renderSbEditor() {
+  const el = document.getElementById("sbEditor");
+  const d = SB.draft;
+  _sbRendered = { draft: d, editable: sbEditable() };
+  if (!d) { el.innerHTML = `<div class="dcard muted">Žádná šablona.</div>`; return; }
+  const ed = sbEditable(), sys = sbIsSystem(), dis = ed ? "" : "disabled";
+  const stored = sbFind(SB.selId);
+  const used = stored && !sys ? V.sablonaUsage(RAW, stored) : 0;
+  const samePrefix = d.predpona ? sbList().filter(s => s.id !== SB.selId && s.predpona === d.predpona) : [];
+  const phaseHtml = (d.faze || []).map((f, fi) => `
+    <section class="sb-phase" data-fi="${fi}">
+      <div class="sb-phase-head">
+        ${ed ? `<span class="handle" draggable="true" data-drag="f:${fi}" title="Přetažením změníš pořadí fáze">⠿</span>` : ""}
+        <input class="inp" data-pf="${fi}" value="${esc(f.nazev)}" placeholder="Název fáze" ${dis} />
+        ${ed ? `<button class="mini" type="button" data-act="fup" data-fi="${fi}" title="Posunout výš" ${fi === 0 ? "disabled" : ""}>↑</button>
+          <button class="mini" type="button" data-act="fdown" data-fi="${fi}" title="Posunout níž" ${fi === d.faze.length - 1 ? "disabled" : ""}>↓</button>
+          <button class="mini" type="button" data-act="fdel" data-fi="${fi}" title="Odebrat fázi">✕</button>` : ""}
+      </div>
+      <div class="sb-tasks" data-fi="${fi}">
+        ${(f.ukoly || []).map((u, ui) => sbTaskHtml(u, fi, ui, f.ukoly.length, ed)).join("") || `<div class="col-empty">Bez podúkolů</div>`}
+      </div>
+      ${ed ? `<div><button class="btn btn-secondary btn-sm" type="button" data-act="uadd" data-fi="${fi}">+ Podúkol</button></div>` : ""}
+    </section>`).join("");
+  el.innerHTML = `
+    <div class="dcard">
+      <div class="fgrid">
+        <div class="field">
+          <label class="lbl" for="sbNazev">Název šablony</label>
+          <input class="inp" id="sbNazev" data-sf="nazev" value="${esc(d.nazev)}" ${dis} />
+        </div>
+        <div class="field">
+          <label class="lbl" for="sbPredpona">Nabízet automaticky pro čísla</label>
+          <select class="inp" id="sbPredpona" data-sf="predpona" ${dis}>
+            <option value="" ${d.predpona ? "" : "selected"}>nenabízet</option>
+            ${V.PREDPONY.map(p => `<option value="${p}" ${d.predpona === p ? "selected" : ""}>${p}…</option>`).join("")}
+          </select>
+          <div class="typ-hint" id="sbPrefixHint">${samePrefix.length ? `Stejnou předponu má i „${esc(samePrefix[0].nazev)}“ — v dialogu Nový projekt se předvybere ta, která je v seznamu výš.` : "V dialogu Nový projekt se šablona předvybere podle začátku hlavního označení."}</div>
+        </div>
+        <div class="field wide">
+          <label class="lbl" for="sbPopis">Popis</label>
+          <textarea class="inp" id="sbPopis" data-sf="popis" ${dis}>${esc(d.popis || "")}</textarea>
+        </div>
+      </div>
+      <div class="sb-bar">
+        ${sys ? `<span class="muted" style="font-size:13px">Systémová šablona — nejde upravit ani smazat.</span>` : ""}
+        ${!sys && !SB.isNew ? `<span class="muted" style="font-size:13px">Použito u ${used} ${plural(used, "projektu", "projektů", "projektů")}. Změny se projeví jen u nově zakládaných projektů.</span>` : ""}
+        ${SB.isNew ? `<span class="muted" style="font-size:13px">Nová šablona — zatím neuložená.</span>` : ""}
+        <span class="spacer"></span>
+        ${CAN_SABLONY && !SB.isNew && !sys ? `<button class="btn btn-secondary btn-sm" type="button" data-sb="duplicate">Duplikovat</button>
+          <button class="btn btn-danger btn-sm" type="button" data-sb="delete">Smazat</button>` : ""}
+        ${ed ? `<button class="btn btn-secondary btn-sm" type="button" data-sb="discard" ${SB.dirty ? "" : "disabled"}>Zahodit změny</button>
+          <button class="btn btn-primary btn-sm" type="button" data-sb="save">Uložit šablonu</button>` : ""}
+      </div>
+      <div class="ferr" id="sbErr"></div>
+    </div>
+    <div class="section-head"><h2>Fáze a podúkoly</h2>
+      <span class="muted" style="font-size:13px">${ed ? "Pořadí změníš přetažením za úchyt ⠿ nebo šipkami. Položky = drobnosti k odškrtnutí pod podúkolem." : ""}</span></div>
+    ${phaseHtml || `<div class="muted" style="margin-bottom:10px">Šablona bez fází — projekt se založí prázdný a fáze se doplní v jeho detailu.</div>`}
+    ${ed ? `<button class="btn btn-secondary btn-sm" type="button" data-act="fadd">+ Fáze</button>` : ""}`;
+}
+
+function sbTaskHtml(u, fi, ui, count, ed) {
+  const dis = ed ? "" : "disabled";
+  const items = u.polozky || [];
+  return `<div class="sb-task" data-fi="${fi}" data-ui="${ui}">
+    <div class="sb-task-row">
+      ${ed ? `<span class="handle" draggable="true" data-drag="u:${fi}:${ui}" title="Přetažením přesuneš podúkol (i do jiné fáze)">⠿</span>` : ""}
+      <input class="inp sb-tname" data-uf="nazev" data-fi="${fi}" data-ui="${ui}" value="${esc(u.nazev)}" placeholder="Název podúkolu" ${dis} />
+      <select class="inp sb-tres" data-uf="resitel" data-fi="${fi}" data-ui="${ui}" title="Výchozí řešitel" ${dis}>${sbOwnerOptions(u.resitel || "")}</select>
+      <label class="sb-days"><input class="inp" type="number" min="1" max="60" step="1" data-uf="dny" data-fi="${fi}" data-ui="${ui}" value="${esc(u.dny || 1)}" ${dis} />dní</label>
+      <button class="items-btn" type="button" data-act="uitems" data-fi="${fi}" data-ui="${ui}" title="Položky k odškrtnutí">☑ ${items.length}</button>
+      ${ed ? `<button class="mini" type="button" data-act="uup" data-fi="${fi}" data-ui="${ui}" title="Posunout výš" ${ui === 0 ? "disabled" : ""}>↑</button>
+        <button class="mini" type="button" data-act="udown" data-fi="${fi}" data-ui="${ui}" title="Posunout níž" ${ui === count - 1 ? "disabled" : ""}>↓</button>
+        <button class="mini" type="button" data-act="udel" data-fi="${fi}" data-ui="${ui}" title="Odebrat podúkol">✕</button>` : ""}
+    </div>
+    ${u._open ? `<textarea class="inp sb-items" data-uf="polozky" data-fi="${fi}" data-ui="${ui}" placeholder="Každá položka na samostatný řádek" ${dis}>${esc(items.map(p => p.text).join("\n"))}</textarea>` : ""}
+  </div>`;
+}
+
+// Položky z textu (řádek = položka); ID se zachová u položky se stejným textem.
+function sbParseItems(text, prev) {
+  const pool = (prev || []).slice();
+  return String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(t => {
+    const i = pool.findIndex(p => p.text === t);
+    if (i >= 0) { const [p] = pool.splice(i, 1); return { id: p.id, text: t }; }
+    return { text: t };
+  });
+}
+
+function sbMarkDirty() {
+  if (!SB.dirty) {
+    SB.dirty = true;
+    const b = document.querySelector('#sbEditor [data-sb="discard"]');
+    if (b) b.disabled = false;
+  }
+  renderSbSide();
+}
+
+function sbMove(arr, from, to) {
+  if (from < 0 || from >= arr.length || to < 0 || to > arr.length) return;
+  const [x] = arr.splice(from, 1);
+  arr.splice(to > from ? to - 1 : to, 0, x);
+}
+
+async function sbSave() {
+  const err = document.getElementById("sbErr");
+  err.textContent = "";
+  const d = SB.draft;
+  const input = {
+    id: SB.isNew ? undefined : SB.selId,
+    nazev: d.nazev, popis: d.popis, predpona: d.predpona,
+    faze: (d.faze || []).map(f => ({ id: f.id, nazev: f.nazev, ukoly: (f.ukoly || []).map(u => ({
+      id: u.id, nazev: u.nazev, resitel: u.resitel, dny: u.dny, polozky: u.polozky || [],
+    })) })),
+  };
+  const btn = document.querySelector('#sbEditor [data-sb="save"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Ukládám…"; }
+  const res = await run(() => V.saveSablona(input, SB.isNew ? null : SB.fp),
+    r => r.unchanged ? "Šablona je beze změny — nic se neukládalo." : `Šablona „${r.nazev}“ ${r.created ? "založena" : "uložena"}.`);
+  if (!res.ok) {
+    if (btn) { btn.disabled = false; btn.textContent = "Uložit šablonu"; }
+    const e2 = document.getElementById("sbErr");
+    if (e2) e2.textContent = res.error.message;
+    return;
+  }
+  sbLoad(res.result.id);
+  renderSablony({ force: true });
+}
+
+async function sbAction(act) {
+  if (act === "save") return sbSave();
+  if (act === "discard") {
+    if (SB.isNew) { sbReset(); } else { sbLoad(SB.selId); }
+    return renderSablony({ force: true });
+  }
+  if (act === "new") {
+    if (!(await sbConfirmDiscard())) return;
+    sbStartNew({ nazev: sbUniqueName("Nová šablona"), popis: "", predpona: "", faze: [{ nazev: "Příprava", ukoly: [] }] });
+    renderSablony({ force: true });
+    const n = document.getElementById("sbNazev"); if (n) { n.focus(); n.select(); }
+    return;
+  }
+  if (act === "duplicate") {
+    if (!(await sbConfirmDiscard())) return;
+    const s = sbFind(SB.selId);
+    if (!s) return;
+    sbStartNew(Object.assign(sbStripIds(s), { nazev: sbUniqueName(`${s.nazev} (kopie)`) }));
+    return renderSablony({ force: true });
+  }
+  if (act === "fromProject") {
+    const projects = V.projects(allTasks()).filter(p => !p.cancelled)
+      .sort((a, b) => projectLabel(a).localeCompare(projectLabel(b), "cs"));
+    if (!projects.length) { notify("Zatím není žádný projekt, ze kterého by šla šablona vytvořit.", "warn"); return; }
+    const id = await ask({
+      title: "Šablona ze stávajícího projektu",
+      text: "Převezmou se fáze, podúkoly (bez dat a stavů, řešitel jako výchozí) a položky. Šablonu pak ještě upravíš a uložíš.",
+      options: projects.map(p => ({ value: p.id, label: `${projectLabel(p)}${p.vyroba.oznaceni ? ` — ${p.title}` : ""}` })),
+      okText: "Vytvořit návrh",
+    });
+    if (!id) return;
+    return sbFromProject(id, { skipNav: true });
+  }
+  if (act === "delete") {
+    const s = sbFind(SB.selId);
+    if (!s) return;
+    const used = V.sablonaUsage(RAW, s);
+    const ok = await ask({
+      title: "Smazat šablonu",
+      text: `Smazat šablonu „${s.nazev}“?` + (used ? `\n\nVzniklo z ní ${used} ${plural(used, "projekt", "projekty", "projektů")} — ty zůstanou beze změny (mají vlastní kopii postupu), u projektu zůstane název šablony jako údaj.` : ""),
+      okText: "Smazat šablonu", danger: true,
+    });
+    if (!ok) return;
+    const res = await run(() => V.deleteSablona(s.id, SB.fp), `Šablona „${s.nazev}“ smazána.`);
+    if (res.ok) { sbReset(); renderSablony({ force: true }); }
+  }
+}
+
+// „Uložit jako šablonu“ (detail projektu) i „Ze stávajícího projektu“.
+async function sbFromProject(projectId, { skipNav = false } = {}) {
+  if (!CAN_SABLONY) return;
+  if (!(await sbConfirmDiscard())) return;
+  let draft;
+  try { draft = V.sablonaFromProject(RAW, projectId); }
+  catch (e) { notify(e.message, "error"); return; }
+  draft.nazev = sbUniqueName(draft.nazev);
+  sbStartNew(draft);
+  if (skipNav || isSablonyView()) renderSablony({ force: true });
+  else location.hash = "sablony";
+}
+
+(function bindSablony() {
+  const view = document.getElementById("viewSablony");
+  view.addEventListener("click", async e => {
+    const sb = e.target.closest("[data-sb]");
+    if (sb) { await sbAction(sb.dataset.sb); return; }
+    const sel = e.target.closest("[data-sel]");
+    if (sel) {
+      if (sel.dataset.sel === SB.selId && !SB.isNew) return;
+      if (!(await sbConfirmDiscard())) return;
+      sbLoad(sel.dataset.sel);
+      return renderSablony({ force: true });
+    }
+    const a = e.target.closest("[data-act]");
+    if (!a || !SB.draft) return;
+    const d = SB.draft, fi = +a.dataset.fi, ui = +a.dataset.ui;
+    const act = a.dataset.act;
+    if (act === "uitems") { const u = d.faze[fi].ukoly[ui]; u._open = !u._open; return renderSbEditor(); }
+    if (!sbEditable()) return;
+    if (act === "fadd") d.faze.push({ nazev: "", ukoly: [] });
+    else if (act === "fup") sbMove(d.faze, fi, fi - 1);
+    else if (act === "fdown") sbMove(d.faze, fi, fi + 2);
+    else if (act === "fdel") {
+      const n = d.faze[fi].ukoly.length;
+      if (n && !(await ask({ title: "Odebrat fázi", text: `Fáze „${d.faze[fi].nazev}“ obsahuje ${n} ${plural(n, "podúkol", "podúkoly", "podúkolů")}. Odebrat ji i s nimi?`, okText: "Odebrat", danger: true }))) return;
+      d.faze.splice(fi, 1);
+    }
+    else if (act === "uadd") d.faze[fi].ukoly.push({ nazev: "", resitel: "", dny: 1, polozky: [] });
+    else if (act === "uup") sbMove(d.faze[fi].ukoly, ui, ui - 1);
+    else if (act === "udown") sbMove(d.faze[fi].ukoly, ui, ui + 2);
+    else if (act === "udel") d.faze[fi].ukoly.splice(ui, 1);
+    else return;
+    sbMarkDirty();
+    renderSbEditor();
+    if (act === "fadd") { const ins = document.querySelectorAll("#sbEditor [data-pf]"); ins[ins.length - 1].focus(); }
+    if (act === "uadd") { const ins = document.querySelectorAll(`#sbEditor .sb-tasks[data-fi="${fi}"] .sb-tname`); ins[ins.length - 1].focus(); }
+  });
+  const onEdit = e => {
+    const t = e.target;
+    if (!SB.draft || !sbEditable()) return;
+    const d = SB.draft;
+    if (t.dataset.sf) d[t.dataset.sf] = t.value;
+    else if (t.dataset.pf !== undefined) d.faze[+t.dataset.pf].nazev = t.value;
+    else if (t.dataset.uf) {
+      const u = d.faze[+t.dataset.fi].ukoly[+t.dataset.ui];
+      if (t.dataset.uf === "polozky") {
+        u.polozky = sbParseItems(t.value, u.polozky);
+        const b = t.closest(".sb-task").querySelector('[data-act="uitems"]');
+        if (b) b.textContent = `☑ ${u.polozky.length}`;
+      } else u[t.dataset.uf] = t.value;
+    } else return;
+    if (t.dataset.sf === "predpona") renderSbEditor();
+    sbMarkDirty();
+  };
+  view.addEventListener("input", onEdit);
+  view.addEventListener("change", e => { if (e.target.tagName === "SELECT") onEdit(e); });
+
+  // Přetahování za úchyt ⠿: fáze mezi fázemi, podúkol na jiný podúkol
+  // (vloží se před něj) nebo do seznamu fáze (na konec).
+  let drag = null;
+  view.addEventListener("dragstart", e => {
+    const h = e.target.closest && e.target.closest("[data-drag]");
+    if (!h) return;
+    drag = h.dataset.drag;
+    try { e.dataTransfer.setData("text/plain", drag); e.dataTransfer.effectAllowed = "move"; } catch (err) {}
+  });
+  const target = e => {
+    if (!drag) return null;
+    if (drag.startsWith("f:")) return e.target.closest(".sb-phase");
+    return e.target.closest(".sb-task") || e.target.closest(".sb-tasks");
+  };
+  view.addEventListener("dragover", e => {
+    const t = target(e);
+    if (!t) return;
+    e.preventDefault();
+    view.querySelectorAll(".drop-over").forEach(x => { if (x !== t) x.classList.remove("drop-over"); });
+    t.classList.add("drop-over");
+  });
+  view.addEventListener("dragend", () => { drag = null; view.querySelectorAll(".drop-over").forEach(x => x.classList.remove("drop-over")); });
+  view.addEventListener("drop", e => {
+    const t = target(e);
+    if (!t || !SB.draft || !sbEditable()) return;
+    e.preventDefault();
+    const d = SB.draft, src = drag.split(":").map((x, i) => i ? +x : x);
+    drag = null;
+    if (src[0] === "f") {
+      sbMove(d.faze, src[1], +t.dataset.fi);
+    } else {
+      const [, sfi, sui] = src;
+      const tfi = +t.dataset.fi;
+      const tui = t.classList.contains("sb-task") ? +t.dataset.ui : d.faze[tfi].ukoly.length;
+      if (sfi === tfi) sbMove(d.faze[tfi].ukoly, sui, tui);
+      else { const [u] = d.faze[sfi].ukoly.splice(sui, 1); d.faze[tfi].ukoly.splice(tui, 0, u); }
+    }
+    sbMarkDirty();
+    renderSbEditor();
+  });
+})();
+
+document.getElementById("pmSablonyLink").addEventListener("click", () => closeModal("projectModal"));
+
 // ── Start ────────────────────────────────────────────────────────────────
 if (!V) {
   // Stará ft_loader.js z HTTP cache (až 10 min po nasazení) — bez pádu.
@@ -1361,8 +1815,9 @@ if (!V) {
       RAW = FTLoader.getRawJson();
       if (!_permissionChecked) {
         _permissionChecked = true;
-        V.canEdit().then(ok => {
+        Promise.all([V.canEdit(), V.canEditSablony ? V.canEditSablony() : false]).then(([ok, okSab]) => {
           CAN_EDIT = ok;
+          CAN_SABLONY = okSab;
           const n = document.getElementById("readonlyNotice");
           n.hidden = ok;
           n.textContent = FTLoader.hasOpravneni("projekty")
