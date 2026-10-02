@@ -1674,6 +1674,13 @@ oddělená od úložiště). Konkrétní zásady sepsané pro modul výroby v
 celého TOP: nejedinečná `id` u zástupů, pole uvnitř úkolu, SPA sync
 přímo do JSON). Termín ani postup převodu zatím nejsou určené.
 
+**Aktualizace 2026-10-02 (JK): zahájena teoretická příprava TOP 2.0**
+(PostgreSQL, firemní server, mobil odkudkoliv, účty a budoucí rozcestník
+s Keycloakem). Vše k TOP 2 je v samostatné lokální složce
+`AI/TOP-V2 - Týdenní Operační Plán` (`CLAUDE.md`, `TOP2_navrh.md`),
+mimo tento veřejný repozitář. Programovat se začne až na výslovný pokyn
+JK; TOP 1 do té doby běží beze změny.
+
 ## Nápady uživatele (JK) na budoucí rozvoj — jen zaznamenáno, neplánováno
 
 Tohle jsou JK vlastní myšlenky, zmíněné 2026-08-05 jako věci k budoucímu
