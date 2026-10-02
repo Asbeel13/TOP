@@ -115,7 +115,8 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
   stránkách). 2026-09-30: „Programuj etapu 2“. 2026-10-01: „Programuj
   etapu 3“. Etapy 4–6 zatím NE.
 - **Etapa 3 — ✅ NASAZENA (JK 2026-10-01 08:56, commit `a93fdb1`;
-  GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí)** — 2
+  GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí; JK
+  2026-10-02 ověřil s reálnými daty: „úprava šablony funguje“)** — 2
   soubory (`vyroba.html`, `ft_loader.js`): záložka **Šablony** (seznam,
   editor fází / podúkolů / položek s přetahováním, nová / duplikovat /
   smazat / ze stávajícího projektu), v detailu projektu „Uložit jako

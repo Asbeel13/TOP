@@ -823,9 +823,9 @@ Nasazená `vyroba.html` bez tokenu: načte se bez chyb v konzoli, záložky
 Přehled projektů / Šablony, `FTLoader.vyroba.saveSablona` /
 `deleteSablona` / `sablonaFromProject` / `sablonaUsage` /
 `canEditSablony` / `isSystemSablona` k dispozici, 5 výchozích šablon,
-přihlašovací dialog. Skutečnou úpravu šablon ověří JK v appce — token
-se nezadává. Klíč `sablony` v database.json vznikne až prvním uložením
-šablony.
+přihlašovací dialog. Klíč `sablony` v database.json vznikne až prvním
+uložením šablony. **✅ JK ověřil v appce s reálnými daty (2026-10-02):
+„úprava šablony funguje“.**
 
 JK: „Programuj etapu 3“. Podle 6.17 (schváleno v kolech 5–7).
 
