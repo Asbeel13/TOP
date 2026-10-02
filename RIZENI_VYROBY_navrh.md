@@ -1,10 +1,11 @@
 # Řízení výroby — návrh modulu (TOP)
 
-**Stav (2026-10-01):** Etapa 1 včetně opravy `completedDays` NASAZENA
+**Stav (2026-10-02):** Etapa 1 včetně opravy `completedDays` NASAZENA
 a ověřena (`8531e16`, `761dec7`). **Etapa 2 (stránka modulu
 `vyroba.html`) NASAZENA a ověřena (`d8ffaae`, 2026-09-30)** (sekce 12).
 **Etapa 3 (správa šablon) NASAZENA a ověřena (`a93fdb1`, 2026-10-01)**
-(sekce 12). Etapy 4–6 jen na nový výslovný pokyn JK.
+(sekce 12). **Etapa 4 (Gantt) NASAZENA a ověřena (`47ac01c`,
+2026-10-02)** (sekce 12). Etapy 5–6 jen na nový výslovný pokyn JK.
 
 Průvodní dokument modulu (JK 2026-09-29: „bude to větší modul,
 informace držet v samostatném souboru“). V `TOP/CLAUDE.md` je jen
@@ -610,6 +611,9 @@ otevřená otázka; čeká se na pokyn JK k programování.
 - **2026-10-01** — JK: „Programuj etapu 3“. Správa šablon (záložka
   Šablony, „Uložit jako šablonu“) hotová lokálně a otestovaná (sekce
   12); JK nahrál (`a93fdb1`), ověřeno GitHub i Pages.
+- **2026-10-02** — JK ověřil šablony s reálnými daty. JK: „Programuj
+  etapu 4“. Gantt (záložka v `vyroba.html`) hotový lokálně a otestovaný
+  (sekce 12); JK nahrál (`47ac01c`), ověřeno GitHub i Pages.
 
 ## 10. Náčrt obrazovek
 
@@ -813,6 +817,84 @@ kopii živé databáze, nahrává JK (Konvence č. 4).
 
 Každá etapa jen na výslovný pokyn JK (programuje se jen schválená
 etapa). Kódové soubory nahrává výhradně JK (Konvence č. 4).
+
+### Etapa 4 — Gantt (2026-10-02, NASAZENA a ověřena — `47ac01c`)
+
+**✅ Nahráno JK 2026-10-02 06:26, commit `47ac01c` (1 soubor)** —
+`git fetch` + `cmp`: `vyroba.html` bajtově shodný s otestovanou verzí;
+GitHub Pages (stažení bez cache): SHA-256 sedí. Nasazená stránka bez
+tokenu: načte se bez chyb v konzoli, záložky Přehled projektů / Gantt /
+Šablony, měřítko Dny / Týdny / Měsíce, přihlašovací dialog. Skutečná
+data (a překreslení po změně šířky okna) ověří JK v appce — token se
+nezadává.
+
+JK: „Programuj etapu 4“. Podle 6.5 a náčrtu (obrazovka 3).
+
+**Soubor (1):** jen `vyroba.html`, `ft_loader.js` beze změny.
+- **Záložka Gantt** (`vyroba.html#gantt`) mezi Přehledem projektů a
+  Šablonami.
+- **Řádky:** projekt → fáze (v pořadí projektu, případně „Bez fáze“
+  stejně jako Kanban v detailu) → podúkoly (bez zrušených). Projekt se
+  sbaluje šipkou nebo klikem na řádek, k dispozici je „Sbalit vše /
+  Rozbalit vše“. Řazení podle termínu projektu.
+- **Pruhy podúkolů:** podle `plannedDate` + `durationDays` přes
+  `FTLoader.getMultiDayOccurrenceDates`. Vybrané dny v týdnu dávají víc
+  úseků. Barva podle stavu (Nový / Probíhá / Čeká se / Dokončeno),
+  odškrtnutý den vícedenního úkolu je zelený jako v týdenním plánu.
+- **Pruh fáze** je tenká čára přes její podúkoly.
+- **Pruh projektu** vede od prvního do posledního dne podúkolů a má
+  výplň postupu. Termín (`dueDate`) je kosočtverec, červený po termínu.
+  Naplánovaná část po termínu je červeně.
+- **Měřítko:** Dny (6 týdnů), Týdny (16 týdnů), Měsíce (6 měsíců), posun
+  ← / Dnes / →. Šířka dne se řídí šířkou okna. V úzkém okně se Gantt
+  posouvá vodorovně a sloupec názvů zůstává na místě.
+- **Pozadí:** víkendy, státní svátky ze SPA (`*SPA-HOL-…*`), hranice
+  týdnů / měsíců, čára a zvýrazněný den „dnes“.
+- **Mimo zobrazené období** je poznámka u okraje („← 3. 8. – 4. 8.“,
+  „1. 12. →“, „termín 20. 11. →“). Dále „bez data“, „podúkoly zatím bez
+  data“ a „bez podúkolů“.
+- **Které projekty se zobrazí:** rozpracované (Nový, Probíhá). „Zobrazit
+  zamrzlé a hotové“ přidá zamrzlé a hotové, které do období zasahují.
+  Zrušené se nezobrazí nikdy. Počet skrytých je u počtu projektů.
+- **Gantt sám nic neukládá** (bez přetahování pruhů a bez závislostí,
+  6.5). Klik na podúkol otevře jeho okno: držitel `projekty` v něm mění
+  datum, řešitele atd., ostatní ho vidí jen pro čtení. Klik na číslo
+  projektu otevře detail, z něj odkaz „← Gantt“ vede zpět a záložka
+  Gantt zůstane zvýrazněná.
+- **Nastavení** (měřítko, zamrzlé a hotové, sbalené projekty) je jen v
+  prohlížeči (`localStorage` `ftVyrobaGantt`), do `database.json` nic.
+
+**Test** (podvržené GitHub API, čerstvá kopie živé DB 776 kB, okno
+1600×1000 a 820×900, světlý i tmavý režim):
+- **Skutečný projekt VY26000014:** 5 fází, 10 podúkolů, termín 15. 10.
+  Plán do 31. 10. → červený kosočtverec a přesah 16.–31. 10.
+- **9 testovacích projektů:**
+  - Stavy a vícedenní: Po–Pá od čtvrtka = 2 úseky, 2 odškrtnuté dny
+    zeleně.
+  - Osiřelý podúkol je pod „Bez fáze“, zrušený podúkol není vidět.
+  - Podúkol bez data a bez řešitele.
+  - Práce mimo období vlevo i vpravo, termín před obdobím.
+  - Zamrzlý a hotový jen s volbou („skryto 2“); dávno hotový se
+    nepočítá, zrušený projekt nikdy.
+  - Projekt bez podúkolů a projekt s podúkoly bez data.
+- **Ovládání:** měřítka, posun, Dnes, svátky 28. 9. a 28. 10. (Měsíce:
+  7 svátků i v roce 2027), sbalení a rozbalení i uložené nastavení.
+- **Okno podúkolu z Ganttu:** nové datum = 1 zápis + záznam historie,
+  pruh se hned posunul. Bez příznaku `projekty` je okno jen pro čtení a
+  nic se nezapíše.
+- **Návaznost:** detail ↔ Gantt funguje. Přehled a Šablony beze změny.
+  Neuložená šablona se ptá i při přechodu do Ganttu.
+- **Opraveno při testu:**
+  - Přesah po termínu se kreslil i před začátkem plánu.
+  - Čára „dnes“ prosvítala pod sloupcem názvů. Pozadí je teď ve vlastní
+    vrstvě a oddělovače řádků jsou v buňkách.
+  - Číslo svátku v hlavičce bylo v tmavém režimu nečitelné. Používá
+    `--auto-kolize` (`--danger` na `--holiday-bg` nečitelné).
+  - Překreslení po změně šířky okna hlídá `ResizeObserver`.
+- Bez chyb v konzoli, CRLF, bez BOM, jen proměnné z `theme.css`.
+
+**Nahrání:** jen `vyroba.html`. Gantt používá jen funkce z etap 2 a 3,
+takže starší `ft_loader.js` z HTTP cache nevadí.
 
 ### Etapa 3 — správa šablon (2026-10-01, NASAZENA a ověřena — `a93fdb1`)
 
