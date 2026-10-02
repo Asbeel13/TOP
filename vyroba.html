@@ -267,11 +267,14 @@
     .g-bar { position: absolute; top: 8px; height: 14px; border-radius: 4px; z-index: 1; background: var(--line-medium); }
     .g-bar.cut-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
     .g-bar.cut-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .g-pbar { position: absolute; top: 13px; height: 12px; border-radius: 6px; z-index: 1; background: var(--line-medium); overflow: hidden; }
+    .g-pbar > div { height: 100%; background: var(--success); }
+    /* Barva podle stavu: pruh podúkolu = stav podúkolu, pruh projektu = stav
+       projektu (JK 2026-10-02); jedna legenda pro oba. Pravidla až za
+       .g-bar a .g-pbar, ať jejich výchozí šedou přebijí. */
     .gb-run { background: var(--accent); }
     .gb-wait { background: var(--warn); }
     .gb-done { background: var(--success); }
-    .g-pbar { position: absolute; top: 13px; height: 12px; border-radius: 6px; z-index: 1; background: var(--line-medium); overflow: hidden; }
-    .g-pbar > div { height: 100%; background: var(--success); }
     .g-fbar { position: absolute; top: 13px; height: 4px; border-radius: 2px; z-index: 1; background: var(--text-muted); }
     .g-over { position: absolute; top: 13px; height: 12px; border-radius: 0 6px 6px 0; z-index: 1; background: var(--danger); }
     .g-mark { position: absolute; top: 13px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); z-index: 3; background: var(--text); border: 2px solid var(--panel); }
@@ -396,7 +399,7 @@
     <div class="page-head">
       <div>
         <h1>Gantt</h1>
-        <div class="sub">Plán podúkolů podle data a délky. Kosočtverec = požadovaný termín projektu, část plánu po termínu je červeně. Datum podúkolu změníte v jeho okně — klikněte na řádek.</div>
+        <div class="sub">Plán podúkolů podle data a délky. Barva pruhu = stav podúkolu, u projektu stav projektu; zelená část pruhu projektu = hotové podúkoly. Kosočtverec = požadovaný termín, část plánu po termínu je červeně. Datum podúkolu změníte v jeho okně — klikněte na řádek.</div>
       </div>
       <div class="right"><span class="muted" id="gCount" style="font-size:13px"></span></div>
     </div>
@@ -415,8 +418,8 @@
       <div class="g-legend">
         <span class="lg"><i style="background:var(--line-medium)"></i>Nový</span>
         <span class="lg"><i class="gb-run"></i>Probíhá</span>
-        <span class="lg"><i class="gb-wait"></i>Čeká se</span>
-        <span class="lg"><i class="gb-done"></i>Dokončeno</span>
+        <span class="lg"><i class="gb-wait"></i>Čeká se / Zamrzlý</span>
+        <span class="lg"><i class="gb-done"></i>Dokončeno / Hotový</span>
         <span class="lg"><i class="mk"></i>Termín</span>
         <span class="lg"><i style="background:var(--danger)"></i>Po termínu</span>
         <span class="lg"><i class="tl"></i>Dnes</span>
@@ -2179,7 +2182,7 @@ function gProjectRowsHtml(ctx, x, W, today) {
   let track = "";
   if (span) {
     const c = gClip(ctx, span.from, span.to);
-    if (c) track += `<div class="g-pbar${gCutCls(c)}" style="${gBox(ctx, c)}" title="${esc(`${label}: ${gFmtSpan(span)} · hotovo ${info.prog.done}/${info.prog.total}`)}"><div style="width:${pct}%"></div></div>`;
+    if (c) track += `<div class="g-pbar ${G_STATE_CLS[p.state] || ""}${gCutCls(c)}" style="${gBox(ctx, c)}" title="${esc(`${label}: ${stateLabel(p.state)} · ${gFmtSpan(span)} · hotovo ${info.prog.done}/${info.prog.total}`)}"><div style="width:${pct}%"></div></div>`;
     else gOutside(ctx, span, left, right);
     if (due && span.to > due) {
       // Přesah = naplánovaná část po termínu (ne dny před začátkem plánu).
