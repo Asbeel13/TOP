@@ -133,7 +133,9 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
   víkendy, svátky ze SPA, čára „dnes“, měřítko Dny / Týdny / Měsíce,
   sbalování projektů, zamrzlé a hotové volitelně. Gantt nic neukládá;
   klik na podúkol otevře jeho okno. Nastavení jen v `localStorage`
-  `ftVyrobaGantt`. Detail a test v navrh.md sekce 12.
+  `ftVyrobaGantt`. Detail a test v navrh.md sekce 12. **Doplněk
+  (JK 2026-10-02, ✅ nasazeno `74ec596`):** pruh projektu v barvě
+  stavu projektu, podúkoly podle svého stavu, jedna legenda pro oba.
 - **Etapa 3 — ✅ NASAZENA (JK 2026-10-01 08:56, commit `a93fdb1`;
   GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí; JK
   2026-10-02 ověřil s reálnými daty: „úprava šablony funguje“)** — 2

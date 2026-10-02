@@ -619,6 +619,9 @@ otevřená otázka; čeká se na pokyn JK k programování.
 - **2026-10-02** — JK: „Gant funguje. Programuj etapu 5“. Kalendář
   (záložka v `vyroba.html`) hotový lokálně a otestovaný (sekce 12); JK
   nahrál (`2d96b70`), ověřeno GitHub i Pages.
+- **2026-10-02** — Doplněk Ganttu: pruh projektu v barvě stavu projektu,
+  jedna legenda pro projekty i podúkoly (sekce 12, etapa 4); JK nahrál
+  (`74ec596`), ověřeno GitHub i Pages.
 
 ## 10. Náčrt obrazovek
 
@@ -908,6 +911,23 @@ GitHub Pages (stažení bez cache): SHA-256 sedí. Nasazená stránka bez
 tokenu: načte se bez chyb v konzoli, záložky Přehled projektů / Gantt /
 Šablony, měřítko Dny / Týdny / Měsíce, přihlašovací dialog. **✅ JK
 ověřil v appce s reálnými daty (2026-10-02): „Gant funguje“.**
+
+**Doplněk — barva pruhu projektu podle stavu (JK 2026-10-02, ✅
+NASAZENO `74ec596` 07:33, GitHub i Pages bajtově / SHA-256 shodné s
+otestovanou verzí):** JK se ptal, proč je probíhající projekt v barvě
+„Nový“. Pruh projektu měl šedý podklad a zelenou výplň postupu, takže
+VY26000014 (Probíhá, 0/10 hotovo) vypadal jako nový. JK: „Barva pruhu
+projektu podle stavu projektu, barva úkolů podle stavu úkolů. Legendu
+nerozděluj.“
+- Pruh projektu má barvu stavu projektu: Nový šedý, Probíhá modrý,
+  Zamrzlý oranžový, Hotový zelený. Zelená výplň hotové části, červený
+  přesah po termínu a kosočtverec zůstaly.
+- Pruhy podúkolů beze změny (stav podúkolu).
+- Legenda je jedna pro oba typy: „Čeká se / Zamrzlý“, „Dokončeno /
+  Hotový“. Bublina pruhu projektu nově uvádí i stav.
+- Test (mock, kopie živé DB): projekty ve všech 4 stavech mají správnou
+  barvu, výplň 0 % / 50 % / 100 %, podúkoly podle vlastního stavu, bez
+  chyb v konzoli. Jen `vyroba.html`.
 
 JK: „Programuj etapu 4“. Podle 6.5 a náčrtu (obrazovka 3).
 
