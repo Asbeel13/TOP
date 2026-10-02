@@ -101,7 +101,7 @@ ve stávajících formulářích stále uvádí trvalý stav auta i při denním
 `volné`; posun používá denní výjimku. Případné sjednocení starých
 formulářů je samostatná změna vyžadující svolení JK.
 
-## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapy 1–5 NASAZENY, poslední etapa 5 `2d96b70`)
+## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapy 1–5 NASAZENY, etapa 6 se nedělá — modul uzavřen)
 
 JK zahájil návrh modulu pro plánování a řízení výroby (projekty =
 hlavní úkol + podúkoly, fáze, šablony, doklady PROFIT, Kanban, Gantt,
@@ -114,7 +114,9 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
   „Koncept schválen, programuj etapu 1“ (datový základ ve stávajících
   stránkách). 2026-09-30: „Programuj etapu 2“. 2026-10-01: „Programuj
   etapu 3“. 2026-10-02: „Programuj etapu 4“ a „Programuj etapu 5“.
-  Etapa 6 zatím NE.
+  **Etapa 6 (převod starších úkolů do projektů) se NEDĚLÁ** — JK
+  2026-10-02 po rozboru dat: „Zpětné přiřazení nedělej“ (rozbor v
+  navrh.md sekce 12). Neotvírat bez nového pokynu JK.
 - **Etapa 5 — ✅ NASAZENA (JK 2026-10-02 06:59, commit `2d96b70`;
   GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí)** — jen
   `vyroba.html`: záložka **Kalendář** (`#kalendar`) ve stylu kalendáře

@@ -6,8 +6,9 @@ a ověřena (`8531e16`, `761dec7`). **Etapa 2 (stránka modulu
 **Etapa 3 (správa šablon) NASAZENA a ověřena (`a93fdb1`, 2026-10-01)**
 (sekce 12). **Etapa 4 (Gantt) NASAZENA a ověřena (`47ac01c`,
 2026-10-02)** (sekce 12). **Etapa 5 (kalendář) NASAZENA a ověřena
-(`2d96b70`, 2026-10-02)** (sekce 12). Etapa 6 jen na nový výslovný pokyn
-JK.
+(`2d96b70`, 2026-10-02)** (sekce 12). **Etapa 6 (převod starších dat) se
+nedělá** — JK 2026-10-02 po rozboru dat: „Zpětné přiřazení nedělej“
+(sekce 12).
 
 Průvodní dokument modulu (JK 2026-09-29: „bude to větší modul,
 informace držet v samostatném souboru“). V `TOP/CLAUDE.md` je jen
@@ -332,7 +333,8 @@ ve vlastním souboru, rozhodne se s datovým modelem). Objem projektů
 
 Úkoly s VY/VZ/SZ v poli Projekt a 19 improvizovaných vazeb by šlo po
 spuštění nabídnout k převedení na hlavní úkol + podúkoly (jednorázově,
-s potvrzením JK). Ne automaticky.
+s potvrzením JK). Ne automaticky. **JK 2026-10-02: „Zpětné přiřazení
+nedělej“ — starší úkoly se do projektů nepřevádějí (sekce 12, etapa 6).**
 
 ### 6.8 Identifikace projektu — ✅ potvrzeno (3.16, 3.21)
 
@@ -622,6 +624,8 @@ otevřená otázka; čeká se na pokyn JK k programování.
 - **2026-10-02** — Doplněk Ganttu: pruh projektu v barvě stavu projektu,
   jedna legenda pro projekty i podúkoly (sekce 12, etapa 4); JK nahrál
   (`74ec596`), ověřeno GitHub i Pages.
+- **2026-10-02** — JK: „Programuj etapu 6“. Po rozboru dat JK rozhodl:
+  „Zpětné přiřazení nedělej“ → etapa 6 se nedělá (sekce 12).
 
 ## 10. Náčrt obrazovek
 
@@ -820,11 +824,31 @@ kopii živé databáze, nahrává JK (Konvence č. 4).
 5. **Kalendář ve stylu SPA.**
 6. **Volitelně: převod existujících dat** (19 ručních vazeb, úkoly s
    VY/VZ/SZ v poli Označení) — jednorázově, s potvrzením JK (6.7).
+   **Nedělá se** (JK 2026-10-02, sekce 12).
 
 ## 12. Implementace
 
 Každá etapa jen na výslovný pokyn JK (programuje se jen schválená
 etapa). Kódové soubory nahrává výhradně JK (Konvence č. 4).
+
+### Etapa 6 — převod starších dat (2026-10-02, NEDĚLÁ SE)
+
+JK: „Programuj etapu 6“. Před programováním proběhl rozbor kopie živé
+DB (jen čtení, 1 690 úkolů bez SPA):
+- **Ruční vazby:** 19 vazeb, 15 nadřazených úkolů. 7 skupin je
+  rozpracovaných, 8 hotových. Jeden řetězec je dvouúrovňový
+  (`*0275*` → `*0264*` → `*0263*`). Jedna vazba vypadá jako omyl
+  (`*0592*` „Čištění Continental“ → `*ZC0073*` „ŘD“).
+- **Čísla VY/VZ/SZ v Označení / Dodatečném označení:** 36 úkolů, 33
+  čísel. 28 čísel má jen hotové úkoly, většinou jde o jediný úkol na
+  číslo. Úkol „Výroba FT-OH-200 VY26000014“ má stejné číslo jako
+  existující projekt v modulu.
+- **Navržené řešení:** obrazovka „Převést starší úkoly“ se seznamem
+  kandidátů, náhledem a potvrzením každé skupiny.
+
+JK na otázku, co s nadřazeným úkolem: **„Zpětné přiřazení nedělej“** →
+etapa 6 se neprogramuje, starší úkoly zůstávají, jak jsou. Nic se
+nezměnilo v kódu ani v datech. Modul se tím uzavírá na etapách 1–5.
 
 ### Etapa 5 — kalendář (2026-10-02, NASAZENA a ověřena — `2d96b70`)
 
