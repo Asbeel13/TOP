@@ -101,7 +101,7 @@ ve stávajících formulářích stále uvádí trvalý stav auta i při denním
 `volné`; posun používá denní výjimku. Případné sjednocení starých
 formulářů je samostatná změna vyžadující svolení JK.
 
-## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapy 1–4 NASAZENY, poslední etapa 4 `47ac01c`)
+## 🧠 Řízení výroby — nový modul (od 2026-09-25; etapy 1–5 NASAZENY, poslední etapa 5 `2d96b70`)
 
 JK zahájil návrh modulu pro plánování a řízení výroby (projekty =
 hlavní úkol + podúkoly, fáze, šablony, doklady PROFIT, Kanban, Gantt,
@@ -113,9 +113,20 @@ držet zvlášť) — tady jen stručný stav, obsah se sem nekopíruje.
 - **Programuje se jen etapa, kterou JK výslovně schválí.** 2026-09-29:
   „Koncept schválen, programuj etapu 1“ (datový základ ve stávajících
   stránkách). 2026-09-30: „Programuj etapu 2“. 2026-10-01: „Programuj
-  etapu 3“. 2026-10-02: „Programuj etapu 4“. Etapy 5–6 zatím NE.
-- **Etapa 4 — ✅ NASAZENA (JK 2026-10-02 06:26, commit `47ac01c`;
+  etapu 3“. 2026-10-02: „Programuj etapu 4“ a „Programuj etapu 5“.
+  Etapa 6 zatím NE.
+- **Etapa 5 — ✅ NASAZENA (JK 2026-10-02 06:59, commit `2d96b70`;
   GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí)** — jen
+  `vyroba.html`: záložka **Kalendář** (`#kalendar`) ve stylu kalendáře
+  SPA — měsíc po 7 týdnech, víkendy, svátky ze SPA s názvem, dnešek,
+  minulé dny zašedlé; štítek = den podúkolu v barvě projektu (paleta 9
+  adaptivních proměnných `theme.css`, text `--panel`, kontrast ≥ 5:1),
+  filtry projekt / řešitel / stav, hledání data, souhrn „Tento týden“.
+  Nic neukládá, klik na štítek otevře okno podúkolu. Filtry v
+  `localStorage` `ftVyrobaKalendar`. Detail a test v navrh.md sekce 12.
+- **Etapa 4 — ✅ NASAZENA (JK 2026-10-02 06:26, commit `47ac01c`;
+  GitHub i Pages bajtově / SHA-256 shodné s otestovanou verzí; JK
+  ověřil s reálnými daty: „Gant funguje“)** — jen
   `vyroba.html`: záložka **Gantt** (`#gantt`) — projekt → fáze →
   podúkoly, pruhy podle `plannedDate` + `durationDays` (vybrané dny,
   odškrtnuté dny), termín jako kosočtverec, přesah po termínu červeně,

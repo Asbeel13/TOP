@@ -5,7 +5,9 @@ a ověřena (`8531e16`, `761dec7`). **Etapa 2 (stránka modulu
 `vyroba.html`) NASAZENA a ověřena (`d8ffaae`, 2026-09-30)** (sekce 12).
 **Etapa 3 (správa šablon) NASAZENA a ověřena (`a93fdb1`, 2026-10-01)**
 (sekce 12). **Etapa 4 (Gantt) NASAZENA a ověřena (`47ac01c`,
-2026-10-02)** (sekce 12). Etapy 5–6 jen na nový výslovný pokyn JK.
+2026-10-02)** (sekce 12). **Etapa 5 (kalendář) NASAZENA a ověřena
+(`2d96b70`, 2026-10-02)** (sekce 12). Etapa 6 jen na nový výslovný pokyn
+JK.
 
 Průvodní dokument modulu (JK 2026-09-29: „bude to větší modul,
 informace držet v samostatném souboru“). V `TOP/CLAUDE.md` je jen
@@ -614,6 +616,9 @@ otevřená otázka; čeká se na pokyn JK k programování.
 - **2026-10-02** — JK ověřil šablony s reálnými daty. JK: „Programuj
   etapu 4“. Gantt (záložka v `vyroba.html`) hotový lokálně a otestovaný
   (sekce 12); JK nahrál (`47ac01c`), ověřeno GitHub i Pages.
+- **2026-10-02** — JK: „Gant funguje. Programuj etapu 5“. Kalendář
+  (záložka v `vyroba.html`) hotový lokálně a otestovaný (sekce 12); JK
+  nahrál (`2d96b70`), ověřeno GitHub i Pages.
 
 ## 10. Náčrt obrazovek
 
@@ -818,15 +823,91 @@ kopii živé databáze, nahrává JK (Konvence č. 4).
 Každá etapa jen na výslovný pokyn JK (programuje se jen schválená
 etapa). Kódové soubory nahrává výhradně JK (Konvence č. 4).
 
+### Etapa 5 — kalendář (2026-10-02, NASAZENA a ověřena — `2d96b70`)
+
+**✅ Nahráno JK 2026-10-02 06:59, commit `2d96b70` (1 soubor)** —
+`git fetch` + `cmp`: `vyroba.html` bajtově shodný s otestovanou verzí;
+GitHub Pages (stažení bez cache): SHA-256 sedí. Nasazená stránka bez
+tokenu: načte se bez chyb v konzoli, záložky Přehled projektů / Gantt /
+Kalendář / Šablony, filtry kalendáře, paleta 9 barev, přihlašovací
+dialog. Skutečná data ověří JK v appce — token se nezadává.
+
+JK: „Gant funguje. Programuj etapu 5“. Podle 6.16 (styl kalendáře SPA),
+3.29 (barva štítku podle projektu) a náčrtu (obrazovka 4).
+
+**Soubor (1):** jen `vyroba.html`, `ft_loader.js` beze změny.
+- **Záložka Kalendář** (`vyroba.html#kalendar`) mezi Ganttem a
+  Šablonami.
+- **Mřížka ve stylu SPA:** měsíc po týdnech Po–Ne, 7 týdnů (týden před
+  měsícem, měsíc, zbytek). Víkendy podbarvené, státní svátky ze SPA
+  podbarvené i s názvem. Dnešek je orámovaný, minulé dny zašedlé, dny
+  jiného měsíce mají slabší číslo. Ovládání ← měsíc → a Dnes.
+- **Štítky:** jeden štítek = jeden den podúkolu („RS – Montáž
+  mechanická“, se spoluřešitelem „LR + DH – …“, bez řešitele „? – …“).
+  - Vícedenní podúkol je v každém svém dni, vybrané dny v týdnu se
+    respektují.
+  - Odškrtnutý den nebo hotový podúkol je zeslabený a přeškrtnutý.
+  - Zrušené podúkoly a podúkoly zrušených projektů se nezobrazují.
+  - Bublina ukáže projekt, řešitele, stav a termín. Klik otevře okno
+    podúkolu (úprava pro držitele `projekty`, ostatní jen náhled).
+- **Barva štítku = barva projektu** (3.29). Paleta 9 proměnných
+  `theme.css`, které jsou ve světlém režimu tmavé a v tmavém světlé
+  (`--prio-p2/p1/p0/p3-text`, `--teal`, `--purple-active`,
+  `--success-strong`, `--warn-strong`, `--chip-text`). Text štítku je
+  `--panel`, kontrast ≥ 5:1 v obou režimech (`--multiday-icon`
+  vyřazena, ve světlém režimu jen 3,7:1).
+  - Barva se přiděluje podle pořadí založení projektu (ID vzniká z
+    času), takže je stálá. Po sobě založené projekty mají různé barvy,
+    opakují se po 9.
+  - Legenda ukazuje projekty, které mají v zobrazeném období štítek;
+    jejich číslo je odkaz na detail.
+- **Filtry:** Projekt (všechny nezrušené, u zamrzlých a hotových je to
+  uvedeno), Řešitel (včetně spoluřešitelů a „Bez řešitele“), Stav
+  podúkolu (Všechny / Nehotové / Nový / Probíhá / Čeká se / Dokončeno).
+  „Hledat datum“ přejde na měsíc a den orámuje. Filtry si pamatuje
+  prohlížeč (`localStorage` `ftVyrobaKalendar`).
+- **Souhrn „Tento týden“** (náčrt) za všechny projekty: probíhající
+  projekty, podúkoly v tomto týdnu, projekty po termínu (červený rámeček,
+  když nějaký je) a nehotové podúkoly bez data.
+- **Návrat z detailu:** detail otevřený z legendy kalendáře má odkaz
+  „← Kalendář“ (stejně jako „← Gantt“) a záložka zůstane zvýrazněná.
+
+**Test** (podvržené GitHub API, čerstvá kopie živé DB 777 kB, okno
+1600×1000 a 820×900, světlý i tmavý režim):
+- **Skutečný projekt VY26000014:** říjen 2026 = mřížka 21. 9.–8. 11.,
+  svátky 28. 9. a 28. 10. s názvem, dnešek 2. 10., 11 minulých dní.
+- **5 testovacích projektů a 17 podúkolů:**
+  - Vícedenní přes víkend je ve všech 4 dnech, Po–Pá od čtvrtka
+    víkend přeskočí, 2 odškrtnuté dny jsou přeškrtnuté.
+  - Spoluřešitel i „Bez řešitele“ se zobrazí správně.
+  - Zrušený podúkol a zrušený projekt nejsou vidět.
+  - Hotový projekt má štítky zeslabené.
+  - Barvy jsou různé a podle pořadí založení.
+  - Souhrn: 3 probíhající, 5 podúkolů v týdnu, 2 projekty po termínu
+    (červený rámeček), 1 podúkol bez data.
+- **Filtry:** řešitel DH (jen jako spoluřešitel), Bez řešitele, MK
+  (legenda jen jeho projekt), Dokončeno, Nehotové, Čeká se (prázdné →
+  hláška), projekt. Uložení filtru ověřeno.
+- **Hledat datum:** 15. 12. → prosinec, den orámovaný, Vánoce a Nový
+  rok 2027. Posun měsíců i Dnes funguje, září = 24. 8.–11. 10.
+- **Okno podúkolu z kalendáře:** nové datum = 1 zápis + záznam
+  historie, štítek se přesunul a souhrn přepočítal. Bez příznaku
+  `projekty` je okno jen pro čtení a nic se nezapíše.
+- **Návaznost:** legenda → detail → „← Kalendář“ na stejný měsíc.
+  Přehled, Gantt a Šablony beze změny.
+- Bez chyb v konzoli, CRLF, bez BOM, jen proměnné z `theme.css`.
+
+**Nahrání:** jen `vyroba.html`. Kalendář používá jen funkce z etap 2 a
+3, takže starší `ft_loader.js` z HTTP cache nevadí.
+
 ### Etapa 4 — Gantt (2026-10-02, NASAZENA a ověřena — `47ac01c`)
 
 **✅ Nahráno JK 2026-10-02 06:26, commit `47ac01c` (1 soubor)** —
 `git fetch` + `cmp`: `vyroba.html` bajtově shodný s otestovanou verzí;
 GitHub Pages (stažení bez cache): SHA-256 sedí. Nasazená stránka bez
 tokenu: načte se bez chyb v konzoli, záložky Přehled projektů / Gantt /
-Šablony, měřítko Dny / Týdny / Měsíce, přihlašovací dialog. Skutečná
-data (a překreslení po změně šířky okna) ověří JK v appce — token se
-nezadává.
+Šablony, měřítko Dny / Týdny / Měsíce, přihlašovací dialog. **✅ JK
+ověřil v appce s reálnými daty (2026-10-02): „Gant funguje“.**
 
 JK: „Programuj etapu 4“. Podle 6.5 a náčrtu (obrazovka 3).
 
