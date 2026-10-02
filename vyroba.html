@@ -215,6 +215,83 @@
     .sb-phase.drop-over, .sb-task.drop-over, .sb-tasks.drop-over { outline: 2px dashed var(--brand-accent); outline-offset: 2px; }
     @media (max-width: 900px) { .sb-layout { grid-template-columns: 1fr; } }
 
+    /* ── Gantt (etapa 4, navrh 6.5, náčrt obrazovka 3) ── */
+    .g-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .seg { display: inline-flex; border: 1px solid var(--line-medium); border-radius: var(--radius-sm); overflow: hidden; }
+    .seg button { border: 0; background: var(--panel); color: var(--text-muted); padding: 7px 13px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .seg button + button { border-left: 1px solid var(--line-medium); }
+    .seg button.on { background: var(--navy-800); color: var(--panel); }
+    html.dark .seg button.on { background: var(--navy-700); color: var(--text); }
+    .g-nav { display: flex; gap: 6px; }
+    .g-nav svg { width: 14px; height: 14px; display: block; }
+    .g-range { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .g-legend { margin-left: auto; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+    .lg i { display: inline-block; width: 16px; height: 9px; border-radius: 2px; }
+    .lg i.mk { width: 9px; height: 9px; border-radius: 0; transform: rotate(45deg); background: var(--text); }
+    .lg i.tl { width: 2px; height: 14px; border-radius: 0; background: var(--brand-accent); }
+    .gantt { --lab: 340px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+    .g-inner { position: relative; }
+    .g-body { position: relative; }
+    .g-bg { position: absolute; top: 0; bottom: 0; left: var(--lab); right: 0; pointer-events: none; }
+    .g-head, .g-row { display: flex; position: relative; }
+    .g-head { border-bottom: 1px solid var(--line-soft); }
+    .g-lab { position: sticky; left: 0; z-index: 4; width: var(--lab); flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding-right: 10px; border-right: 1px solid var(--line-soft); background: var(--panel); min-width: 0; }
+    .g-head .g-lab, .g-row.p .g-lab { background: color-mix(in srgb, var(--text) 5%, var(--panel)); }
+    .g-head .g-lab { font-family: var(--font-heading); font-weight: 600; font-size: 13px; padding-left: 12px; }
+    .g-scale { position: relative; flex-shrink: 0; }
+    .g-hrow { position: relative; height: 26px; }
+    .g-hrow + .g-hrow { border-top: 1px solid var(--line-softer); }
+    .g-hc { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding: 0 6px; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; border-left: 1px solid var(--line-softer); }
+    .g-hc.top { font-family: var(--font-heading); font-weight: 600; color: var(--text); }
+    .g-hc.day { justify-content: center; padding: 0; border-left: 0; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .g-hc.we { background: color-mix(in srgb, var(--weekend-bg) 55%, transparent); }
+    /* --auto-kolize: červená se světlou tmavou variantou (--danger je v
+       tmavém režimu na --holiday-bg nečitelná). */
+    .g-hc.hol { background: var(--holiday-bg); color: var(--auto-kolize); font-weight: 600; }
+    .g-hc.now { background: var(--brand-accent); color: var(--brand-accent-ink); font-weight: 700; }
+    .g-hc.nowweek { color: var(--brand-accent); font-weight: 700; }
+    .g-stripe { position: absolute; top: 0; bottom: 0; z-index: 0; background: color-mix(in srgb, var(--weekend-bg) 35%, transparent); }
+    .g-stripe.hol { background: color-mix(in srgb, var(--holiday-bg) 85%, transparent); }
+    .g-grid { position: absolute; top: 0; bottom: 0; width: 1px; z-index: 0; background: var(--line-softer); }
+    .g-today { position: absolute; top: 0; bottom: 0; width: 2px; z-index: 2; background: var(--brand-accent); pointer-events: none; }
+    .g-row { height: 30px; }
+    /* Oddělovače řádků na buňkách (ne na řádku) — sloupec názvů pak zakryje
+       i čáru „dnes“ při vodorovném posunu. */
+    .g-row .g-lab, .g-row .g-track { box-shadow: inset 0 -1px 0 var(--line-softer); }
+    .g-row.p .g-lab, .g-row.p .g-track { box-shadow: inset 0 1px 0 var(--line-soft), inset 0 -1px 0 var(--line-softer); }
+    .g-row.p { height: 38px; }
+    .g-row.t { cursor: pointer; }
+    .g-row.t:hover .g-lab { background: color-mix(in srgb, var(--text) 4%, var(--panel)); }
+    .g-track { position: relative; flex-shrink: 0; }
+    .g-bar { position: absolute; top: 8px; height: 14px; border-radius: 4px; z-index: 1; background: var(--line-medium); }
+    .g-bar.cut-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+    .g-bar.cut-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .gb-run { background: var(--accent); }
+    .gb-wait { background: var(--warn); }
+    .gb-done { background: var(--success); }
+    .g-pbar { position: absolute; top: 13px; height: 12px; border-radius: 6px; z-index: 1; background: var(--line-medium); overflow: hidden; }
+    .g-pbar > div { height: 100%; background: var(--success); }
+    .g-fbar { position: absolute; top: 13px; height: 4px; border-radius: 2px; z-index: 1; background: var(--text-muted); }
+    .g-over { position: absolute; top: 13px; height: 12px; border-radius: 0 6px 6px 0; z-index: 1; background: var(--danger); }
+    .g-mark { position: absolute; top: 13px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); z-index: 3; background: var(--text); border: 2px solid var(--panel); }
+    .g-mark.late { background: var(--danger); }
+    .g-note { position: absolute; top: 50%; transform: translateY(-50%); z-index: 1; font-size: 11.5px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+    .g-note.l { left: 8px; }
+    .g-note.r { right: 8px; }
+    .g-tog { width: 22px; height: 22px; border: 0; background: transparent; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; border-radius: 4px; flex-shrink: 0; margin-left: 6px; }
+    .g-tog:hover { background: var(--line-softer); color: var(--text); }
+    .g-tog svg { width: 16px; height: 16px; }
+    .g-tog.ph { visibility: hidden; }
+    .g-row.p .pnum { font-size: 13.5px; white-space: nowrap; }
+    .g-sub { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .g-phase { font-family: var(--font-heading); font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .g-task { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; border: 0; background: none; padding: 0; color: var(--text); cursor: pointer; text-align: left; }
+    .g-who { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .g-who.noowner { color: var(--warn-strong); }
+    .g-empty { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
+    @media (max-width: 900px) { .gantt { --lab: 210px; } .g-legend { margin-left: 0; } }
+
     @media (max-width: 900px) {
       .fgrid { grid-template-columns: 1fr; }
       .hdr { padding: 0 14px; }
@@ -231,6 +308,7 @@
   </a>
   <nav class="tabs" aria-label="Zobrazení modulu">
     <a class="tab" data-tab="prehled" href="#">Přehled projektů</a>
+    <a class="tab" data-tab="gantt" href="#gantt">Gantt</a>
     <a class="tab" data-tab="sablony" href="#sablony">Šablony</a>
   </nav>
   <div class="hdr-right">
@@ -273,6 +351,39 @@
       <label class="chk"><input type="checkbox" id="fCancelled" />Zrušené</label>
     </div>
     <div class="board" id="board"></div>
+  </section>
+
+  <section id="viewGantt" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Gantt</h1>
+        <div class="sub">Plán podúkolů podle data a délky. Kosočtverec = požadovaný termín projektu, část plánu po termínu je červeně. Datum podúkolu změníte v jeho okně — klikněte na řádek.</div>
+      </div>
+      <div class="right"><span class="muted" id="gCount" style="font-size:13px"></span></div>
+    </div>
+    <div class="g-tools">
+      <div class="seg" id="gScale" role="group" aria-label="Měřítko">
+        <button type="button" data-scale="dny">Dny</button><button type="button" data-scale="tydny">Týdny</button><button type="button" data-scale="mesice">Měsíce</button>
+      </div>
+      <div class="g-nav">
+        <button class="btn btn-secondary btn-sm" type="button" id="gPrev" aria-label="Předchozí období" title="Předchozí období"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 6 9 12 15 18"></polyline></svg></button>
+        <button class="btn btn-secondary btn-sm" type="button" id="gToday">Dnes</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="gNext" aria-label="Další období" title="Další období"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg></button>
+      </div>
+      <span class="g-range" id="gRange"></span>
+      <label class="chk"><input type="checkbox" id="gShowAll" />Zobrazit zamrzlé a hotové</label>
+      <button class="btn btn-ghost btn-sm" type="button" id="gToggleAll">Sbalit vše</button>
+      <div class="g-legend">
+        <span class="lg"><i style="background:var(--line-medium)"></i>Nový</span>
+        <span class="lg"><i class="gb-run"></i>Probíhá</span>
+        <span class="lg"><i class="gb-wait"></i>Čeká se</span>
+        <span class="lg"><i class="gb-done"></i>Dokončeno</span>
+        <span class="lg"><i class="mk"></i>Termín</span>
+        <span class="lg"><i style="background:var(--danger)"></i>Po termínu</span>
+        <span class="lg"><i class="tl"></i>Dnes</span>
+      </div>
+    </div>
+    <div class="gantt" id="gantt"></div>
   </section>
 
   <section id="viewDetail" hidden></section>
@@ -662,18 +773,26 @@ function ask({ title, text, input = false, value = "", okText = "OK", danger = f
   });
 }
 
-// ── Směrování: #projekt=<ID> = detail, #sablony = šablony, jinak přehled ─
+// ── Směrování: #projekt=<ID> = detail, #sablony = šablony, #gantt = Gantt,
+// jinak přehled ──────────────────────────────────────────────────────────
 function currentProjectId() {
   const m = /^#projekt=(.+)$/.exec(location.hash || "");
   return m ? decodeURIComponent(m[1]) : null;
 }
 function isSablonyView() { return location.hash === "#sablony"; }
+function isGanttView() { return location.hash === "#gantt"; }
 function goProject(id) { location.hash = "projekt=" + encodeURIComponent(id); }
 function goOverview() { location.hash = ""; }
+// Detail otevřený z Ganttu se vrací do Ganttu, jinak do přehledu.
+let _backHash = "";
+function backLinkHtml() {
+  return _backHash === "#gantt" ? `<a class="back" href="#gantt">← Gantt</a>` : `<a class="back" href="#">← Přehled projektů</a>`;
+}
 // Odchod ze Šablon s neuloženými změnami → dotaz; při „Zpět“ se vrátí.
 let _lastHash = location.hash, _hashRevert = false;
 window.addEventListener("hashchange", async () => {
   if (_hashRevert) { _hashRevert = false; _lastHash = location.hash; return; }
+  if (!/^#projekt=/.test(_lastHash)) _backHash = _lastHash;
   if (_lastHash === "#sablony" && !isSablonyView() && SB.dirty) {
     const target = location.hash;
     _hashRevert = true;
@@ -694,13 +813,15 @@ window.addEventListener("beforeunload", e => {
 function render() {
   if (!V) return;
   document.getElementById("newProjectBtn").hidden = !CAN_EDIT;
-  const id = currentProjectId(), sab = isSablonyView();
-  document.querySelectorAll(".tabs .tab").forEach(t => t.classList.toggle("on", sab ? t.dataset.tab === "sablony" : t.dataset.tab === "prehled"));
+  const id = currentProjectId(), sab = isSablonyView(), gantt = isGanttView();
+  const tab = sab ? "sablony" : (gantt || (id && _backHash === "#gantt")) ? "gantt" : "prehled";
+  document.querySelectorAll(".tabs .tab").forEach(t => t.classList.toggle("on", t.dataset.tab === tab));
   if (!RAW) return;
-  document.getElementById("viewOverview").hidden = !!id || sab;
+  document.getElementById("viewOverview").hidden = !!id || sab || gantt;
+  document.getElementById("viewGantt").hidden = !gantt;
   document.getElementById("viewDetail").hidden = !id;
   document.getElementById("viewSablony").hidden = !sab;
-  if (sab) renderSablony(); else if (id) renderDetail(id); else renderOverview();
+  if (sab) renderSablony(); else if (gantt) renderGantt(); else if (id) renderDetail(id); else renderOverview();
 }
 
 // ── Přehled projektů ─────────────────────────────────────────────────────
@@ -891,7 +1012,7 @@ function renderDetail(id) {
   const p = findProject(id);
   if (!p) {
     document.title = "Projekt nenalezen — Řízení výroby";
-    el.innerHTML = `<a class="back" href="#">← Přehled projektů</a><div class="dcard">Projekt <b>${esc(id)}</b> nebyl nalezen (možná byl smazán, nebo odkaz není správný).</div>`;
+    el.innerHTML = `${backLinkHtml()}<div class="dcard">Projekt <b>${esc(id)}</b> nebyl nalezen (možná byl smazán, nebo odkaz není správný).</div>`;
     return;
   }
   const v = p.vyroba || {};
@@ -916,7 +1037,7 @@ function renderDetail(id) {
     (STAVY.includes(p.state) ? "" : `<option selected>${esc(p.state)}</option>`) + `</select>`;
 
   el.innerHTML = `
-    <a class="back" href="#">← Přehled projektů</a>
+    ${backLinkHtml()}
     <div class="dcard">
       <div class="dtop">
         <span class="badge b-${esc(info.typ)}">${esc(info.typ)}</span>
@@ -1803,6 +1924,365 @@ async function sbFromProject(projectId, { skipNav = false } = {}) {
 })();
 
 document.getElementById("pmSablonyLink").addEventListener("click", () => closeModal("projectModal"));
+
+// ── Gantt (etapa 4, navrh 6.5, náčrt obrazovka 3) ────────────────────────
+// Jen zobrazení: pruhy podúkolů podle plannedDate + durationDays (včetně
+// vybraných dnů v týdnu a odškrtnutých dnů vícedenního úkolu), termín
+// projektu, čára „dnes“, víkendy a svátky ze SPA. Bez závislostí a bez
+// automatického přeplánování (6.5); datum se mění v okně podúkolu.
+const GANTT_KEY = "ftVyrobaGantt";
+const G_SCALES = {
+  dny: { min: 22, step: 14 },     // 6 týdnů, posun o 2 týdny
+  tydny: { min: 8, step: 28 },    // 16 týdnů, posun o 4 týdny
+  mesice: { min: 3, months: 2 },  // 6 měsíců, posun o 2 měsíce
+};
+const G_MESICE = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
+const G_MES_KR = ["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"];
+const G_DNY = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+const G_STATE_CLS = { "Probíhá": "gb-run", "Čeká se": "gb-wait", "Dokončeno": "gb-done" };
+const G = (() => {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(GANTT_KEY) || "{}") || {}; } catch (e) {}
+  return {
+    scale: G_SCALES[s.scale] ? s.scale : "dny",
+    showAll: !!s.showAll,
+    closed: new Set(Array.isArray(s.closed) ? s.closed : []), // sbalené projekty
+    start: null,  // začátek zobrazeného období; null = podle dneška
+    shown: [],    // ID projektů v posledním vykreslení (Sbalit/Rozbalit vše)
+  };
+})();
+function saveGantt() {
+  try { localStorage.setItem(GANTT_KEY, JSON.stringify({ scale: G.scale, showAll: G.showAll, closed: [...G.closed] })); } catch (e) {}
+}
+
+function isoOf(dt) { return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`; }
+function weekdayIdx(iso) { const [y, m, d] = iso.split("-").map(Number); return (new Date(y, m - 1, d).getDay() + 6) % 7; } // 0 = Po
+function mondayOf(iso) { return addDaysISO(iso, -weekdayIdx(iso)); }
+function monthStart(iso, add = 0) { const [y, m] = iso.split("-").map(Number); return isoOf(new Date(y, m - 1 + add, 1)); }
+function isoWeek(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + 3 - ((dt.getUTCDay() + 6) % 7)); // čtvrtek téhož týdne
+  const jan4 = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4));
+  return 1 + Math.round(((dt - jan4) / 86400000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+}
+function gFmtRange(a, b) {
+  return a.slice(0, 4) === b.slice(0, 4) ? `${fmtDate(a, false)} – ${fmtDate(b)}` : `${fmtDate(a)} – ${fmtDate(b)}`;
+}
+function gFmtSpan(s) { return s.from === s.to ? fmtDate(s.from) : gFmtRange(s.from, s.to); }
+
+function gRange() {
+  const t = todayISO();
+  const start = G.start || (G.scale === "mesice" ? monthStart(t, -1) : addDaysISO(mondayOf(t), G.scale === "tydny" ? -14 : -7));
+  const days = G.scale === "dny" ? 42 : G.scale === "tydny" ? 112 : daysBetween(start, monthStart(start, 6));
+  return { start, days, end: addDaysISO(start, days - 1) };
+}
+function gShift(dir) {
+  const r = gRange();
+  G.start = G.scale === "mesice" ? monthStart(r.start, G_SCALES.mesice.months * dir) : addDaysISO(r.start, G_SCALES[G.scale].step * dir);
+  renderGantt();
+}
+// Státní svátky ze SPA (*SPA-HOL-YYYY-MM-DD*) jen pro podbarvení.
+function gHolidays() {
+  const map = new Map();
+  allTasks().forEach(t => {
+    const m = /^\*SPA-HOL-(\d{4}-\d{2}-\d{2})\*$/.exec(String((t && t.id) || ""));
+    if (m && !t.cancelled) map.set(m[1], t.title || "Státní svátek");
+  });
+  return map;
+}
+// Dny podúkolu sloučené do souvislých úseků se stejným stavem (odškrtnutý
+// den vícedenního úkolu = Dokončeno, stejně jako v týdenním plánu).
+function gSubSegments(t) {
+  const done = new Set(Array.isArray(t.completedDays) ? t.completedDays : []);
+  const segs = [];
+  FTLoader.getMultiDayOccurrenceDates(t).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).forEach(d => {
+    const state = t.state !== "Dokončeno" && done.has(d) ? "Dokončeno" : (t.state || "Nový");
+    const last = segs[segs.length - 1];
+    if (last && last.state === state && addDaysISO(last.to, 1) === d) last.to = d;
+    else segs.push({ from: d, to: d, state });
+  });
+  return segs;
+}
+function gSpan(segs) {
+  if (!segs.length) return null;
+  return {
+    from: segs.reduce((m, s) => s.from < m ? s.from : m, segs[0].from),
+    to: segs.reduce((m, s) => s.to > m ? s.to : m, segs[0].to),
+  };
+}
+function gx(ctx, iso) { return daysBetween(ctx.start, iso) * ctx.dw; }
+// Část úseku v zobrazeném období (null = celý mimo); cutL/cutR = pokračuje dál.
+function gClip(ctx, from, to) {
+  if (to < ctx.start || from > ctx.end) return null;
+  const a = from < ctx.start ? ctx.start : from, b = to > ctx.end ? ctx.end : to;
+  return { left: gx(ctx, a), width: (daysBetween(a, b) + 1) * ctx.dw, cutL: from < ctx.start, cutR: to > ctx.end };
+}
+function gBox(ctx, c) {
+  const l = c.left + (c.cutL ? 0 : ctx.inset), r = c.left + c.width - (c.cutR ? 0 : ctx.inset);
+  return `left:${l}px;width:${Math.max(2, r - l)}px`;
+}
+function gCutCls(c) { return (c.cutL ? " cut-l" : "") + (c.cutR ? " cut-r" : ""); }
+// Poznámky u okraje stopy: plán nebo termín mimo zobrazené období.
+function gNotes(left, right) {
+  return (left.length ? `<span class="g-note l">${left.join(" · ")}</span>` : "") +
+    (right.length ? `<span class="g-note r">${right.join(" · ")}</span>` : "");
+}
+function gOutside(ctx, span, left, right) {
+  if (span.to < ctx.start) left.push(`← ${esc(gFmtSpan(span))}`);
+  else if (span.from > ctx.end) right.push(`${esc(gFmtSpan(span))} →`);
+}
+
+function gHeaderHtml(ctx, hol, today) {
+  const days = [];
+  for (let i = 0; i < ctx.days; i++) days.push(addDaysISO(ctx.start, i));
+  const groups = keyFn => {
+    const out = [];
+    days.forEach(d => {
+      const k = keyFn(d), last = out[out.length - 1];
+      if (last && last.k === k) last.to = d; else out.push({ k, from: d, to: d });
+    });
+    return out;
+  };
+  const width = g => (daysBetween(g.from, g.to) + 1) * ctx.dw;
+  const cell = (g, cls, text, title) =>
+    `<div class="g-hc ${cls}" style="left:${gx(ctx, g.from)}px;width:${width(g)}px"${title ? ` title="${esc(title)}"` : ""}>${esc(text)}</div>`;
+  let top = "", bottom = "";
+  if (G.scale === "dny") {
+    top = groups(mondayOf).map(g => cell(g, "top", `T${isoWeek(g.from)} · ${fmtDate(g.from, false)}–${fmtDate(g.to, false)}`)).join("");
+    bottom = days.map(d => {
+      const wd = weekdayIdx(d), h = hol.get(d);
+      const cls = ["day", wd >= 5 ? "we" : "", h ? "hol" : "", d === today ? "now" : ""].filter(Boolean).join(" ");
+      return cell({ from: d, to: d }, cls, String(+d.slice(8)), `${G_DNY[wd]} ${fmtDate(d)}${h ? ` — ${h}` : ""}${d === today ? " (dnes)" : ""}`);
+    }).join("");
+  } else if (G.scale === "tydny") {
+    top = groups(d => d.slice(0, 7)).map(g => cell(g, "top", `${G_MESICE[+g.from.slice(5, 7) - 1]} ${g.from.slice(0, 4)}`)).join("");
+    bottom = groups(mondayOf).map(g => {
+      const w = isoWeek(g.k), cur = today >= g.from && today <= g.to;
+      return cell(g, cur ? "nowweek" : "", width(g) >= 64 ? `T${w} · ${fmtDate(g.k, false)}` : `T${w}`,
+        `Týden ${w}: ${fmtDate(g.k, false)} – ${fmtDate(addDaysISO(g.k, 6))}`);
+    }).join("");
+  } else {
+    top = groups(d => d.slice(0, 4)).map(g => cell(g, "top", g.from.slice(0, 4))).join("");
+    bottom = groups(d => d.slice(0, 7)).map(g => {
+      const m = +g.from.slice(5, 7) - 1;
+      return cell(g, today.slice(0, 7) === g.k ? "nowweek" : "", width(g) >= 70 ? G_MESICE[m] : G_MES_KR[m], `${G_MESICE[m]} ${g.from.slice(0, 4)}`);
+    }).join("");
+  }
+  // Pozadí těla: víkendy (jen když jsou dny dost široké), svátky, hranice
+  // týdnů / měsíců a čára „dnes“.
+  let bg = "";
+  days.forEach((d, i) => {
+    const h = hol.has(d), we = weekdayIdx(d) >= 5;
+    if (h || (we && ctx.dw >= 6)) bg += `<div class="g-stripe${h ? " hol" : ""}" style="left:${gx(ctx, d)}px;width:${ctx.dw}px"></div>`;
+    if (i && (G.scale === "mesice" ? d.slice(8) === "01" : weekdayIdx(d) === 0)) bg += `<div class="g-grid" style="left:${gx(ctx, d)}px"></div>`;
+  });
+  if (today >= ctx.start && today <= ctx.end) {
+    bg += `<div class="g-today" style="left:${gx(ctx, today) + Math.round(ctx.dw / 2) - 1}px"></div>`;
+  }
+  return { head: `<div class="g-hrow">${top}</div><div class="g-hrow">${bottom}</div>`, bg };
+}
+
+const G_CHEVRON_OPEN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+const G_CHEVRON_CLOSED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg>`;
+
+function gProjectRowsHtml(ctx, x, W, today) {
+  const { p, info, segs, span } = x;
+  const v = p.vyroba || {};
+  const label = v.oznaceni || p.title;
+  const open = info.subs.length > 0 && !G.closed.has(p.id);
+  const pct = info.prog.total ? Math.round(100 * info.prog.done / info.prog.total) : 0;
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(p.dueDate || "") ? p.dueDate : "";
+  const late = !!due && ((p.state !== "Dokončeno" && due < today) || !!(span && span.to > due));
+  const left = [], right = [];
+  let track = "";
+  if (span) {
+    const c = gClip(ctx, span.from, span.to);
+    if (c) track += `<div class="g-pbar${gCutCls(c)}" style="${gBox(ctx, c)}" title="${esc(`${label}: ${gFmtSpan(span)} · hotovo ${info.prog.done}/${info.prog.total}`)}"><div style="width:${pct}%"></div></div>`;
+    else gOutside(ctx, span, left, right);
+    if (due && span.to > due) {
+      // Přesah = naplánovaná část po termínu (ne dny před začátkem plánu).
+      const overFrom = addDaysISO(due, 1) > span.from ? addDaysISO(due, 1) : span.from;
+      const o = gClip(ctx, overFrom, span.to), n = daysBetween(due, span.to);
+      if (o) track += `<div class="g-over${gCutCls(o)}" style="${gBox(ctx, o)}" title="${esc(`Plán končí ${fmtDate(span.to)}, ${n} ${plural(n, "den", "dny", "dní")} po termínu`)}"></div>`;
+    }
+  } else {
+    left.push(`<span class="nodate">${info.subs.length ? "podúkoly zatím bez data" : "bez podúkolů"}</span>`);
+  }
+  if (due) {
+    if (due >= ctx.start && due <= ctx.end) {
+      track += `<div class="g-mark${late ? " late" : ""}" style="left:${gx(ctx, due) + Math.round(ctx.dw / 2)}px" title="${esc(`Požadovaný termín ${fmtDate(due)}${late ? " — po termínu" : ""}`)}"></div>`;
+    } else if (due > ctx.end) right.push(`termín ${esc(fmtDate(due))} →`);
+    else left.push(`← termín ${esc(fmtDate(due))}`);
+  }
+  track += gNotes(left, right);
+  const st = p.state || "Nový";
+  const stBadge = st === "Čeká se" || st === "Dokončeno" ? `<span class="badge ${stateBadgeCls(st)}">${esc(stateLabel(st))}</span>` : "";
+  const tog = info.subs.length
+    ? `<button class="g-tog" type="button" data-gtoggle="${esc(p.id)}" aria-expanded="${open}" aria-label="${open ? "Sbalit" : "Rozbalit"} projekt" title="${open ? "Sbalit" : "Rozbalit"}">${open ? G_CHEVRON_OPEN : G_CHEVRON_CLOSED}</button>`
+    : `<span class="g-tog ph" aria-hidden="true"></span>`;
+  let html = `<div class="g-row p" data-project="${esc(p.id)}">
+    <div class="g-lab">${tog}<span class="badge b-${esc(info.typ)}">${esc(info.typ)}</span><a class="pnum" href="#projekt=${encodeURIComponent(p.id)}" title="Otevřít projekt">${esc(label)}</a>${stBadge}${v.oznaceni ? `<span class="g-sub" title="${esc(p.title)}">${esc(p.title)}</span>` : ""}</div>
+    <div class="g-track" style="width:${W}px">${track}</div>
+  </div>`;
+  if (!open) return html;
+
+  // Fáze v pořadí projektu + „Bez fáze“ pro podúkoly bez platné fáze
+  // (stejně jako Kanban podúkolů v detailu projektu).
+  const faze = Array.isArray(v.faze) ? v.faze : [];
+  const known = new Set(faze.map(f => f.id));
+  const rowsDef = faze.map(f => ({ id: f.id, nazev: f.nazev }));
+  if (info.subs.some(t => !known.has(t.vyroba.faze))) rowsDef.push({ id: "", nazev: "Bez fáze" });
+  rowsDef.forEach(f => {
+    const subs = info.subs.filter(t => f.id ? t.vyroba.faze === f.id : !known.has(t.vyroba.faze));
+    const fspan = gSpan(subs.flatMap(t => segs.get(t.id)));
+    const prog = V.progress(subs);
+    const fl = [], fr = [];
+    let ftrack = "";
+    if (fspan) {
+      const c = gClip(ctx, fspan.from, fspan.to);
+      if (c) ftrack += `<div class="g-fbar${gCutCls(c)}" style="${gBox(ctx, c)}" title="${esc(`${f.nazev}: ${gFmtSpan(fspan)}`)}"></div>`;
+      else gOutside(ctx, fspan, fl, fr);
+    } else {
+      fl.push(subs.length ? `<span class="nodate">bez data</span>` : "bez podúkolů");
+    }
+    html += `<div class="g-row f">
+      <div class="g-lab" style="padding-left:40px"><span class="g-phase" title="${esc(f.nazev)}">${esc(f.nazev)}</span>${subs.length ? `<span class="g-who" title="Hotovo / všechny podúkoly fáze">${prog.done}/${prog.total}</span>` : ""}</div>
+      <div class="g-track" style="width:${W}px">${ftrack}${gNotes(fl, fr)}</div>
+    </div>`;
+    subs.forEach(t => {
+      const tsegs = segs.get(t.id);
+      const co = FTLoader.getCoOwners ? FTLoader.getCoOwners(t) : [];
+      const who = isAssigned(t.owner) ? t.owner + (co.length ? ` + ${co.join(", ")}` : "") : "";
+      const tl = [], tr = [];
+      let ttrack = "";
+      tsegs.forEach(s => {
+        const c = gClip(ctx, s.from, s.to);
+        if (c) ttrack += `<div class="g-bar ${G_STATE_CLS[s.state] || ""}${gCutCls(c)}" style="${gBox(ctx, c)}" title="${esc(`${t.title} · ${who || "bez řešitele"} · ${gFmtSpan(s)} · ${s.state}`)}"></div>`;
+      });
+      const tspan = gSpan(tsegs);
+      if (!tspan) tl.push(`<span class="nodate">bez data</span>`);
+      else if (!ttrack) gOutside(ctx, tspan, tl, tr);
+      html += `<div class="g-row t" data-project="${esc(p.id)}" data-sub="${esc(t.id)}">
+        <div class="g-lab" style="padding-left:58px"><button class="g-task" type="button" title="${esc(`${t.title} — otevřít podúkol`)}">${esc(t.title)}</button><span class="g-who${who ? "" : " noowner"}">${esc(who || "bez řešitele")}</span></div>
+        <div class="g-track" style="width:${W}px">${ttrack}${gNotes(tl, tr)}</div>
+      </div>`;
+    });
+  });
+  return html;
+}
+
+function renderGantt() {
+  if (!RAW || !V) return;
+  document.title = "Gantt — Řízení výroby";
+  const el = document.getElementById("gantt");
+  const r = gRange();
+  const lab = parseInt(getComputedStyle(el).getPropertyValue("--lab"), 10) || 340;
+  const sc = G_SCALES[G.scale];
+  const dw = Math.max(sc.min, Math.floor((el.clientWidth - lab - 2) / r.days) || 0);
+  const ctx = Object.assign({ dw, lab, inset: dw >= 12 ? 2 : dw >= 6 ? 1 : 0 }, r);
+  const W = r.days * dw;
+  const today = todayISO();
+
+  document.querySelectorAll("#gScale button").forEach(b => {
+    b.classList.toggle("on", b.dataset.scale === G.scale);
+    b.setAttribute("aria-pressed", b.dataset.scale === G.scale);
+  });
+  document.getElementById("gRange").textContent = gFmtRange(r.start, r.end);
+  document.getElementById("gShowAll").checked = G.showAll;
+
+  const projects = V.projects(allTasks());
+  // Sbalené projekty, které už neexistují, z paměti vyhodit.
+  const ids = new Set(projects.map(p => p.id));
+  if ([...G.closed].some(id => !ids.has(id))) { G.closed.forEach(id => { if (!ids.has(id)) G.closed.delete(id); }); saveGantt(); }
+
+  let hidden = 0;
+  const list = projects.filter(p => !p.cancelled).map(p => {
+    const info = projectInfo(p);
+    const segs = new Map(info.subs.map(t => [t.id, gSubSegments(t)]));
+    return { p, info, segs, span: gSpan(info.subs.flatMap(t => segs.get(t.id))) };
+  }).filter(x => {
+    const st = x.p.state || "Nový";
+    if (st !== "Čeká se" && st !== "Dokončeno") return true;
+    // Hotové jen ty, které do zobrazeného období zasahují (jinak by jich přibývalo).
+    if (st === "Dokončeno") {
+      const inR = d => !!d && d >= r.start && d <= r.end;
+      const relevant = (x.span && x.span.to >= r.start && x.span.from <= r.end) || inR(x.p.doneDate) || inR(x.p.dueDate);
+      if (!relevant) return false;
+    }
+    if (!G.showAll) { hidden++; return false; }
+    return true;
+  }).sort((a, b) => String(a.p.dueDate || "9999").localeCompare(String(b.p.dueDate || "9999")) ||
+    String(a.span ? a.span.from : "9999").localeCompare(String(b.span ? b.span.from : "9999")) ||
+    projectLabel(a.p).localeCompare(projectLabel(b.p), "cs"));
+  G.shown = list.filter(x => x.info.subs.length).map(x => x.p.id);
+
+  const n = list.length;
+  document.getElementById("gCount").textContent = `${n} ${plural(n, "projekt", "projekty", "projektů")}` +
+    (hidden ? ` · skryto ${hidden} ${plural(hidden, "zamrzlý nebo hotový", "zamrzlé nebo hotové", "zamrzlých nebo hotových")}` : "");
+  const tAll = document.getElementById("gToggleAll");
+  const allClosed = G.shown.length > 0 && G.shown.every(id => G.closed.has(id));
+  tAll.textContent = allClosed ? "Rozbalit vše" : "Sbalit vše";
+  tAll.hidden = !G.shown.length;
+
+  const hol = gHolidays();
+  const { head, bg } = gHeaderHtml(ctx, hol, today);
+  const rows = list.map(x => gProjectRowsHtml(ctx, x, W, today)).join("");
+  const sl = el.scrollLeft;
+  el.innerHTML = `<div class="g-inner" style="width:calc(var(--lab) + ${W}px)">
+      <div class="g-head"><div class="g-lab">Projekt · fáze · podúkol</div><div class="g-scale" style="width:${W}px">${head}</div></div>
+      <div class="g-body"><div class="g-bg">${bg}</div>${rows}</div>
+    </div>` +
+    (n ? "" : `<div class="g-empty">${hidden ? "Žádné rozpracované projekty. Zamrzlé a hotové ukáže volba „Zobrazit zamrzlé a hotové“." : "Žádné projekty k zobrazení."}</div>`);
+  el.scrollLeft = sl;
+}
+
+(function bindGantt() {
+  document.getElementById("gScale").addEventListener("click", e => {
+    const b = e.target.closest("[data-scale]");
+    if (!b || b.dataset.scale === G.scale) return;
+    G.scale = b.dataset.scale;
+    G.start = null;
+    saveGantt();
+    renderGantt();
+  });
+  document.getElementById("gPrev").addEventListener("click", () => gShift(-1));
+  document.getElementById("gNext").addEventListener("click", () => gShift(1));
+  document.getElementById("gToday").addEventListener("click", () => { G.start = null; renderGantt(); });
+  document.getElementById("gShowAll").addEventListener("change", e => { G.showAll = e.target.checked; saveGantt(); renderGantt(); });
+  document.getElementById("gToggleAll").addEventListener("click", () => {
+    const allClosed = G.shown.length > 0 && G.shown.every(id => G.closed.has(id));
+    G.shown.forEach(id => { if (allClosed) G.closed.delete(id); else G.closed.add(id); });
+    saveGantt();
+    renderGantt();
+  });
+  const el = document.getElementById("gantt");
+  el.addEventListener("click", e => {
+    if (e.target.closest("a")) return;
+    const tog = e.target.closest("[data-gtoggle]") || e.target.closest(".g-row.p .g-lab")?.querySelector("[data-gtoggle]");
+    if (tog) {
+      const id = tog.dataset.gtoggle;
+      if (G.closed.has(id)) G.closed.delete(id); else G.closed.add(id);
+      saveGantt();
+      renderGantt();
+      return;
+    }
+    const row = e.target.closest(".g-row.t");
+    if (row) openSubModal(row.dataset.project, row.dataset.sub);
+  });
+  // Šířka dne se počítá z šířky plochy → po změně okna překreslit.
+  let timer = null, lastW = 0;
+  const onResize = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!isGanttView() || !RAW || !V || el.clientWidth === lastW) return;
+      lastW = el.clientWidth;
+      renderGantt();
+    }, 150);
+  };
+  if (window.ResizeObserver) new ResizeObserver(onResize).observe(el);
+  window.addEventListener("resize", onResize);
+})();
 
 // ── Start ────────────────────────────────────────────────────────────────
 if (!V) {
