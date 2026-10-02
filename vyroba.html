@@ -292,6 +292,44 @@
     .g-empty { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
     @media (max-width: 900px) { .gantt { --lab: 210px; } .g-legend { margin-left: 0; } }
 
+    /* ── Kalendář (etapa 5, navrh 6.16 — styl kalendáře SPA, náčrt
+       obrazovka 4). Barva štítku = barva projektu (--pc), z palety
+       proměnných theme.css, které mají světlou variantu v tmavém režimu;
+       text štítku je --panel (bílý / v tmavém režimu tmavý). ── */
+    .cal-nav { display: flex; align-items: center; gap: 10px; }
+    .cal-nav svg { width: 14px; height: 14px; display: block; }
+    .cal-label { font-family: var(--font-heading); font-size: 20px; font-weight: 700; min-width: 160px; text-align: center; }
+    .cal-filters { margin-left: auto; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    .k-week h2 { font-family: var(--font-heading); font-size: 17px; font-weight: 700; margin: 0 0 8px; }
+    .dash-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+    .dash-stat { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 150px; padding: 10px 14px; border: 2px solid var(--line-soft); border-radius: 8px; background: var(--panel); }
+    .dash-stat strong { font-size: 1.4rem; line-height: 1.2; }
+    .dash-stat span { font-size: .78rem; color: var(--text-muted); text-align: center; }
+    .dash-stat.alert { border-color: var(--danger); }
+    .k-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; margin-bottom: 12px; }
+    .k-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .k-legend i { width: 12px; height: 12px; border-radius: 3px; background: var(--pc); flex-shrink: 0; }
+    .k-legend a { text-decoration: none; font-weight: 600; }
+    .k-legend a:hover { color: var(--brand-accent); }
+    .k-empty { color: var(--text-muted); font-size: 13px; margin: 0 0 10px; }
+    .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: var(--panel); border-top: 1px solid var(--line-soft); border-left: 1px solid var(--line-soft); }
+    .cal-h { font-size: .8rem; font-weight: 600; padding: 6px 4px; text-align: center; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+    .k-day { min-height: 112px; padding: 4px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .k-day.we { background: color-mix(in srgb, var(--weekend-bg) 45%, var(--panel)); }
+    .k-day.hol { background: var(--holiday-bg); }
+    .k-day.today { outline: 2px solid var(--today-outline); outline-offset: -2px; }
+    .k-day.past { opacity: var(--past-opacity); }
+    .k-day.found { outline: 3px solid var(--search-highlight); outline-offset: -3px; }
+    .k-day.other .day-num { opacity: .45; }
+    .day-num-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; margin-bottom: 1px; }
+    .day-num { font-size: .85rem; font-weight: 600; flex-shrink: 0; }
+    /* --auto-kolize: červená čitelná i v tmavém režimu (viz .hint.info). */
+    .day-hol { font-size: .64rem; line-height: 1.2; color: var(--auto-kolize); font-weight: 600; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .k-chip { display: block; width: 100%; text-align: left; border: 0; font: inherit; font-size: .72rem; line-height: 1.4; padding: 1px 5px; border-radius: 4px; background: var(--pc); color: var(--panel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .k-chip:hover, .k-chip:focus-visible { outline: 2px solid var(--text); outline-offset: -1px; }
+    .k-chip.done { opacity: .55; text-decoration: line-through; }
+    @media (max-width: 900px) { .cal-filters { margin-left: 0; } .k-day { min-height: 90px; } }
+
     @media (max-width: 900px) {
       .fgrid { grid-template-columns: 1fr; }
       .hdr { padding: 0 14px; }
@@ -309,6 +347,7 @@
   <nav class="tabs" aria-label="Zobrazení modulu">
     <a class="tab" data-tab="prehled" href="#">Přehled projektů</a>
     <a class="tab" data-tab="gantt" href="#gantt">Gantt</a>
+    <a class="tab" data-tab="kalendar" href="#kalendar">Kalendář</a>
     <a class="tab" data-tab="sablony" href="#sablony">Šablony</a>
   </nav>
   <div class="hdr-right">
@@ -384,6 +423,44 @@
       </div>
     </div>
     <div class="gantt" id="gantt"></div>
+  </section>
+
+  <section id="viewKalendar" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Kalendář</h1>
+        <div class="sub">Podúkoly projektů po dnech, barva podle projektu. Vícedenní podúkol je v každém svém dni. Kliknutím na štítek otevřete podúkol.</div>
+      </div>
+    </div>
+    <div class="bar">
+      <div class="cal-nav">
+        <button class="btn btn-secondary btn-sm" type="button" id="kPrev" aria-label="Předchozí měsíc" title="Předchozí měsíc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 6 9 12 15 18"></polyline></svg></button>
+        <span class="cal-label" id="kMonth" aria-live="polite"></span>
+        <button class="btn btn-secondary btn-sm" type="button" id="kNext" aria-label="Další měsíc" title="Další měsíc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg></button>
+        <button class="btn btn-secondary btn-sm" type="button" id="kToday">Dnes</button>
+      </div>
+      <div class="cal-filters">
+        <div class="field"><label class="lbl" for="kProj">Projekt</label><select id="kProj" class="inp" style="width:260px"></select></div>
+        <div class="field"><label class="lbl" for="kOwner">Řešitel</label><select id="kOwner" class="inp" style="width:200px"></select></div>
+        <div class="field"><label class="lbl" for="kState">Stav podúkolu</label>
+          <select id="kState" class="inp" style="width:160px">
+            <option value="">Všechny</option>
+            <option value="open">Nehotové</option>
+            <option value="Nový">Nový</option>
+            <option value="Probíhá">Probíhá</option>
+            <option value="Čeká se">Čeká se</option>
+            <option value="Dokončeno">Dokončeno</option>
+          </select>
+        </div>
+        <div class="field"><label class="lbl" for="kDate">Hledat datum</label><input id="kDate" class="inp" type="date" style="width:170px" /></div>
+      </div>
+    </div>
+    <div class="k-week">
+      <h2>Tento týden</h2>
+      <div class="dash-row" id="kStats"></div>
+    </div>
+    <div class="k-legend" id="kLegend" aria-label="Barvy projektů"></div>
+    <div class="cal" id="kCal"></div>
   </section>
 
   <section id="viewDetail" hidden></section>
@@ -781,12 +858,15 @@ function currentProjectId() {
 }
 function isSablonyView() { return location.hash === "#sablony"; }
 function isGanttView() { return location.hash === "#gantt"; }
+function isKalendarView() { return location.hash === "#kalendar"; }
 function goProject(id) { location.hash = "projekt=" + encodeURIComponent(id); }
 function goOverview() { location.hash = ""; }
-// Detail otevřený z Ganttu se vrací do Ganttu, jinak do přehledu.
+// Detail otevřený z Ganttu / Kalendáře se vrací tam, jinak do přehledu.
 let _backHash = "";
+const BACK_VIEWS = { "#gantt": { tab: "gantt", text: "← Gantt" }, "#kalendar": { tab: "kalendar", text: "← Kalendář" } };
 function backLinkHtml() {
-  return _backHash === "#gantt" ? `<a class="back" href="#gantt">← Gantt</a>` : `<a class="back" href="#">← Přehled projektů</a>`;
+  const b = BACK_VIEWS[_backHash];
+  return b ? `<a class="back" href="${_backHash}">${b.text}</a>` : `<a class="back" href="#">← Přehled projektů</a>`;
 }
 // Odchod ze Šablon s neuloženými změnami → dotaz; při „Zpět“ se vrátí.
 let _lastHash = location.hash, _hashRevert = false;
@@ -813,15 +893,16 @@ window.addEventListener("beforeunload", e => {
 function render() {
   if (!V) return;
   document.getElementById("newProjectBtn").hidden = !CAN_EDIT;
-  const id = currentProjectId(), sab = isSablonyView(), gantt = isGanttView();
-  const tab = sab ? "sablony" : (gantt || (id && _backHash === "#gantt")) ? "gantt" : "prehled";
+  const id = currentProjectId(), sab = isSablonyView(), gantt = isGanttView(), kal = isKalendarView();
+  const tab = sab ? "sablony" : gantt ? "gantt" : kal ? "kalendar" : (id && BACK_VIEWS[_backHash]) ? BACK_VIEWS[_backHash].tab : "prehled";
   document.querySelectorAll(".tabs .tab").forEach(t => t.classList.toggle("on", t.dataset.tab === tab));
   if (!RAW) return;
-  document.getElementById("viewOverview").hidden = !!id || sab || gantt;
+  document.getElementById("viewOverview").hidden = !!id || sab || gantt || kal;
   document.getElementById("viewGantt").hidden = !gantt;
+  document.getElementById("viewKalendar").hidden = !kal;
   document.getElementById("viewDetail").hidden = !id;
   document.getElementById("viewSablony").hidden = !sab;
-  if (sab) renderSablony(); else if (gantt) renderGantt(); else if (id) renderDetail(id); else renderOverview();
+  if (sab) renderSablony(); else if (gantt) renderGantt(); else if (kal) renderKalendar(); else if (id) renderDetail(id); else renderOverview();
 }
 
 // ── Přehled projektů ─────────────────────────────────────────────────────
@@ -2282,6 +2363,171 @@ function renderGantt() {
   };
   if (window.ResizeObserver) new ResizeObserver(onResize).observe(el);
   window.addEventListener("resize", onResize);
+})();
+
+// ── Kalendář (etapa 5, navrh 6.16, náčrt obrazovka 4) ────────────────────
+// Měsíční mřížka ve stylu kalendáře SPA: 7 týdnů (týden před měsícem,
+// měsíc, zbytek), víkendy, svátky ze SPA, dnešek, minulé dny zašedlé.
+// Štítek = den podúkolu (vícedenní ve všech svých dnech), barva projektu
+// (JK 3.29). Jen zobrazení; podúkol se upravuje ve svém okně (klik na štítek).
+const KAL_KEY = "ftVyrobaKalendar";
+// Paleta barev projektů — proměnné theme.css, které jsou ve světlém režimu
+// tmavé a v tmavém světlé (štítek má text --panel, čitelný v obou; kontrast
+// ověřen ≥ 5:1, --multiday-icon vyřazena — ve světlém režimu jen 3,7:1).
+const K_BARVY = ["--prio-p2-text", "--prio-p1-text", "--teal", "--prio-p0-text", "--purple-active",
+  "--success-strong", "--warn-strong", "--chip-text", "--prio-p3-text"];
+const K_NONE = "__none"; // filtr Řešitel: podúkoly bez řešitele
+const K = (() => {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(KAL_KEY) || "{}") || {}; } catch (e) {}
+  return { proj: s.proj || "", owner: s.owner || "", state: s.state || "", month: null, found: "" };
+})();
+function saveKal() {
+  try { localStorage.setItem(KAL_KEY, JSON.stringify({ proj: K.proj, owner: K.owner, state: K.state })); } catch (e) {}
+}
+// Barva podle pořadí založení projektu (ID vzniká z času založení) → stálá
+// a po sobě založené projekty mají různé barvy.
+function kProjectColors() {
+  const map = new Map();
+  V.projects(allTasks()).map(p => p.id).sort().forEach((id, i) => map.set(id, `var(${K_BARVY[i % K_BARVY.length]})`));
+  return map;
+}
+function kOwners(t) {
+  const co = FTLoader.getCoOwners ? FTLoader.getCoOwners(t) : [];
+  return isAssigned(t.owner) ? [t.owner, ...co] : co;
+}
+// Odškrtnutý den vícedenního podúkolu = Dokončeno (jako v týdenním plánu).
+function kDayState(t, d) {
+  return t.state !== "Dokončeno" && Array.isArray(t.completedDays) && t.completedDays.includes(d) ? "Dokončeno" : (t.state || "Nový");
+}
+function kStateMatch(state) {
+  if (!K.state) return true;
+  if (K.state === "open") return state !== "Dokončeno";
+  return state === K.state;
+}
+function kHolidayName(title) { return String(title || "").replace(/^Státní svátek\s*[-–]\s*/i, "") || "Státní svátek"; }
+
+function renderKalendar() {
+  if (!RAW || !V) return;
+  document.title = "Kalendář — Řízení výroby";
+  const today = todayISO();
+  const m0 = K.month || monthStart(today);
+  const start = addDaysISO(mondayOf(m0), -7);
+  const days = Array.from({ length: 49 }, (_, i) => addDaysISO(start, i));
+  const mName = G_MESICE[+m0.slice(5, 7) - 1];
+  document.getElementById("kMonth").textContent = `${mName.charAt(0).toUpperCase()}${mName.slice(1)} ${m0.slice(0, 4)}`;
+  document.getElementById("kDate").value = K.found;
+
+  const all = allTasks();
+  const projects = V.projects(all).filter(p => !p.cancelled)
+    .sort((a, b) => projectLabel(a).localeCompare(projectLabel(b), "cs"));
+  const colors = kProjectColors();
+  const subsOf = new Map(projects.map(p => [p.id, V.subtasks(all, p.id)]));
+
+  // Filtry: projekt (všechny nezrušené), řešitel (kdo má nějaký podúkol).
+  const pSel = document.getElementById("kProj");
+  pSel.innerHTML = `<option value="">Všechny projekty</option>` + projects.map(p => {
+    const lbl = p.vyroba.oznaceni ? `${p.vyroba.oznaceni} · ${p.title}` : p.title;
+    const st = p.state === "Čeká se" || p.state === "Dokončeno" ? ` (${stateLabel(p.state).toLowerCase()})` : "";
+    return `<option value="${esc(p.id)}">${esc(lbl + st)}</option>`;
+  }).join("");
+  if (!projects.some(p => p.id === K.proj)) K.proj = "";
+  pSel.value = K.proj;
+  const people = new Set();
+  let unassigned = false;
+  subsOf.forEach(subs => subs.forEach(t => {
+    const o = kOwners(t);
+    if (o.length) o.forEach(z => people.add(z)); else unassigned = true;
+  }));
+  const ppl = [...people].sort((a, b) => a.localeCompare(b, "cs"));
+  const oSel = document.getElementById("kOwner");
+  oSel.innerHTML = `<option value="">Všichni</option>` + ppl.map(z => `<option value="${esc(z)}">${esc(z)} – ${esc(resitelName(z))}</option>`).join("") +
+    (unassigned ? `<option value="${K_NONE}">Bez řešitele</option>` : "");
+  if (K.owner && !ppl.includes(K.owner) && !(K.owner === K_NONE && unassigned)) K.owner = "";
+  oSel.value = K.owner;
+  document.getElementById("kState").value = K.state;
+
+  // Štítky po dnech (pořadí: projekt podle označení, pak pořadí podúkolu).
+  const hol = gHolidays();
+  const byDay = new Map(days.map(d => [d, []]));
+  const used = new Set();
+  projects.forEach(p => {
+    if (K.proj && p.id !== K.proj) return;
+    subsOf.get(p.id).forEach(t => {
+      const owners = kOwners(t);
+      if (K.owner && (K.owner === K_NONE ? owners.length > 0 : !owners.includes(K.owner))) return;
+      FTLoader.getMultiDayOccurrenceDates(t).forEach(d => {
+        if (!byDay.has(d)) return;
+        const state = kDayState(t, d);
+        if (!kStateMatch(state)) return;
+        byDay.get(d).push({ p, t, state, owners });
+        used.add(p.id);
+      });
+    });
+  });
+  const chip = x => {
+    const who = x.owners.length ? x.owners.join(" + ") : "?";
+    const dates = taskDates(x.t);
+    const title = `${projectLabel(x.p)}${x.p.vyroba.oznaceni ? ` · ${x.p.title}` : ""}\n` +
+      `${x.owners.length ? who : "bez řešitele"} – ${x.t.title}\n${x.state}${dates ? ` · ${dates}` : ""}`;
+    return `<button type="button" class="k-chip${x.state === "Dokončeno" ? " done" : ""}" style="--pc:${colors.get(x.p.id)}" data-project="${esc(x.p.id)}" data-sub="${esc(x.t.id)}" title="${esc(title)}">${esc(who)} – ${esc(x.t.title)}</button>`;
+  };
+  const dayHtml = d => {
+    const wd = weekdayIdx(d), h = hol.get(d), name = h ? kHolidayName(h) : "";
+    const cls = ["k-day", wd >= 5 ? "we" : "", h ? "hol" : "", d === today ? "today" : "", d < today ? "past" : "",
+      d.slice(0, 7) !== m0.slice(0, 7) ? "other" : "", d === K.found ? "found" : ""].filter(Boolean).join(" ");
+    return `<div class="${cls}" data-date="${d}">
+      <div class="day-num-row"><span class="day-num" title="${esc(`${G_DNY[wd]} ${fmtDate(d)}`)}">${+d.slice(8)}</span>${name ? `<span class="day-hol" title="${esc(name)}">${esc(name)}</span>` : ""}</div>
+      ${byDay.get(d).map(chip).join("")}
+    </div>`;
+  };
+  document.getElementById("kCal").innerHTML = G_DNY.map(n => `<div class="cal-h">${n}</div>`).join("") + days.map(dayHtml).join("");
+
+  // Legenda: jen projekty, které v zobrazeném období mají štítek.
+  const legend = projects.filter(p => used.has(p.id)).map(p =>
+    `<span style="--pc:${colors.get(p.id)}"><i></i><a href="#projekt=${encodeURIComponent(p.id)}" title="Otevřít projekt">${esc(projectLabel(p))}</a>${p.vyroba.oznaceni ? `<span class="muted">${esc(p.title)}</span>` : ""}</span>`).join("");
+  document.getElementById("kLegend").innerHTML = legend ||
+    `<span class="k-empty">V zobrazeném období nejsou žádné podúkoly${K.proj || K.owner || K.state ? " odpovídající filtru" : ""}.</span>`;
+
+  // Souhrn „Tento týden“ (náčrt) — za všechny projekty, bez ohledu na filtr.
+  const wStart = mondayOf(today), wEnd = addDaysISO(wStart, 6);
+  let running = 0, overdue = 0, week = 0, noDate = 0;
+  projects.forEach(p => {
+    if (p.state === "Probíhá") running++;
+    if (p.state !== "Dokončeno" && p.dueDate && p.dueDate < today) overdue++;
+    subsOf.get(p.id).forEach(t => {
+      if (FTLoader.getMultiDayOccurrenceDates(t).some(d => d >= wStart && d <= wEnd)) week++;
+      if (!t.plannedDate && t.state !== "Dokončeno" && p.state !== "Dokončeno") noDate++;
+    });
+  });
+  const stat = (n, label, alert) => `<div class="dash-stat${alert && n ? " alert" : ""}"><strong>${n}</strong><span>${esc(label)}</span></div>`;
+  document.getElementById("kStats").innerHTML =
+    stat(running, plural(running, "probíhající projekt", "probíhající projekty", "probíhajících projektů")) +
+    stat(week, plural(week, "podúkol v tomto týdnu", "podúkoly v tomto týdnu", "podúkolů v tomto týdnu")) +
+    stat(overdue, plural(overdue, "projekt po termínu", "projekty po termínu", "projektů po termínu"), true) +
+    stat(noDate, plural(noDate, "podúkol bez data", "podúkoly bez data", "podúkolů bez data"));
+}
+
+(function bindKalendar() {
+  const cur = () => K.month || monthStart(todayISO());
+  const go = m => { K.month = m; renderKalendar(); };
+  document.getElementById("kPrev").addEventListener("click", () => go(monthStart(cur(), -1)));
+  document.getElementById("kNext").addEventListener("click", () => go(monthStart(cur(), 1)));
+  document.getElementById("kToday").addEventListener("click", () => { K.found = ""; go(null); });
+  document.getElementById("kProj").addEventListener("change", e => { K.proj = e.target.value; saveKal(); renderKalendar(); });
+  document.getElementById("kOwner").addEventListener("change", e => { K.owner = e.target.value; saveKal(); renderKalendar(); });
+  document.getElementById("kState").addEventListener("change", e => { K.state = e.target.value; saveKal(); renderKalendar(); });
+  document.getElementById("kDate").addEventListener("change", e => {
+    K.found = /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) ? e.target.value : "";
+    if (K.found) K.month = monthStart(K.found);
+    renderKalendar();
+    const cell = K.found && document.querySelector(`#kCal [data-date="${K.found}"]`);
+    if (cell) cell.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+  document.getElementById("kCal").addEventListener("click", e => {
+    const c = e.target.closest(".k-chip");
+    if (c) openSubModal(c.dataset.project, c.dataset.sub);
+  });
 })();
 
 // ── Start ────────────────────────────────────────────────────────────────
