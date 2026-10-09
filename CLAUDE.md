@@ -5,6 +5,54 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## Přesun úkolu přetažením v Dashboardu na počítači (2026-10-09, LOKÁLNĚ, čeká na nahrání JK)
+
+Nahrazuje tlačítko „Posunout →“ v detailu úkolu **jen na počítači**;
+mobilní Dashboard má tlačítko dál a přetahování nemá (JK). Rozhodnutí
+JK: přesouvat jen úkoly způsobilé pro tlačítko (aktivní, jednodenní,
+jedinečné ID, ne opakované/zástupy/SPA/projekt/dokončené/zrušené); pustit
+jen do řádku **stejného člověka** (řešitel se nemění; sdílený úkol jde
+táhnout i z řádku spoluřešitele a posune se všem); jen na jiný den
+viditelného týdne, **ne do minulosti**; víkend, svátek, dovolená a
+termíny jen upozorní; nová kolize auta → potvrzení (jako ve Správě).
+Trvalé vyznačení kolize auta na kartách = bod 5, probere se zvlášť.
+
+- `ft_loader.js`: způsobilost vyčleněna do `taskMoveBase` (tlačítko i
+  přetažení beze změny pravidel); `getTaskMovePlan(task, to)` = přesun
+  na zvolený den (`fixedTo`, svátky ze SPA nic neblokují);
+  `getTaskMoveWarnings` (nová kolize auta přes `getNewAutoConflicts`,
+  víkend, svátek `*SPA-HOL-*` s názvem, nepřítomnost ze SPA hlavního
+  řešitele i spoluřešitelů, `dueDate` úkolu a projektu);
+  `moveTaskFromDrop` (minulost → chyba, upozornění → `confirm`, zápis
+  přes stávající `shiftSingleDayTask` — čerstvé čtení, otisk úkolu, 409,
+  nejasný výsledek); oznámení má tlačítko **„Vrátit zpět“**, které
+  vrátí přesun jen když úkol od té doby nikdo nezměnil
+  (`result.fingerprintAfter`); `isTaskMovable`. Hláška při změně úkolu
+  už neříká „Otevři jeho detail znovu“ (platí i pro mobil).
+- Dashboard: tlačítko a `#modalShiftHint` odstraněny; karty způsobilých
+  úkolů `draggable` (třída `movable`, kurzor „ruka“), buňky nesou
+  `data-owner`/`data-date`; při tažení zvýrazněny povolené buňky řádku
+  (`drop-target`) a buňka pod kurzorem (`drop-ok`), barvy z `theme.css`.
+  Během tažení se data z pollingu nepřekreslují (`_pendingData`, použijí
+  se po skončení). Klik bez tažení dál otevírá detail. Stará
+  `ft_loader.js` z HTTP cache → karty nejdou táhnout (nic nespadne).
+- `sw.js` beze změny (síť má přednost před cache, mobil nic nového
+  nepotřebuje).
+
+**Test (Claude Code, mock GitHub API, vymyšlená data, 2026-10-09):**
+způsobilost karet (vícedenní, dokončený, SPA = netáhnou se); přesun bez
+upozornění → hned + oznámení; Vrátit zpět; cizí řádek a stejný den
+nepovoleny; kolize auta → dotaz, Zrušit nic neuloží; víkend → dotaz, OK
+přesune; sdílený úkol z řádku spoluřešitele (dovolená RS + po termínu,
+owner/coOwners beze změny); podúkol projektu (`vyroba` beze změny);
+svátek s názvem; minulost nepovolena; cizí změna úkolu → přesun se
+neprovede; nová data během tažení se odloží; Vrátit zpět po cizí změně
+odmítnuto; skutečné tažení myší v prohlížeči; klik otevře detail bez
+tlačítka Posunout; mobilní tlačítko funguje jako dřív; stará verze
+loaderu → nic netáhnutelné. Offline testy `tests/task-shift.test.cjs`
+(Node) na tomto počítači spustit nejdou — nespuštěny. Živá data
+netestována.
+
 ## Kolize auta při prodloužení úkolu — potvrzení při uložení (2026-10-09, NASAZENO — commity `05f0dd4`, `42378ac`)
 
 **✅ Nahráno JK 2026-10-09 14:01.** `git fetch` + `cmp`: všechny 4 funkční

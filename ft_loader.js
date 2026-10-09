@@ -1645,7 +1645,9 @@ const FTLoader = (() => {
     return JSON.stringify(sort(task));
   }
 
-  function getTaskShiftPlan(displayTask, raw = getRawJson()) {
+  // Způsobilost úkolu k přesunu — společná pro tlačítko „Posunout →“
+  // (mobil) i přetažení v Dashboardu na počítači (2026-10-09).
+  function taskMoveBase(displayTask, raw) {
     const hidden = { eligible: false };
     if (!raw || !displayTask?.id || displayTask.recurring || displayTask.isMultiDay ||
         /^\*?SPA/.test(String(displayTask.id)) || !validTaskDate(displayTask.plannedDate)) return hidden;
@@ -1660,10 +1662,51 @@ const FTLoader = (() => {
         String(task.state || "").toLocaleLowerCase("cs-CZ").includes("dokončeno") ||
         task.plannedDate !== displayTask.plannedDate ||
         (Array.isArray(task.completedDays) && task.completedDays.length > 0)) return hidden;
-    const plan = { eligible: true, id: task.id, from: task.plannedDate, fingerprint: shiftFingerprint(task) };
+    return { eligible: true, id: task.id, from: task.plannedDate, fingerprint: shiftFingerprint(task) };
+  }
+
+  function getTaskShiftPlan(displayTask, raw = getRawJson()) {
+    const plan = taskMoveBase(displayTask, raw);
+    if (!plan.eligible) return plan;
     try { plan.to = nextSpaWorkingDay(plan.from, raw.tasks); }
     catch (e) { plan.error = e.message; }
     return plan;
+  }
+
+  // Přesun na zvolený den (přetažení v Dashboardu, 2026-10-09). Cíl volí
+  // uživatel, svátky ze SPA tu slouží jen k upozornění, nic neblokují.
+  function getTaskMovePlan(displayTask, to, raw = getRawJson()) {
+    const plan = taskMoveBase(displayTask, raw);
+    if (!plan.eligible || !validTaskDate(to) || to === plan.from) return { eligible: false };
+    plan.to = to;
+    plan.fixedTo = true;
+    return plan;
+  }
+
+  // Upozornění před přesunem na plan.to (prostý text, jedno na řádek):
+  // nová kolize auta, víkend, svátek a dovolená ze SPA, termíny. Nic
+  // neblokuje — rozhoduje uživatel v potvrzení.
+  function getTaskMoveWarnings(plan, raw = getRawJson()) {
+    const tasks = (raw && raw.tasks) || [];
+    const task = tasks.find(t => t && t.id === plan.id);
+    if (!task || !validTaskDate(plan.to)) return [];
+    const to = plan.to, out = [];
+    const conflicts = getNewAutoConflicts(task, { ...task, plannedDate: to }, {
+      tasks, auta: raw.auta || [], autaRezervace: raw.auta_rezervace || [], exclude: t => t === task,
+    });
+    if (conflicts.length) out.push(describeAutoConflicts(String(task.auto).trim(), conflicts));
+    const day = new Date(to + "T12:00:00Z").getUTCDay();
+    if (day === 0 || day === 6) out.push(`Pozor: ${shiftDateLabel(to)} je víkend.`);
+    const holiday = tasks.find(t => isSpaHoliday(t) && !t.cancelled && t.plannedDate === to);
+    if (holiday) out.push(`Pozor: ${shiftDateLabel(to)} je svátek (${String(holiday.title || "").replace(/^Státní svátek\s*-\s*/, "") || "státní svátek"}).`);
+    const people = [task.owner, ...listCoOwners(task)].filter(Boolean);
+    tasks.filter(t => t && !t.cancelled && /^\*?SPA/.test(String(t.id || "")) && !isSpaHoliday(t) &&
+        people.includes(t.owner) && getMultiDayOccurrenceDates(t).includes(to))
+      .forEach(t => out.push(`Pozor: ${t.owner} má ${shiftDateLabel(to)} nepřítomnost ze SPA (${t.title || "dovolená"}).`));
+    if (validTaskDate(task.dueDate) && to > task.dueDate) out.push(`Pozor: nové datum je po požadovaném dokončení (${shiftDateLabel(task.dueDate)}).`);
+    const project = isProjectSubtask(task) && tasks.find(t => t.id === task.vyroba.projekt && isProjectTask(t));
+    if (project && validTaskDate(project.dueDate) && to > project.dueDate) out.push(`Pozor: nové datum je po termínu projektu (${shiftDateLabel(project.dueDate)}).`);
+    return out;
   }
 
   function shiftDateLabel(iso) {
@@ -1697,9 +1740,11 @@ const FTLoader = (() => {
           await fetchFromGitHub(false, { force: true, strict: true });
           if (!isUserVerified() || getUserRole() !== "planovac") throw new Error("Nemáš oprávnění přesouvat úkoly.");
           const raw = getRawJson();
-          const current = getTaskShiftPlan({ id: plan.id, plannedDate: plan.from }, raw);
+          const current = plan.fixedTo
+            ? getTaskMovePlan({ id: plan.id, plannedDate: plan.from }, plan.to, raw)
+            : getTaskShiftPlan({ id: plan.id, plannedDate: plan.from }, raw);
           if (!current.eligible || current.fingerprint !== plan.fingerprint) {
-            throw new Error("Úkol se mezitím změnil nebo byl smazán. Otevři jeho detail znovu; přesun nebyl proveden.");
+            throw new Error("Úkol se mezitím změnil nebo byl smazán. Přesun nebyl proveden — zkontroluj aktuální stav úkolu a zkus to znovu.");
           }
           if (current.error) throw new Error(current.error);
           if (current.to !== plan.to) throw new Error("Seznam svátků se změnil. Otevři detail znovu a ověř nové datum přesunu.");
@@ -1717,7 +1762,8 @@ const FTLoader = (() => {
           task.plannedDate = plan.to;
           task.lastUpdated = localTodayISO();
           changedTask = shiftFingerprint(task);
-          result = { id: plan.id, from: plan.from, to: plan.to, warnings, conflictLevel: autoConflictLevel(conflicts) };
+          // fingerprintAfter: „Vrátit zpět“ smí vrátit jen přesně tento stav.
+          result = { id: plan.id, from: plan.from, to: plan.to, warnings, conflictLevel: autoConflictLevel(conflicts), fingerprintAfter: changedTask };
           const user = getCurrentUserFromConfig();
           await saveToGitHub(raw, `Úkol ${plan.id} přesunut z ${plan.from} na ${plan.to} uživatelem ${user}`);
           return result;
@@ -1747,7 +1793,8 @@ const FTLoader = (() => {
     } finally { _shiftInProgress = false; }
   }
 
-  function showTaskShiftNotice(message, kind = "success") {
+  // action = { label, run } → tlačítko navíc (např. „Vrátit zpět“).
+  function showTaskShiftNotice(message, kind = "success", action = null) {
     let notice = document.getElementById("taskShiftNotice");
     if (!notice) {
       notice = document.createElement("div");
@@ -1756,15 +1803,61 @@ const FTLoader = (() => {
       notice.setAttribute("aria-live", "polite");
       const text = document.createElement("div");
       text.className = "task-shift-notice-text";
+      const act = document.createElement("button");
+      act.type = "button"; act.className = "task-shift-notice-action"; act.hidden = true;
+      act.style.marginRight = "8px";
       const close = document.createElement("button");
       close.type = "button"; close.textContent = "Zavřít";
       close.setAttribute("aria-label", "Zavřít oznámení o přesunu");
       close.addEventListener("click", () => { notice.hidden = true; });
-      notice.append(text, close); document.body.append(notice);
+      notice.append(text, act, close); document.body.append(notice);
     }
     notice.className = `task-shift-notice task-shift-${kind}`;
     notice.querySelector(".task-shift-notice-text").textContent = message;
+    const act = notice.querySelector(".task-shift-notice-action");
+    if (act) {
+      act.hidden = !action;
+      act.disabled = false;
+      act.textContent = action ? action.label : "";
+      act.onclick = action ? () => { act.disabled = true; action.run(); } : null;
+    }
     notice.hidden = false;
+  }
+
+  // ── Přesun přetažením v Dashboardu na počítači (2026-10-09) ────────────
+  // JK: přesouvat jen úkoly způsobilé pro tlačítko „Posunout →“, jen
+  // v rámci řádku stejného člověka, ne do minulosti; nová kolize auta,
+  // víkend, svátek, dovolená a termíny → potvrzení, bez nich přesun hned.
+  // Po přesunu oznámení s „Vrátit zpět“. Zápis = shiftSingleDayTask.
+  async function moveTaskFromDrop(displayTask, to) {
+    const raw = getRawJson();
+    const plan = getTaskMovePlan(displayTask, to, raw);
+    if (!plan.eligible) { showTaskShiftNotice("Tento úkol nelze přetažením přesunout.", "error"); return null; }
+    if (to < localTodayISO()) { showTaskShiftNotice("Do minulosti nelze úkol přesunout.", "error"); return null; }
+    const warnings = getTaskMoveWarnings(plan, raw);
+    if (warnings.length && !window.confirm(`Přesunout úkol ${plan.id} z ${shiftDateLabel(plan.from)} na ${shiftDateLabel(to)}?\n\n${warnings.join("\n")}\n\nPřesto přesunout?`)) return null;
+    try {
+      const result = await shiftSingleDayTask(plan);
+      const after = result.warnings.join("\n");
+      showTaskShiftNotice(`Úkol ${result.id} přesunut z ${shiftDateLabel(result.from)} na ${shiftDateLabel(result.to)}.${after ? "\n" + after : ""}`,
+        result.conflictLevel === "kolize" ? "collision" : after ? "warning" : "success",
+        { label: "Vrátit zpět", run: () => undoTaskMove(result) });
+      return result;
+    } catch (e) {
+      showTaskShiftNotice(e.message || "Přesun se nepodařilo uložit.", "error");
+      return null;
+    }
+  }
+
+  // Vrátí přesun, jen když úkol od té doby nikdo nezměnil (otisk po přesunu).
+  async function undoTaskMove(result) {
+    const plan = { eligible: true, fixedTo: true, id: result.id, from: result.to, to: result.from, fingerprint: result.fingerprintAfter };
+    try {
+      await shiftSingleDayTask(plan);
+      showTaskShiftNotice(`Přesun vrácen: úkol ${result.id} je zpět na ${shiftDateLabel(result.from)}.`, "success");
+    } catch (e) {
+      showTaskShiftNotice(e.message || "Přesun se nepodařilo vrátit.", "error");
+    }
   }
 
   async function shiftTaskFromButton(button, { modal = null } = {}) {
@@ -2591,6 +2684,10 @@ const FTLoader = (() => {
     configureTaskShiftButton,
     shiftSingleDayTask,
     shiftTaskFromButton,
+    getTaskMovePlan,
+    getTaskMoveWarnings,
+    isTaskMovable: (displayTask, raw = getRawJson()) => taskMoveBase(displayTask, raw).eligible,
+    moveTaskFromDrop,
     vyroba,
   };
 
