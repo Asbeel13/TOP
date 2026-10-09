@@ -585,6 +585,7 @@
           <label class="lbl" for="smDays">Počet dní</label>
           <input id="smDays" class="inp" type="number" min="1" max="60" step="1" value="1" />
         </div>
+        <div class="field wide" id="smAutoWarn" hidden style="font-size:12px;white-space:pre-line;"></div>
         <div class="field wide">
           <label class="lbl" for="smNote">Upřesnění (poznámka)</label>
           <textarea id="smNote" class="inp"></textarea>
@@ -1538,9 +1539,43 @@ function openSubModal(projectId, subId, fazeId) {
   document.querySelectorAll("#subModal .vmodal-body input, #subModal .vmodal-body select, #subModal .vmodal-body textarea, #smAddItem, #smItems [data-del]")
     .forEach(x => { x.disabled = !(edit || (!t && CAN_EDIT)); });
   document.getElementById("smErr").textContent = "";
+  checkSubAutoWarning();
   openModal("subModal");
   if (!t) document.getElementById("smTitle").focus();
 }
+
+// ── Kolize auta podúkolu (2026-10-09) ──
+// Auto se tu neupravuje (zůstává z Správy úkolů), ale změna data nebo počtu
+// dní ho může přesunout na den, kdy ho má jiný úkol. Dřív to tady nikdo
+// nehlídal. Sdílená logika z ft_loader.js; stará verze z HTTP cache
+// funkce nemá → bez hlášky, uložení jako dřív.
+function subAutoState() {
+  const t = SM && SM.subId ? findSubtask(SM.subId) : null;
+  if (!t || !t.auto || !FTLoader.getNewAutoConflicts) return null;
+  const after = {
+    auto: t.auto,
+    plannedDate: document.getElementById("smDate").value,
+    durationDays: Math.max(1, Math.min(60, parseInt(document.getElementById("smDays").value, 10) || 1)),
+    activeDays: t.activeDays,
+  };
+  const ctx = { tasks: allTasks(), auta: (RAW && RAW.auta) || [], autaRezervace: (RAW && RAW.auta_rezervace) || [], exclude: x => x === t };
+  return { t, after, ctx };
+}
+function checkSubAutoWarning() {
+  const box = document.getElementById("smAutoWarn");
+  const s = subAutoState();
+  const conflicts = s && s.after.plannedDate ? FTLoader.getAutoConflicts(s.t.auto, FTLoader.getMultiDayOccurrenceDates(s.after), s.ctx) : [];
+  const level = s ? FTLoader.autoConflictLevel(conflicts) : "";
+  box.hidden = !level;
+  if (!level) return;
+  box.textContent = FTLoader.describeAutoConflicts(s.t.auto, conflicts);
+  box.style.color = level === "kolize" ? "var(--auto-kolize)" : "var(--auto-kolize-stav)";
+}
+["smDate", "smDays"].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener("input", checkSubAutoWarning);
+  el.addEventListener("change", checkSubAutoWarning);
+});
 
 document.getElementById("smHistoryBtn").addEventListener("click", () => {
   const t = SM && SM.subId ? findSubtask(SM.subId) : null;
@@ -1564,6 +1599,15 @@ document.getElementById("smSave").addEventListener("click", async () => {
   };
   if (!fields.title.trim()) { err.textContent = "Vyplň název podúkolu."; return; }
   if (fields.plannedDate && !fields.owner) { err.textContent = "Podúkol s plánovaným datem musí mít řešitele — jinak by se v týdenním plánu u nikoho neukázal."; return; }
+  // Nová kolize auta → potvrzení; kolize, kterou podúkol měl už dřív, se
+  // znovu nehlásí (JK 2026-10-09).
+  const autoState = subAutoState();
+  const fresh = autoState ? FTLoader.getNewAutoConflicts(autoState.t, autoState.after, autoState.ctx) : [];
+  if (fresh.length && !(await ask({
+    title: "Kolize auta",
+    text: `Úprava přidává kolizi auta:\n\n${FTLoader.describeAutoConflicts(autoState.t.auto, fresh)}\n\nPřesto uložit?`,
+    okText: "Přesto uložit",
+  }))) return;
   const btn = document.getElementById("smSave");
   btn.disabled = true;
   btn.textContent = "Ukládám…";

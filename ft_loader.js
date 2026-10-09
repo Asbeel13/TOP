@@ -1237,6 +1237,44 @@ const FTLoader = (() => {
     return lines.join("\n");
   }
 
+  // ── Nové kolize auta při uložení (2026-10-09) ─────────────────────────
+  // Kolega prodloužil úkol z 1 na víc dní ve Správě úkolů a o kolizi auta v
+  // dalších dnech se nedozvěděl: hláška pod polem Auto byla mimo zorné pole
+  // a uložení se na nic nezeptalo (podúkol v Řízení výroby kolize nehlídal
+  // vůbec). Při uložení se teď porovnají kolize úkolu PŘED úpravou a PO ní
+  // a potvrzení se vyžádá jen u NOVÝCH (JK: kolizi, kterou úkol už měl, znovu
+  // nehlásit). Nic neblokuje — přidělit auto víc lidem je dovolené.
+  //   before/after = { auto, plannedDate, durationDays, activeDays };
+  //                  before = null u nového úkolu
+  //   ctx          = jako getAutoConflicts (exclude = upravovaný úkol)
+  function taskAutoConflicts(t, ctx) {
+    const spz = String((t && t.auto) || "").trim();
+    if (!spz || !t.plannedDate) return [];
+    const dates = getMultiDayOccurrenceDates(t);
+    const conflicts = getAutoConflicts(spz, dates, ctx);
+    // Trvalý stav auta nehlásit, když má auto na VŠECHNY dny úkolu denní
+    // záznam "volné" (stejná výjimka jako getAutoDostupnost a posun úkolu).
+    const free = d => (ctx.autaRezervace || []).some(r => r && r.spz === spz && r.datum === d && r.stav === "volné");
+    return dates.length && dates.every(free) ? conflicts.filter(c => c.typ !== "stav") : conflicts;
+  }
+
+  function getNewAutoConflicts(before, after, ctx = {}) {
+    const now = taskAutoConflicts(after, ctx);
+    if (!now.length) return [];
+    // Jiné auto než před úpravou = všechny jeho kolize jsou nové.
+    const sameCar = before && String(before.auto || "").trim() === String(after.auto || "").trim();
+    const old = sameCar ? taskAutoConflicts(before, ctx) : [];
+    const same = (a, b) => a.typ === b.typ && a.datum === b.datum && a.task === b.task && (a.stav || "") === (b.stav || "");
+    return now.filter(c => !old.some(o => same(o, c)));
+  }
+
+  // true = uložit (žádná nová kolize, nebo ji uživatel potvrdil).
+  function confirmNewAutoConflicts(before, after, ctx) {
+    const fresh = getNewAutoConflicts(before, after, ctx);
+    if (!fresh.length) return true;
+    return window.confirm(`Úprava přidává kolizi auta:\n\n${describeAutoConflicts(String(after.auto).trim(), fresh)}\n\nPřesto uložit?\n(OK = uložit, Zrušit = zpět k úpravě)`);
+  }
+
   // Označí položky rozbalovacího seznamu aut: obsazené auto dostane
   // symbol ⚠ a barvu z theme.css (--auto-kolize / --auto-kolize-stav).
   // Bez vyplněného data (dates prázdné) vrátí seznam do původní podoby.
@@ -2538,6 +2576,8 @@ const FTLoader = (() => {
     getAutoConflicts,
     autoConflictLevel,
     describeAutoConflicts,
+    getNewAutoConflicts,
+    confirmNewAutoConflicts,
     markAutoOptions,
     buildHistoryEvents,
     readHistoryMonth,

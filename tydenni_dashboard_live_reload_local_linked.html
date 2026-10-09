@@ -1042,6 +1042,7 @@
         <div class="field field-optional"><label>Počet dní trvání</label><input id="m2_duration" type="number" min="1" value="1" /></div>
         <div class="field field-optional"><label>Datum dokončení</label><input id="m2_finished" type="date" /></div>
       </div>
+      <div id="m2_dates_auto_hint" style="font-size:12px;margin:0 0 8px;display:none;"></div>
       <div class="grid">
         <div class="field field-optional">
           <label>Aktivní dny (jen pro vícedenní úkol; nezaškrtnuto = každý den)</label>
@@ -2218,6 +2219,9 @@ function newTaskDatesNew() {
 function checkAutoWarningNew() {
   const warn = document.getElementById("m2_auto_warning");
   const sel = document.getElementById("m2_auto");
+  // Krátká hláška u data / počtu dní (2026-10-09), podrobná je pod polem Auto.
+  const hint = document.getElementById("m2_dates_auto_hint");
+  if (hint) hint.style.display = "none";
   if (!warn || !sel) return;
   // Pojistka: stará ft_loader.js z HTTP cache (10 min po nahrání) funkce
   // nemá — pak se nic neoznačí, chování jako dřív, žádný pád formuláře.
@@ -2232,6 +2236,11 @@ function checkAutoWarningNew() {
   warn.textContent = FTLoader.describeAutoConflicts(spz, conflicts);
   warn.style.color = level === "kolize" ? "var(--auto-kolize)" : "var(--auto-kolize-stav)";
   warn.style.display = "block";
+  if (hint) {
+    hint.textContent = `⚠ Auto ${spz} má v některém dni úkolu kolizi — podrobnosti u pole Auto (SPZ).`;
+    hint.style.color = warn.style.color;
+    hint.style.display = "block";
+  }
 }
 
 // Kontrola při každé změně auta, data, počtu dní nebo aktivních dnů.
@@ -2311,6 +2320,22 @@ async function saveNewTaskFromModal() {
   if (!assignee) { alert("Pole Řešitel je povinné."); return; }
   const planned = document.getElementById("m2_planned").value || "";
   if (!planned) { alert("Pole Plánovaný datum realizace je povinné."); return; }
+
+  // Kolize auta (2026-10-09) → potvrzení; "Zrušit" nechá formulář otevřený.
+  // Nový úkol = všechny kolize jsou nové. Stará ft_loader.js z HTTP cache
+  // funkci nemá → uloží se jako dřív.
+  if (FTLoader.confirmNewAutoConflicts) {
+    const checked = [];
+    for (let i = 1; i <= 7; i++) { if (document.getElementById(`m2_day_${i}`)?.checked) checked.push(i); }
+    const after = {
+      auto: (document.getElementById("m2_auto").value || "").trim(),
+      plannedDate: planned,
+      durationDays: parseInt(document.getElementById("m2_duration").value, 10) || 1,
+      activeDays: (checked.length > 0 && checked.length < 7) ? checked : undefined,
+    };
+    const ctx = { tasks: (FTLoader.getRawJson() || {}).tasks || [], auta: DATA.auta || [], autaRezervace: DATA.autaRezervace || [] };
+    if (!FTLoader.confirmNewAutoConflicts(null, after, ctx)) return;
+  }
 
   const saveBtn = document.querySelector('#newTaskModal .actions-row .primary');
   const setBtnState = (text, disabled) => { if (saveBtn) { saveBtn.disabled = disabled; saveBtn.textContent = text; } };

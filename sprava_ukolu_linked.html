@@ -742,6 +742,7 @@ initDarkMode();
           <div class="field field-optional"><label>Počet dní trvání</label><input id="m_duration" type="number" min="1" value="1" /></div>
           <div class="field field-optional"><label>Datum dokončení</label><input id="m_finished" type="date" /></div>
         </div>
+        <div id="m_dates_auto_hint" style="font-size:12px;margin:0 0 8px;display:none;"></div>
         <div class="grid">
           <div class="field field-optional">
             <label>Aktivní dny (jen pro vícedenní úkol; nezaškrtnuto = každý den)</label>
@@ -1692,6 +1693,17 @@ function saveTaskFromModal(){
   }
   taskData.activeDays = (checkedDays.length > 0 && checkedDays.length < 7) ? checkedDays : undefined;
 
+  // Nová kolize auta (2026-10-09, např. prodloužení na víc dní) → potvrzení;
+  // "Zrušit" nechá okno otevřené k úpravě. Kolize, kterou úkol měl už před
+  // úpravou, se znovu nehlásí. Stará ft_loader.js z HTTP cache funkci nemá
+  // → uloží se jako dřív.
+  if (FTLoader.confirmNewAutoConflicts) {
+    const editIdx = currentEditIndex;
+    const before = editIdx != null ? tasks.find(t => t.rowIndex === editIdx) || null : null;
+    const ctx = { tasks, auta, autaRezervace, exclude: t => editIdx != null && t.rowIndex === editIdx };
+    if (!FTLoader.confirmNewAutoConflicts(before, taskData, ctx)) return;
+  }
+
   if (currentEditIndex != null) {
     // Editace existujícího úkolu — aktualizuj v paměti, beze změny mechanismu
     const existing = tasks.find(t => t.rowIndex === currentEditIndex);
@@ -1898,6 +1910,10 @@ function modalTaskDates() {
 function checkAutoWarning() {
   const warn = document.getElementById("m_auto_warning");
   const sel = document.getElementById("m_auto");
+  // Krátká hláška u data / počtu dní (2026-10-09): podrobná je pod polem
+  // Auto níž ve formuláři a při změně počtu dní nebývá vidět.
+  const hint = document.getElementById("m_dates_auto_hint");
+  if (hint) hint.style.display = "none";
   if (!warn || !sel) return;
   if (!FTLoader.getAutoConflicts || !FTLoader.markAutoOptions) { warn.style.display = "none"; return; }
   const dates = modalTaskDates();
@@ -1911,6 +1927,11 @@ function checkAutoWarning() {
   warn.textContent = FTLoader.describeAutoConflicts(spz, conflicts);
   warn.style.color = level === "kolize" ? "var(--auto-kolize)" : "var(--auto-kolize-stav)";
   warn.style.display = "block";
+  if (hint) {
+    hint.textContent = `⚠ Auto ${spz} má v některém dni úkolu kolizi — podrobnosti u pole Auto (SPZ).`;
+    hint.style.color = warn.style.color;
+    hint.style.display = "block";
+  }
 }
 
 // ── Tabulka aut a rezervací ───────────────────────────────────────────
