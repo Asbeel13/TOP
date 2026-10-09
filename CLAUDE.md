@@ -5,6 +5,45 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
+## Kolize auta při prodloužení úkolu — potvrzení při uložení (2026-10-09, LOKÁLNĚ, čeká na nahrání JK)
+
+Kolega prodloužil ve Správě úkolů úkol z 1 na víc dní a o kolizi auta v
+dalších dnech se nedozvěděl. Příčina: kolize se sice počítala správně
+(všechny dny), ale jen jako malá hláška pod polem Auto — níž ve
+formuláři, při změně počtu dní mimo zorné pole — a Uložit se na nic
+nezeptalo. Okno podúkolu v Řízení výroby (`vyroba.html`) mění datum i
+počet dní, auto zachová, ale kolize nehlídalo vůbec. JK: opravit obojí,
+potvrzení **jen u nových kolizí**.
+
+- `ft_loader.js`: `getNewAutoConflicts(before, after, ctx)` porovná
+  kolize úkolu před úpravou a po ní (shoda = typ + den + tentýž úkol /
+  stav); jiné auto = všechny kolize nové; trvalý stav auta se nehlásí,
+  když má auto na všechny dny úkolu denní `volné`.
+  `confirmNewAutoConflicts` = `confirm()` s výpisem
+  `describeAutoConflicts`, true = uložit. Nic neblokuje (auto víc lidem
+  je dovolené).
+- Správa úkolů (`saveTaskFromModal`, úprava i nový úkol) a nový úkol v
+  Dashboardu (`saveNewTaskFromModal`): při nové kolizi dotaz, „Zrušit“
+  nechá okno otevřené. Nová krátká hláška `#m_dates_auto_hint` /
+  `#m2_dates_auto_hint` přímo pod „Počet dní trvání“.
+- `vyroba.html`: okno podúkolu má průběžnou hlášku `#smAutoWarn` pod
+  datem / počtem dní a při uložení dialog „Kolize auta“ (`ask`,
+  „Přesto uložit“ / „Zpět“), jen u podúkolu s autem.
+- Stará `ft_loader.js` z HTTP cache funkce nemá → uloží se jako dřív,
+  bez dotazu.
+
+**Test (Claude Code, mock GitHub API, vymyšlená data, 2026-10-09):**
+Správa — stará kolize se při uložení poznámky nehlásí; prodloužení na 3
+dny vypíše jen nové dny (13. a 14.), ne starou kolizi 12.; Zrušit nic
+neuloží a okno zůstane; OK uloží; další uložení už bez dotazu; nový úkol
+s obsazeným autem se zeptá; stará verze loaderu uloží bez dotazu.
+Dashboard — volné auto bez dotazu, kolize s dotazem, Zrušit / OK.
+Výroba — hláška po změně počtu dní, dialog, Zpět nic neuloží, Přesto
+uložit uloží (`vyroba` beze změny), další uložení bez dialogu. Logika:
+jiné auto, trvalý stav, `volné` na všechny / jen některé dny, aktivní
+dny, bez auta / data, zrušený úkol. Bez chyb v konzoli. Mobilní stránky
+se nemění. Živá data netestována.
+
 ## Detail úkolu v počítačovém Dashboardu — tlačítka v jedné řadě (2026-09-30, NASAZENO — commit `db6e6a2`)
 
 JK po screenshotu schválil úpravu. V
