@@ -5,7 +5,12 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
-## Kolize auta při prodloužení úkolu — potvrzení při uložení (2026-10-09, LOKÁLNĚ, čeká na nahrání JK)
+## Kolize auta při prodloužení úkolu — potvrzení při uložení (2026-10-09, NASAZENO — commity `05f0dd4`, `42378ac`)
+
+**✅ Nahráno JK 2026-10-09 14:01.** `git fetch` + `cmp`: všechny 4 funkční
+soubory i tento dokument bajtově shodné s otestovanou verzí; GitHub
+Pages: SHA-256 všech 4 souborů sedí (14:02). Zbývá: ověření s reálnými
+daty (prodloužení úkolu s autem ve Správě úkolů).
 
 Kolega prodloužil ve Správě úkolů úkol z 1 na víc dní a o kolizi auta v
 dalších dnech se nedozvěděl. Příčina: kolize se sice počítala správně
