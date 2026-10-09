@@ -5,7 +5,12 @@ každé relace — shrnuje architekturu, rozhodnutí a nástrahy z dlouhého vý
 tohoto projektu (stovky iterací v Claude.ai chatu). Cílem je, abys nemusel(a)
 nic z tohoto znovu objevovat od nuly.
 
-## Přesun úkolu přetažením v Dashboardu na počítači (2026-10-09, LOKÁLNĚ, čeká na nahrání JK)
+## Přesun úkolu přetažením v Dashboardu na počítači (2026-10-09, NASAZENO — commit `33e0a26`)
+
+**✅ Nahráno JK 2026-10-09 14:49.** `git fetch` + `cmp`: `ft_loader.js` i
+Dashboard bajtově shodné s otestovanou verzí; GitHub Pages: SHA-256 obou
+sedí (14:50). Zbývá: ověření s reálnými daty (přetažení, upozornění,
+Vrátit zpět; mobilní tlačítko).
 
 Nahrazuje tlačítko „Posunout →“ v detailu úkolu **jen na počítači**;
 mobilní Dashboard má tlačítko dál a přetahování nemá (JK). Rozhodnutí
