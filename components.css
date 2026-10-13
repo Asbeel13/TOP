@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílené komponenty (components.css) — TOP
-   verze 1.1.0 — 2026-09-23
+   verze 1.2.0 — 2026-10-13
    ==========================================================================
    Sesterský soubor k theme.css. Zatímco theme.css obsahuje JEN proměnné
    (pravidlo dohodnuté při review se SPA stranou, viz theme.css hlavička),
@@ -45,6 +45,11 @@
    `.h-cancel`/`.h-restore`) a tlačítko `.history-btn`. Přesunuto sem ze
    Správy úkolů, protože historii teď zobrazuje i Dashboard (JK) — obsah
    panelu vykresluje společný kód ve ft_loader.js. Barvy jen z theme.css.
+
+   v1.2.0 (2026-10-13): do kanonické verze doplněny styly posunu úkolu
+   (`.task-shift-btn`, `.task-shift-hint`, `.task-shift-notice` a jejich
+   stavy), které TOP používá od 2026-09-29, ale byly jen v jeho kopii.
+   Pravidla se nemění, jen číslo verze.
    ========================================================================== */
 
 /* ── Tlačítka ── */
