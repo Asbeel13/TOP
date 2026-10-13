@@ -9,6 +9,16 @@ Novější záznamy (od 2026-09-08) jsou nahoře, nejnovější první — nový
 přidej nahoru. Starší chronologický changelog (2026-07-29 až 2026-09-18) je
 na konci, od nejstaršího.
 
+## `components.css` 1.2.0 — jen číslo verze (2026-10-13, NASAZENO — commit `c51b2d4`)
+
+Kanonická verze v `Esperanto` převzala styly posunu úkolu
+(`.task-shift-btn`, `.task-shift-hint`, `.task-shift-notice`), které měl
+od 2026-09-29 jen TOP. V TOP se změnila pouze hlavička souboru (verze a
+poznámka); pravidla jsou beze změny. **✅ Nahráno JK 2026-10-13 06:49.**
+`git fetch` + `cmp`: GitHub bajtově shodný s připravenou verzí i s
+`Esperanto/components.css`; GitHub Pages: SHA-256 sedí (06:50). Tabulka
+verzí je v `Esperanto/INTEGRACE.md` (Sdílený design).
+
 ## Přesun úkolu přetažením v Dashboardu na počítači (2026-10-09, NASAZENO — commit `33e0a26`)
 
 **✅ Nahráno JK 2026-10-09 14:49.** `git fetch` + `cmp`: `ft_loader.js` i
