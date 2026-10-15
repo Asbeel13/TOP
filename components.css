@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sdílené komponenty (components.css) — TOP
-   verze 1.2.0 — 2026-10-13
+   verze 1.3.0 — 2026-10-15
    ==========================================================================
    Sesterský soubor k theme.css. Zatímco theme.css obsahuje JEN proměnné
    (pravidlo dohodnuté při review se SPA stranou, viz theme.css hlavička),
@@ -50,6 +50,11 @@
    (`.task-shift-btn`, `.task-shift-hint`, `.task-shift-notice` a jejich
    stavy), které TOP používá od 2026-09-29, ale byly jen v jeho kopii.
    Pravidla se nemění, jen číslo verze.
+
+   v1.3.0 (2026-10-15): měsíční kalendář (třídy s předponou month-cal-) —
+   kalendář aut ve Správě úkolů TOP (JK: sdílená komponenta, ne styly
+   jedné stránky). Vzhled převzatý z kalendáře SPA. Předpona cal- se
+   nepoužila, tu už má TOP ve vyroba.html. Barvy jen z theme.css.
    ========================================================================== */
 
 /* ── Tlačítka ── */
@@ -351,3 +356,67 @@
 .task-shift-collision { border-color: var(--auto-kolize); }
 .task-shift-warning { border-color: var(--auto-kolize-stav); }
 .task-shift-error { border-color: var(--danger); }
+
+/* ── Měsíční kalendář (v1.3.0) — Správa úkolů TOP, kalendář aut ──
+   Mřížka Po–Ne jako v SPA (public/styles.css, .calendar-grid a .day-),
+   SPA má zatím vlastní pravidla. Stav dne = třída na td: weekend,
+   holiday, today, past, other-month, selected. Pozadí je na td, ne na tr:
+   obecná pravidla tabulek ve stránkách (pruhy, hover na tbody tr) by
+   jinak přebarvila celé týdny. Barvu štítku (background a
+   border-left-color) dává stránka inline podle stavu, text zůstává
+   var(--text) a je čitelný i v tmavém režimu. */
+.month-cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+.month-cal-toolbar label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.month-cal-nav { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-right: auto; }
+.month-cal-nav button { padding: 6px 12px; }
+.month-cal-nav span { min-width: 130px; text-align: center; }
+.month-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.month-cal-scroll { overflow: auto; }
+table.month-cal-grid { min-width: 700px; table-layout: fixed; border: 1px solid var(--line-soft); }
+.month-cal-grid thead th { position: static; text-align: center; padding: 6px 4px; border: 1px solid var(--line-soft); }
+.month-cal-grid td {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  padding: 4px;
+  height: 84px;
+  width: 14.28%;
+  cursor: pointer;
+}
+.month-cal-daynum { font-size: 13px; font-weight: 600; }
+.month-cal-grid td.weekend { background: var(--weekend-bg); }
+.month-cal-grid td.holiday { background: var(--holiday-bg); }
+.month-cal-grid td.today { outline: 2px solid var(--today-outline); outline-offset: -2px; }
+.month-cal-grid td.past { opacity: var(--past-opacity); }
+.month-cal-grid td.other-month .month-cal-daynum { opacity: .45; }
+.month-cal-grid td.selected { outline: 2px dashed var(--success); outline-offset: -2px; }
+.month-cal-chip {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.35;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-top: 2px;
+  color: var(--text);
+  border-left: 4px solid var(--line-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.month-cal-grid .month-cal-chip:hover { outline: 2px solid var(--line-medium); outline-offset: -1px; }
+.month-cal-chip.conflict { font-weight: 700; }
+.month-cal-legend .month-cal-chip { display: inline-block; margin: 0; cursor: default; outline: none; }

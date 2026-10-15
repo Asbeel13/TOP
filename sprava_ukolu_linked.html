@@ -516,6 +516,9 @@ initDarkMode();
     html.dark .helper { color: var(--border-on-navy); }
     html.dark .field label { color: var(--text-muted); }
 
+    /* Kalendář aut (Přehled aut → 📅 Kalendář): styly month-cal- jsou ve
+       sdíleném components.css (v1.3.0), ne tady. */
+
     </style>
 </head>
 <body>
@@ -655,7 +658,7 @@ initDarkMode();
   <div class="app" style="margin-top:0;padding-top:0;">
     <div id="tabContent-auta">
     <div class="panel" style="margin-top:18px;">
-      <div class="panel-head"><h2>🚗 Správa aut</h2></div>
+      <div class="panel-head"><h2>🚗 Správa aut</h2><button id="autaViewToggleBtn" onclick="toggleAutaKalendar()">📅 Kalendář</button></div>
       <div class="panel-body" id="autaTableWrap">
         <div style="color:var(--text-muted);font-size:13px;">Načítám data...</div>
       </div>
@@ -1982,9 +1985,14 @@ function renderAutaTable() {
         }).join("")}
       </div>`;
 
+  // Kalendář nahrazuje dlaždice i tabulku rezervací; formulář nové
+  // rezervace a Správa vozidel zůstávají v obou režimech (JK 2026-10-15).
   wrap.innerHTML = `
-    <h3 style="margin:0 0 14px;font-size:16px;">Přehled aut</h3>
-    ${cardsHtml}
+    <div id="autaListSection">
+      <h3 style="margin:0 0 14px;font-size:16px;">Přehled aut</h3>
+      ${cardsHtml}
+    </div>
+    <div id="autaCalSection" style="margin-bottom:24px;">${autaKalendarKostraHtml()}</div>
 
     <h3 style="margin:0 0 12px;font-size:16px;">Rezervace a servis</h3>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
@@ -2005,6 +2013,7 @@ function renderAutaTable() {
         <input id="rez_poznamka" placeholder="volitelná poznámka" style="width:200px;" /></div>
       <button onclick="addRezervace()" class="primary" style="height:42px;">+ Přidat</button>
     </div>
+    <div id="autaRezTableSection">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead><tr style="background:var(--table-head-bg);">
         <th style="padding:8px;text-align:left;border-bottom:2px solid var(--line-medium);">SPZ</th>
@@ -2024,6 +2033,7 @@ function renderAutaTable() {
       ${autaRezervace.length === 0 ? '<tr><td colspan="5" style="padding:12px;color:var(--text-muted);text-align:center;">Žádné rezervace.</td></tr>' : ""}
       </tbody>
     </table>
+    </div>
 
     <h3 style="margin:24px 0 12px;font-size:16px;">Správa vozidel</h3>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">
@@ -2055,6 +2065,8 @@ function renderAutaTable() {
       <button class="primary" onclick="addNewAuto()" style="height:38px;">+ Přidat</button>
     </div>`;
   renderAutaManagementLists();
+  applyAutaViewVisibility();
+  renderAutaKalendar();
 }
 
 function renderAutaManagementLists() {
@@ -2145,6 +2157,284 @@ function deleteRezervace(idx) {
   renderAutaTable();
   autoSaveIfPossible();
 }
+
+// ── Kalendář aut (2026-10-15) ─────────────────────────────────────────
+// Přepínač 📅 Kalendář / 📋 Seznam v záložce Přehled aut. Měsíční mřížka
+// jako v SPA (7 týdnů od pondělí týdne, ve kterém je 1. den měsíce).
+// Zobrazuje záznamy z "Rezervace a servis" (výchozí), úkoly s autem (každý
+// den vícedenního úkolu) nebo obojí — rozhodnutí JK. Klik na úkol = úprava
+// úkolu, na rezervaci = nabídka smazání, na volné místo dne = předvyplní
+// datum nové rezervace. Kalendář sám nic neukládá — jen volá stávající
+// deleteRezervace / formulář rezervace / modal úkolu.
+const AUTA_KAL_VIEW_KEY = "ftAutaKalendarActive";
+const AUTA_KAL_FILTR_KEY = "ftAutaKalendarFiltr";
+const AUTA_KAL_DNY = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+const AUTA_KAL_TYDNU = 7;
+// Barva stavu = levý okraj štítku, text zůstává var(--text) — čitelný i v
+// tmavém režimu (--auto-pouzivane nemá tmavou variantu).
+const AUTA_KAL_STAV = {
+  "používané":   { bg: "var(--auto-pouzivane-bg)", border: "var(--auto-pouzivane)" },
+  "rezervované": { bg: "var(--auto-rezervovane-bg)", border: "var(--warn)" },
+  "servis":      { bg: "var(--danger-soft-alt)", border: "var(--danger)" },
+  "volné":       { bg: "var(--auto-volne-bg)", border: "var(--success)" },
+};
+
+let autaKalendarActive = localStorage.getItem(AUTA_KAL_VIEW_KEY) === "1";
+let autaKalMesic = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+let autaKalFiltr = (() => {
+  const def = { zobrazit: "rezervace", spz: "", zarazeni: "" };
+  try { return { ...def, ...(JSON.parse(localStorage.getItem(AUTA_KAL_FILTR_KEY) || "null") || {}) }; } catch (e) { return def; }
+})();
+let autaKalVybranyDen = "";
+
+function toggleAutaKalendar() {
+  autaKalendarActive = !autaKalendarActive;
+  localStorage.setItem(AUTA_KAL_VIEW_KEY, autaKalendarActive ? "1" : "0");
+  applyAutaViewVisibility();
+  renderAutaKalendar();
+}
+
+function applyAutaViewVisibility() {
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? "" : "none"; };
+  show("autaListSection", !autaKalendarActive);
+  show("autaRezTableSection", !autaKalendarActive);
+  show("autaCalSection", autaKalendarActive);
+  const btn = document.getElementById("autaViewToggleBtn");
+  if (btn) btn.textContent = autaKalendarActive ? "📋 Seznam" : "📅 Kalendář";
+}
+applyAutaViewVisibility();
+
+function autaKalChipHtml(label, stav, title, data, kolize) {
+  const c = AUTA_KAL_STAV[stav] || { bg: "var(--line-soft)", border: "var(--line-medium)" };
+  return `<span class="month-cal-chip${kolize ? " conflict" : ""}"${data || ""} style="background:${c.bg};border-left-color:${c.border};"${title ? ` title="${escapeHtml(title)}"` : ""}>${escapeHtml(label)}</span>`;
+}
+
+// Ovládání nad mřížkou. Vzniká v renderAutaTable() (jen při změně aut /
+// rezervací nebo ruční akci); samotnou mřížku překresluje
+// renderAutaKalendar(), takže změna úkolů (polling, SPA sync) nesahá na
+// rozepsaný formulář rezervace pod kalendářem.
+function autaKalendarKostraHtml() {
+  // Uložený filtr na auto, které už v datech není, by tiše skryl všechno.
+  if (autaKalFiltr.spz && !auta.some(a => a.spz === autaKalFiltr.spz)) autaKalFiltr.spz = "";
+  const f = autaKalFiltr;
+  const opt = (value, text, sel) => `<option value="${escapeHtml(value)}"${value === sel ? " selected" : ""}>${escapeHtml(text)}</option>`;
+  const zarazeni = [...new Set(["TFM", "Provoz Nivnice", "Administrativa", ...auta.map(a => a.zarazeni).filter(Boolean)])];
+  const legenda = [["používané", "úkol / používané"], ["rezervované", "rezervované"], ["servis", "servis"], ["volné", "volné"]]
+    .map(([stav, text]) => autaKalChipHtml(text, stav)).join("");
+  return `
+    <div class="month-cal-toolbar">
+      <div class="month-cal-nav">
+        <button type="button" onclick="autaKalPosun(-1)" title="Předchozí měsíc">◀</button>
+        <span id="autaCalLabel"></span>
+        <button type="button" onclick="autaKalPosun(1)" title="Další měsíc">▶</button>
+        <button type="button" onclick="autaKalPosun(0)">Dnes</button>
+      </div>
+      <div><label for="autaKalZobrazit">Zobrazit</label>
+        <select id="autaKalZobrazit" onchange="autaKalFiltrZmena()" style="width:190px;">
+          ${opt("rezervace", "Rezervace a servis", f.zobrazit)}
+          ${opt("ukoly", "Úkoly s autem", f.zobrazit)}
+          ${opt("oboje", "Oboje", f.zobrazit)}
+        </select></div>
+      <div><label for="autaKalSpz">Auto</label>
+        <select id="autaKalSpz" onchange="autaKalFiltrZmena()" style="width:230px;">
+          ${opt("", "Všechna auta", f.spz)}
+          ${auta.filter(a => !a.vyrazen).map(a => opt(a.spz, `${a.spz} — ${a.popis}`, f.spz)).join("")}
+          ${auta.filter(a => a.vyrazen).map(a => opt(a.spz, `${a.spz} — ${a.popis} (vyřazeno)`, f.spz)).join("")}
+        </select></div>
+      <div><label for="autaKalZarazeni">Zařazení</label>
+        <select id="autaKalZarazeni" onchange="autaKalFiltrZmena()" style="width:170px;">
+          ${opt("", "Vše", f.zarazeni)}
+          ${zarazeni.map(z => opt(z, z, f.zarazeni)).join("")}
+        </select></div>
+    </div>
+    <div class="month-cal-legend">${legenda}
+      <span>⚠ = auto má ten den víc záznamů · (N×) = víc úkolů jednoho člověka s tímto autem</span>
+      <span>Klik na den = nová rezervace · na úkol = úprava úkolu · na rezervaci = smazání</span>
+    </div>
+    <div class="month-cal-scroll">
+      <table class="month-cal-grid">
+        <thead><tr>${AUTA_KAL_DNY.map(d => `<th>${d}</th>`).join("")}</tr></thead>
+        <tbody id="autaCalBody"></tbody>
+      </table>
+    </div>`;
+}
+
+// Záznamy kalendáře podle data (ISO) v rozsahu od–do, bez filtrů.
+function autaKalZaznamy(od, doDatum) {
+  const map = new Map();
+  const add = (datum, z) => {
+    if (!datum || datum < od || datum > doDatum) return;
+    if (!map.has(datum)) map.set(datum, []);
+    map.get(datum).push(z);
+  };
+  autaRezervace.forEach(r => {
+    if (r && r.spz) add(r.datum, { typ: "rezervace", spz: String(r.spz).trim(), stav: r.stav || "", rez: r });
+  });
+  tasks.forEach(t => {
+    const spz = String(t.auto || "").trim();
+    if (!spz || t.cancelled || !t.plannedDate) return;
+    const dny = FTLoader.getMultiDayOccurrenceDates ? FTLoader.getMultiDayOccurrenceDates(t) : [t.plannedDate];
+    dny.forEach(d => add(d, { typ: "ukol", spz, stav: "používané", task: t }));
+  });
+  return map;
+}
+
+// Obsazuje auto (pro značku ⚠) = úkol nebo rezervace jiná než "volné" —
+// stejný pojem jako FTLoader.getAutoConflicts. Počítá se ze VŠECH záznamů
+// dne bez ohledu na filtr (servis + úkol téhož auta je kolize, i když je
+// zrovna vidět jen jedno z toho).
+function autaKalObsazuje(z) {
+  return z.typ === "ukol" || z.stav !== "volné";
+}
+
+// Víc úkolů jednoho člověka se stejným autem v jednom dni = jeden štítek
+// "SPZ – kdo (N×)" (JK 2026-10-15, v živých datech až 4× za den). Shoda =
+// stejné auto, řešitel i spoluřešitelé; z.task = první úkol (otevře se
+// klikem), z.ukoly = všechny. Rezervace se neslučují. Značka ⚠ se dál
+// počítá po jednotlivých záznamech (JK: nechat jako dřív).
+function autaKalSloucitUkoly(zaznamy) {
+  const out = [];
+  const skupiny = new Map();
+  zaznamy.forEach(z => {
+    if (z.typ !== "ukol") { out.push(z); return; }
+    const klic = `${z.spz}|${z.task.owner || ""}|${taskCoOwners(z.task).join(",")}`;
+    const s = skupiny.get(klic);
+    if (s) { s.ukoly.push(z.task); return; }
+    const nova = { ...z, ukoly: [z.task] };
+    skupiny.set(klic, nova);
+    out.push(nova);
+  });
+  return out;
+}
+
+function autaKalPopis(z) {
+  if (z.typ === "ukol") return `• úkol ${z.task.id} ${z.task.task || z.task.title || ""} (${z.task.owner || "?"})`;
+  return `• ${z.stav}${z.rez.poznamka ? " — " + z.rez.poznamka : ""}`;
+}
+
+function renderAutaKalendar() {
+  const body = document.getElementById("autaCalBody");
+  if (!body || !autaKalendarActive) return;
+  const label = document.getElementById("autaCalLabel");
+  if (label) label.textContent = autaKalMesic.toLocaleDateString("cs-CZ", { month: "long", year: "numeric" });
+
+  const start = new Date(autaKalMesic.getFullYear(), autaKalMesic.getMonth(), 1 - (autaKalMesic.getDay() + 6) % 7);
+  const den = i => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+  const dnes = formatDateISO(new Date());
+  const zaznamy = autaKalZaznamy(formatDateISO(start), formatDateISO(den(AUTA_KAL_TYDNU * 7 - 1)));
+  // Svátky TOP nepočítá — jediný zdroj jsou úkoly SPA *SPA-HOL-YYYY-MM-DD*.
+  const svatky = new Map(tasks
+    .filter(t => !t.cancelled && String(t.id || "").startsWith("*SPA-HOL-"))
+    .map(t => [t.plannedDate, String(t.task || t.title || "").replace(/^Státní svátek\s*-\s*/, "") || "Státní svátek"]));
+  const autoBySpz = new Map(auta.map(a => [String(a.spz).trim(), a]));
+  const f = autaKalFiltr;
+  const vidim = z => (f.zobrazit === "oboje" || (f.zobrazit === "ukoly" ? z.typ === "ukol" : z.typ === "rezervace"))
+    && (!f.spz || z.spz === f.spz)
+    && (!f.zarazeni || (autoBySpz.get(z.spz) || {}).zarazeni === f.zarazeni);
+
+  let html = "";
+  for (let w = 0; w < AUTA_KAL_TYDNU; w++) {
+    html += "<tr>";
+    for (let d = 0; d < 7; d++) {
+      const datum = den(w * 7 + d);
+      const iso = formatDateISO(datum);
+      const vse = zaznamy.get(iso) || [];
+      const pocet = new Map();
+      vse.filter(autaKalObsazuje).forEach(z => pocet.set(z.spz, (pocet.get(z.spz) || 0) + 1));
+      const chips = autaKalSloucitUkoly(vse.filter(vidim))
+        .sort((a, b) => a.spz.localeCompare(b.spz, "cs") || (a.typ === b.typ ? 0 : a.typ === "rezervace" ? -1 : 1))
+        .map(z => {
+          const kolize = autaKalObsazuje(z) && pocet.get(z.spz) > 1;
+          const auto = autoBySpz.get(z.spz);
+          const nazevAuta = auto ? `${z.spz} (${auto.popis}${auto.vyrazen ? ", vyřazeno" : ""})` : z.spz;
+          // V bublině u ⚠ jen záznamy auta, které tenhle štítek neukazuje
+          // (sloučené úkoly už jsou vyjmenované výš).
+          const dalsi = kolize
+            ? vse.filter(o => o.spz === z.spz && autaKalObsazuje(o) && !(o.typ === "ukol" ? (z.ukoly || []).includes(o.task) : o.rez === z.rez))
+            : [];
+          const kolizeText = !kolize ? ""
+            : dalsi.length ? "\n\n⚠ Další záznamy auta ten den:\n" + dalsi.map(autaKalPopis).join("\n")
+            : "\n\n⚠ Auto má ten den víc záznamů (úkoly výše)";
+          if (z.typ === "ukol") {
+            const t = z.task;
+            const co = taskCoOwners(t);
+            const n = z.ukoly.length;
+            const label = `${kolize ? "⚠ " : ""}${z.spz} – ${t.owner || "?"}${co.length ? " +" + co.length : ""}${n > 1 ? ` (${n}×)` : ""}`;
+            const ukolyText = n > 1
+              ? `Úkoly (${n}):\n` + z.ukoly.map(u => `• ${u.id} ${u.task || u.title || ""} (${u.state})`).join("\n")
+              : `${t.id} ${t.task || t.title || ""}\nStav: ${t.state}`;
+            const title = `${nazevAuta} – ${t.owner || "?"}${co.length ? " + " + co.join(", ") : ""}\n${ukolyText}${kolizeText}\n\nKlik = upravit úkol${n > 1 ? ` ${t.id} (první z nich)` : ""}`;
+            return autaKalChipHtml(label, z.stav, title, ` data-row="${t.rowIndex}"`, kolize);
+          }
+          const label = `${kolize ? "⚠ " : ""}${z.spz} – ${z.stav || "?"}`;
+          const title = `${nazevAuta} – ${z.stav}${z.rez.poznamka ? "\nPoznámka: " + z.rez.poznamka : ""}${kolizeText}\n\nKlik = smazat záznam`;
+          return autaKalChipHtml(label, z.stav, title, ` data-rez-spz="${escapeHtml(z.rez.spz)}" data-rez-datum="${escapeHtml(z.rez.datum)}"`, kolize);
+        }).join("");
+      const cls = ["month-cal-day"];
+      if (d >= 5) cls.push("weekend");
+      if (svatky.has(iso)) cls.push("holiday");
+      if (iso === dnes) cls.push("today");
+      if (iso < dnes) cls.push("past");
+      if (datum.getMonth() !== autaKalMesic.getMonth()) cls.push("other-month");
+      if (iso === autaKalVybranyDen) cls.push("selected");
+      const svatek = svatky.get(iso);
+      html += `<td class="${cls.join(" ")}" data-date="${iso}"${svatek ? ` title="${escapeHtml(svatek)}"` : ""}><div class="month-cal-daynum">${datum.getDate()}</div>${chips}</td>`;
+    }
+    html += "</tr>";
+  }
+  body.innerHTML = html;
+}
+
+function autaKalPosun(delta) {
+  const d = delta === 0 ? new Date() : new Date(autaKalMesic.getFullYear(), autaKalMesic.getMonth() + delta, 1);
+  autaKalMesic = new Date(d.getFullYear(), d.getMonth(), 1);
+  renderAutaKalendar();
+}
+
+function autaKalFiltrZmena() {
+  autaKalFiltr = {
+    zobrazit: document.getElementById("autaKalZobrazit")?.value || "rezervace",
+    spz: document.getElementById("autaKalSpz")?.value || "",
+    zarazeni: document.getElementById("autaKalZarazeni")?.value || "",
+  };
+  try { localStorage.setItem(AUTA_KAL_FILTR_KEY, JSON.stringify(autaKalFiltr)); } catch (e) {}
+  renderAutaKalendar();
+}
+
+// Klik na volné místo dne: datum (a vybrané auto z filtru) do formuláře
+// "Rezervace a servis" pod kalendářem; uloží se až tlačítkem + Přidat.
+function autaKalNovaRezervace(datum) {
+  const datumEl = document.getElementById("rez_datum");
+  const spzEl = document.getElementById("rez_spz");
+  if (!datumEl || !spzEl) return;
+  datumEl.value = datum;
+  if (autaKalFiltr.spz) spzEl.value = autaKalFiltr.spz;
+  autaKalVybranyDen = datum;
+  document.querySelectorAll("#autaCalBody td.selected").forEach(td => td.classList.remove("selected"));
+  document.querySelector(`#autaCalBody td[data-date="${datum}"]`)?.classList.add("selected");
+  spzEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  spzEl.focus({ preventScroll: true });
+}
+
+// Rezervace se dohledá až při kliku podle SPZ + data (ne podle indexu z
+// doby vykreslení) — data se mezitím mohla přenačíst.
+function autaKalSmazatRezervaci(spz, datum) {
+  const idx = autaRezervace.findIndex(r => r.spz === spz && r.datum === datum);
+  if (idx < 0) return;
+  const r = autaRezervace[idx];
+  const [y, m, d] = String(datum).split("-");
+  if (!confirm(`Auto ${spz}, ${Number(d)}. ${Number(m)}. ${y}: ${r.stav}${r.poznamka ? " — " + r.poznamka : ""}\n\nSmazat tento záznam?`)) return;
+  deleteRezervace(idx);
+}
+
+document.getElementById("autaTableWrap")?.addEventListener("click", e => {
+  if (!e.target.closest("#autaCalBody")) return;
+  const chip = e.target.closest(".month-cal-chip");
+  if (chip && chip.dataset.row) { editTask(Number(chip.dataset.row)); return; }
+  if (chip && chip.dataset.rezSpz !== undefined) { autaKalSmazatRezervaci(chip.dataset.rezSpz, chip.dataset.rezDatum); return; }
+  const td = e.target.closest("td[data-date]");
+  if (td) autaKalNovaRezervace(td.dataset.date);
+});
 
 // ── URL PARAMS ─────────────────────────────────────────────────────────
 
@@ -2847,7 +3137,7 @@ let _filtersRestoredOnce = false;
 // Poslední syrová data, na jejichž základě naposledy proběhlo skutečné
 // překreslení tabulek Aut/Opakujících se úkolů/Výjimek/Dokončení (nález č.
 // 5, viz níže v loadFromRaw) — undefined vynutí render při prvním načtení.
-let _lastRawAuta, _lastRawOpakovaci, _lastRawVyjimky, _lastRawDokonceni;
+let _lastRawAuta, _lastRawOpakovaci, _lastRawVyjimky, _lastRawDokonceni, _lastRawAutaKal;
 
 function loadFromRaw(raw) {
     // rowIndex musí být STABILNÍ napříč přenačteními dat (polling každých
@@ -2930,7 +3220,15 @@ function loadFromRaw(raw) {
     const rawOpakovaciKey = JSON.stringify([opakovaci, resitele]);
     const rawVyjimkyKey = JSON.stringify(opakovaciVyjimky);
     const rawDokonceniKey = JSON.stringify(opakovaciDokonceni);
+    // Kalendář aut čte i úkoly s autem a svátky SPA — při jejich změně se
+    // překreslí jen mřížka (renderAutaKalendar), ne formulář rezervace.
+    // rowIndex je v klíči kvůli data-row štítků (změněný úkol dostane nový).
+    const rawAutaKalKey = JSON.stringify(tasks
+      .filter(t => t.auto || String(t.id).startsWith("*SPA-HOL-"))
+      .map(t => [t.rowIndex, t.id, t.auto, t.plannedDate, t.durationDays, t.activeDays, t.cancelled, t.owner, t.coOwners, t.task, t.state]));
     if (rawAutaKey !== _lastRawAuta) { renderAutaTable(); _lastRawAuta = rawAutaKey; }
+    else if (rawAutaKalKey !== _lastRawAutaKal) renderAutaKalendar();
+    _lastRawAutaKal = rawAutaKalKey;
     if (rawVyjimkyKey !== _lastRawVyjimky) { renderVyjimkyTable(); _lastRawVyjimky = rawVyjimkyKey; }
     if (rawDokonceniKey !== _lastRawDokonceni) { renderDokonceniTable(); _lastRawDokonceni = rawDokonceniKey; }
     if (rawOpakovaciKey !== _lastRawOpakovaci) { renderOpakovaciTable(); _lastRawOpakovaci = rawOpakovaciKey; }
