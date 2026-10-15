@@ -884,6 +884,47 @@ initDarkMode();
     </div>
   </div>
 
+  <!-- Úprava vozidla ve Správě vozidel (2026-10-15), viz openAutoModal -->
+  <div id="autoModal" class="modal">
+    <div class="modal-card" style="width:min(560px,100%);">
+      <div class="modal-head">
+        <div>
+          <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Upravit vozidlo</div>
+          <h2 id="autoModalTitle" style="margin:4px 0 0;font-size:20px;">Vozidlo</h2>
+        </div>
+        <div class="actions-row">
+          <button onclick="closeAutoModal()">Zavřít</button>
+          <button class="primary" onclick="saveAutoModal()">Uložit</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="grid two">
+          <div class="field field-readonly"><label>SPZ (nelze změnit)</label><input id="am_spz" readonly /></div>
+          <div class="field field-required"><label>Popis</label><input id="am_popis" /></div>
+        </div>
+        <div class="grid two">
+          <div class="field field-optional"><label>Zodpovědný</label><input id="am_zodpovedna" placeholder="jméno nebo zkratka" /></div>
+          <div class="field field-required"><label>Zařazení</label>
+            <select id="am_zarazeni">
+              <option value="Provoz Nivnice">Provoz Nivnice</option>
+              <option value="TFM">TFM</option>
+              <option value="Administrativa">Administrativa</option>
+            </select></div>
+        </div>
+        <div class="grid two">
+          <div class="field field-required"><label>Trvalý stav</label>
+            <select id="am_dostupnost">
+              <option value="volné">Volné</option>
+              <option value="rezervované">Rezervované</option>
+              <option value="servis">Servis</option>
+              <option value="používané">Používané</option>
+            </select></div>
+          <div class="muted" style="font-size:12px;align-self:center;">Jiný stav než „volné“ platí pro každý den a u každého úkolu s tímto autem se hlásí jako kolize.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 const SHEET_NAME = "ALLDATBASE";
 const DEFAULT_FILENAME = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
@@ -2081,6 +2122,7 @@ function renderAutaTable() {
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">
       Vyřazené vozidlo zmizí z dlaždic přehledu i z nabídky pro nové úkoly.
       Starší úkoly s tímto vozidlem zůstávají zachované, jen s poznámkou "vyřazen".
+      ${smiSpravovatAuta() ? "" : `<br><strong>Přidávat, upravovat, vyřazovat a obnovovat vozidla může jen uživatel s oprávněním „auta“.</strong>`}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:18px;">
       <div>
@@ -2092,6 +2134,7 @@ function renderAutaTable() {
         <div id="inactiveAutaList"></div>
       </div>
     </div>
+    <div style="display:${smiSpravovatAuta() ? "block" : "none"};">
     <h4 style="font-size:13px;margin:0 0 8px;color:var(--tile-text);">Přidat nové vozidlo</h4>
     <div style="display:grid;grid-template-columns:1fr 130px 130px 150px auto;gap:8px;align-items:end;max-width:900px;">
       <div><label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:2px;">Popis</label><input id="newAuto_popis" style="width:100%;" /></div>
@@ -2105,10 +2148,26 @@ function renderAutaTable() {
         </select>
       </div>
       <button class="primary" onclick="addNewAuto()" style="height:38px;">+ Přidat</button>
+    </div>
     </div>`;
   renderAutaManagementLists();
   applyAutaViewVisibility();
   renderAutaKalendar();
+}
+
+// Správa vozidel (přidat / upravit / vyřadit / obnovit) jen s příznakem
+// oprávnění "auta" v users.json (JK 2026-10-15: admin a vedoucí) — stejný
+// mechanismus jako "projekty"/"sablony" v Řízení výroby. Jen omezení v UI
+// (jako role Operátor), proto se kontroluje i v každé funkci, která
+// zapisuje. Rezervace a servisy dál zadávají všichni plánovači.
+function smiSpravovatAuta() {
+  return !!(FTLoader.hasOpravneni && FTLoader.hasOpravneni("auta"));
+}
+
+function overitSpravuAut() {
+  if (smiSpravovatAuta()) return true;
+  alert("Správu vozidel může dělat jen uživatel s oprávněním „auta“.");
+  return false;
 }
 
 function renderAutaManagementLists() {
@@ -2118,15 +2177,21 @@ function renderAutaManagementLists() {
 
   const active = auta.filter(a => !a.vyrazen);
   const inactive = auta.filter(a => a.vyrazen);
+  const smi = smiSpravovatAuta();
   const rowStyle = "display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft);font-size:12px;";
-  const btnStyle = "padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--line-medium);background:white;color:var(--text-muted);cursor:pointer;white-space:nowrap;";
+  const btnStyle = "padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--line-medium);background:var(--panel);color:var(--text-muted);cursor:pointer;white-space:nowrap;";
+  // Zodpovědný a zařazení přímo v řádku — právě ty jdou upravit.
+  const udaje = a => [a.zodpovedna, a.zarazeni].filter(Boolean).map(escapeHtml).join(" · ");
+  const upravit = a => smi ? `<button style="${btnStyle}" onclick="openAutoModal('${escapeHtml(a.spz)}')">Upravit</button>` : "";
 
   activeWrap.innerHTML = active.length === 0
     ? '<div style="color:var(--text-faint);font-size:12px;">Žádná aktivní vozidla.</div>'
     : active.map(a => `
         <div style="${rowStyle}">
-          <span style="flex:1;">${escapeHtml(a.popis)} — <strong style="color:var(--danger);">${escapeHtml(a.spz)}</strong></span>
-          <button style="${btnStyle}" onclick="vyraditAuto('${escapeHtml(a.spz)}')">Vyřadit</button>
+          <span style="flex:1;">${escapeHtml(a.popis)} — <strong style="color:var(--danger);">${escapeHtml(a.spz)}</strong>
+            <span style="color:var(--text-muted);">${udaje(a) ? " · " + udaje(a) : ""}</span></span>
+          ${upravit(a)}
+          ${smi ? `<button style="${btnStyle}" onclick="vyraditAuto('${escapeHtml(a.spz)}')">Vyřadit</button>` : ""}
         </div>`).join("");
 
   inactiveWrap.innerHTML = inactive.length === 0
@@ -2134,11 +2199,63 @@ function renderAutaManagementLists() {
     : inactive.map(a => `
         <div style="${rowStyle}opacity:0.6;">
           <span style="flex:1;text-decoration:line-through;">${escapeHtml(a.popis)} — ${escapeHtml(a.spz)}</span>
-          <button style="${btnStyle}background:var(--accent);border-color:var(--accent);color:white;" onclick="obnovitAuto('${escapeHtml(a.spz)}')">Obnovit</button>
+          ${upravit(a)}
+          ${smi ? `<button style="${btnStyle}background:var(--accent);border-color:var(--accent);color:white;" onclick="obnovitAuto('${escapeHtml(a.spz)}')">Obnovit</button>` : ""}
         </div>`).join("");
 }
 
+// ── Úprava vozidla (2026-10-15) ───────────────────────────────────────
+// Popis, zodpovědný (volný text, JK), zařazení a trvalý stav. SPZ se
+// nemění — podle ní jsou na auto navázané úkoly i rezervace.
+function openAutoModal(spz) {
+  if (!overitSpravuAut()) return;
+  const auto = auta.find(a => a.spz === spz);
+  if (!auto) return;
+  const el = id => document.getElementById(id);
+  // Hodnotu, která v nabídce není (starší data), přidat, ať ji úprava tiše nezmění.
+  const nastav = (sel, value, label) => {
+    if (!Array.from(sel.options).some(o => o.value === value)) sel.add(new Option(label || value, value));
+    sel.value = value;
+  };
+  el("am_spz").value = auto.spz;
+  el("am_popis").value = auto.popis || "";
+  el("am_zodpovedna").value = auto.zodpovedna || "";
+  nastav(el("am_zarazeni"), auto.zarazeni || "", auto.zarazeni ? "" : "— bez zařazení —");
+  nastav(el("am_dostupnost"), auto.dostupnost || "volné");
+  el("autoModalTitle").textContent = `${auto.popis || ""} — ${auto.spz}`;
+  el("autoModal").classList.add("open");
+  el("am_popis").focus();
+}
+
+function closeAutoModal() {
+  document.getElementById("autoModal").classList.remove("open");
+}
+
+function saveAutoModal() {
+  if (!overitSpravuAut()) return;
+  const v = id => (document.getElementById(id).value || "").trim();
+  const spz = document.getElementById("am_spz").value;
+  // Dohledat až teď — data se mohla mezitím přenačíst.
+  const auto = auta.find(a => a.spz === spz);
+  if (!auto) { alert(`Vozidlo ${spz} už v datech není. Zavři okno a zkus to znovu.`); return; }
+  const nove = { popis: v("am_popis"), zodpovedna: v("am_zodpovedna"), zarazeni: v("am_zarazeni"), dostupnost: v("am_dostupnost") };
+  if (!nove.popis) { alert("Vyplň popis vozidla."); return; }
+  const puvodni = { popis: auto.popis || "", zodpovedna: auto.zodpovedna || "", zarazeni: auto.zarazeni || "", dostupnost: auto.dostupnost || "volné" };
+  closeAutoModal();
+  if (Object.keys(nove).every(k => nove[k] === puvodni[k])) return;
+  Object.assign(auto, nove);
+  renderAutaTable();
+  buildAutaDatalist();
+  autoSaveIfPossible();
+}
+
+document.getElementById("autoModal")?.addEventListener("click", e => { if (e.target.id === "autoModal") closeAutoModal(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("autoModal")?.classList.contains("open")) closeAutoModal();
+});
+
 function vyraditAuto(spz) {
+  if (!overitSpravuAut()) return;
   const auto = auta.find(a => a.spz === spz);
   if (!auto) return;
   const activeTaskCount = tasks.filter(t => t.auto === spz && !t.cancelled && !String(t.state||"").toLowerCase().includes("dokončeno")).length;
@@ -2152,6 +2269,7 @@ function vyraditAuto(spz) {
 }
 
 function obnovitAuto(spz) {
+  if (!overitSpravuAut()) return;
   const auto = auta.find(a => a.spz === spz);
   if (!auto) return;
   if (!confirm(`Obnovit vozidlo ${spz}?`)) return;
@@ -2161,6 +2279,7 @@ function obnovitAuto(spz) {
 }
 
 function addNewAuto() {
+  if (!overitSpravuAut()) return;
   const popis = (document.getElementById("newAuto_popis").value || "").trim();
   const spz = (document.getElementById("newAuto_spz").value || "").trim();
   const zodpovedna = (document.getElementById("newAuto_zodpovedna").value || "").trim();
