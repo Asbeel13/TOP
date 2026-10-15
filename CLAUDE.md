@@ -185,7 +185,12 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
   pro dny, které tenhle task pokrývá (deduplikace přes `id|datum` klíč)
 - Správa aut — dostupnost (kontrola i přes přiřazení v tasks, ne jen
   rezervace), kategorie `zarazeni` (TFM/Provoz Nivnice/Administrativa) s
-  barevným odlišením
+  barevným odlišením; přepínač **📅 Kalendář / 📋 Seznam** (měsíční
+  kalendář jako v SPA: rezervace a servis / úkoly s autem / oboje,
+  2026-10-15, viz `HISTORIE_ZMEN.md`; víc úkolů jednoho člověka se
+  stejným autem v den = jeden štítek „(N×)“, ⚠ i u nich — JK, neměnit);
+  styly jsou sdílená komponenta
+  `.month-cal-*` v `components.css` 1.3.0 (`Esperanto/INTEGRACE.md`)
 - Nastavení zobrazení lidí (pořadí, L/P strana, skrytí) — sdílené přes
   localStorage napříč Dashboard/Přehled/Mobilní přehled, s tlačítkem
   "Obnovit tovární nastavení"

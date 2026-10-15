@@ -9,6 +9,87 @@ Novější záznamy (od 2026-09-08) jsou nahoře, nejnovější první — nový
 přidej nahoru. Starší chronologický changelog (2026-07-29 až 2026-09-18) je
 na konci, od nejstaršího.
 
+## Kalendář aut ve Správě úkolů (2026-10-15, NASAZENO — commit `2588a09`)
+
+**✅ Nahráno JK 2026-10-15 08:40** (`sprava_ukolu_linked.html` +
+`components.css` 1.3.0; v `Esperanto` commit `e00d854`). `git fetch` +
+`cmp`: všechny tři soubory bajtově shodné s otestovanou verzí; GitHub
+Pages: SHA-256 obou sedí (08:42). Kdo měl starý `components.css` v HTTP
+cache (`max-age=600`), uvidí kalendář bez stylů nejvýš ~10 minut nebo do
+Ctrl+F5.
+
+Záložka Přehled aut dostala v hlavičce panelu přepínač **📅 Kalendář /
+📋 Seznam** (volba se pamatuje v localStorage `ftAutaKalendarActive`,
+výchozí je Seznam). Rozhodnutí JK:
+- vzhled **jako kalendář SPA**: měsíční mřížka Po–Ne, 7 týdnů od pondělí
+  týdne s 1. dnem měsíce, ◀ měsíc ▶ + Dnes; víkend, svátek (jen z úkolů
+  `*SPA-HOL-…`), dnešek, minulost a dny mimo měsíc stejně jako v SPA;
+- obsah přepínatelný filtrem **Zobrazit**: Rezervace a servis (výchozí) /
+  Úkoly s autem (každý den vícedenního úkolu podle
+  `getMultiDayOccurrenceDates`, zrušené ne) / Oboje; navíc filtr Auto a
+  Zařazení (localStorage `ftAutaKalendarFiltr`);
+- klik na úkol = úprava úkolu (`editTask`), klik na rezervaci = potvrzení
+  a smazání (`deleteRezervace`), klik na volné místo dne = předvyplní
+  datum (a auto z filtru) ve formuláři nové rezervace;
+- kalendář nahrazuje dlaždice aut i tabulku rezervací; formulář nové
+  rezervace a Správa vozidel zůstávají pod ním.
+
+Navíc (nad rámec zadání, jen zobrazení): **⚠ u štítku**, když má auto ten
+den víc obsazujících záznamů (úkol nebo rezervace jiná než „volné“) —
+stejný pojem jako `getAutoConflicts`, počítá se ze všech záznamů dne bez
+ohledu na filtr. V bublině jsou u ⚠ jen záznamy auta, které štítek sám
+neukazuje. Trvalý stav auta a počet volných aut JK nechtěl.
+
+**Rozhodnutí JK po testu na živé kopii (2026-10-15):**
+- **⚠ nechat, jak je** — i když ji spustí jen víc úkolů jednoho člověka
+  se stejným autem. Zjištěno: v 7–11/2026 má auto v jednom dni víc
+  záznamů ve 43 případech, z toho 28× jen jeden člověk, 13× různí lidé,
+  2× úkol + rezervace (65 ze 100 štítků s ⚠ je „jeden člověk“). Varianta
+  „⚠ jen u různých lidí nebo rezervace“ zamítnuta — bez nového důvodu
+  neotevírat.
+- **Víc úkolů jednoho člověka se stejným autem v jednom dni = jeden
+  štítek** „SPZ – kdo (N×)“ (`autaKalSloucitUkoly`; shoda = auto, řešitel
+  i spoluřešitelé). Bublina vyjmenuje všechny úkoly, klik otevře první;
+  ostatní přes Databázi úkolů. Rezervace se neslučují. V živých datech až
+  4× za den (např. 5SZ 0330 – PL).
+
+Technicky: logika v `sprava_ukolu_linked.html` (`renderAutaKalendar` a
+spol.), styly ve sdíleném **`components.css` 1.3.0** (třídy
+`.month-cal-*`, barvy jen z `theme.css`). Styly byly nejdřív ve stránce;
+JK je týž den nechal přesunout do `components.css` jako sdílenou
+komponentu (kanonicky v `Esperanto`, viz `Esperanto/INTEGRACE.md`).
+Předpona `.cal-*` je obsazená v `vyroba.html`. Po přesunu ověřeno, že
+vypočtený vzhled 22 prvků kalendáře (32 vlastností, světlý i tmavý
+režim) je shodný s verzí se styly ve stránce. Nahrány
+`sprava_ukolu_linked.html`, `components.css` (TOP) a
+`Esperanto/components.css` (bajtově shodné); `sw.js` beze změny. Mřížka má
+vlastní překreslení: `loadFromRaw` ji obnoví při změně úkolů s autem nebo
+svátků (`_lastRawAutaKal`), aniž by sahala na rozepsaný formulář
+rezervace (stejný důvod jako oprava 2026-09-17, nález č. 5). Štítky
+nesou barvu stavu jako levý okraj a text `var(--text)` —
+`--auto-pouzivane` nemá tmavou variantu.
+
+**Ověřeno** mockem GitHub API (Konvence č. 5) na **vymyšlených** datech
+(21 aut, 12 rezervací, úkoly jednodenní/vícedenní/s vybranými dny/
+zrušený/spoluřešitelé/ručně zadaná SPZ, 3 svátky SPA): všech 21 štítků
+úkolů a 12 rezervací přesně podle očekávání, filtry, ⚠, navigace
+měsíců, klik na den/úkol/rezervaci, smazání → PUT liší se jen o
+smazanou rezervaci (zbytek DB bajtově shodný), Zrušit = žádný zápis,
+cizí uložení (polling) překreslí kalendář a rozepsaný formulář zůstane,
+zapamatování po obnovení stránky, světlý i tmavý režim, bez chyb v
+konzoli. Konce řádků CRLF zachované.
+
+**Ověřeno na kopii živé DB** (stažena 2026-10-15 po svolení JK, stav
+`updatedAt` 04:13 JaM: 2003 úkolů, 21 aut, 16 rezervací, 260 úkolů s
+autem, z toho 29 zrušených a 11 vícedenních), stejný mock: obsah
+kalendáře porovnán s nezávislým výpočtem v Node (vlastní rozpad
+vícedenních úkolů, ne `ft_loader.js`) pro 7 měsíců (7/2026–1/2027) ×
+3 režimy = 21 porovnání, všechna přesně shodná včetně ⚠, spoluřešitelů a
+sloučených štítků (N×). Součty podle zařazení i podle každého z 21 aut
+dávají celkový počet. Vykreslení měsíce nejvýš 4 ms. Smazání rezervace
+přes kalendář → PUT liší se od kopie jen o tu rezervaci, všech 2003 úkolů
+a zbytek DB shodných. Kopie živých dat po testu smazány.
+
 ## `components.css` 1.2.0 — jen číslo verze (2026-10-13, NASAZENO — commit `c51b2d4`)
 
 Kanonická verze v `Esperanto` převzala styly posunu úkolu
