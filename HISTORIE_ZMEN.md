@@ -9,6 +9,48 @@ Novější záznamy (od 2026-09-08) jsou nahoře, nejnovější první — nový
 přidej nahoru. Starší chronologický changelog (2026-07-29 až 2026-09-18) je
 na konci, od nejstaršího.
 
+## Rezervace a servis aut od–do, okno v kalendáři (2026-10-15, NASAZENO — commit `98bc95a`)
+
+**✅ Nahráno JK 2026-10-15 09:17.** `git fetch` + `cmp`: GitHub bajtově
+shodný s otestovanou verzí; GitHub Pages: SHA-256 sedí (09:21).
+
+Navazuje na kalendář aut níž. Jen `sprava_ukolu_linked.html`
+(`components.css` beze změny). Podle SPA („Nový záznam“), rozhodnutí JK:
+- **klik na den nebo tažení myší přes víc dní** v kalendáři → okno
+  „Nová rezervace / servis“ (SPZ, Od, Do, Stav, Poznámka); Od/Do
+  předvyplněné, auto z filtru Auto, vybrané dny orámované (`.selected`);
+  **prázdné Do = jen den Od**. Formulář „Rezervace a servis“ pod
+  kalendářem i v seznamu má místo Datum taky Od / Do.
+- **ukládá se den po dni** (JK): rozsah = jeden záznam
+  `{spz, datum, stav, poznamka}` za každý den **včetně víkendů a
+  svátků**, datový model `auta_rezervace` beze změny → hlídání kolizí v
+  `ft_loader.js`, Dashboard, mobil i tabulka fungují jako dřív. Nejvýš
+  93 dní v jednom zadání (ochrana proti překlepu v roce).
+- **klik na rezervaci** (místo dřívějšího dotazu na smazání) → stejné
+  okno v režimu úprav, předvyplněné **celým souvislým úsekem** = sousední
+  dny téhož auta se stejným stavem a poznámkou (`rezUsek`). Uložit úsek
+  nahradí (jde změnit auto, rozsah, stav, poznámku); Smazat celý úsek
+  (dotaz u víc dní) / Smazat jen kliknutý den.
+- Při uložení: dotaz na **přepsání** jiných záznamů téhož auta v rozsahu
+  a dotaz na **novou kolizi s úkoly** (jen dny, které úsek ještě
+  neobsazoval; stav „volné“ se nehlásí) — kolize se hlásí, neblokuje
+  (pravidlo JK). Okno navíc průběžně ukazuje kolize auta v rozsahu
+  (`describeAutoConflicts`, stejný text jako u pole Auto v úkolu).
+- Zavření: Zavřít, Esc, klik mimo okno.
+
+**Ověřeno** mockem GitHub API (Konvence č. 5): na vymyšlených datech klik,
+tažení (i pozpátku a skutečnou myší), nové úseky, přepsání, kolize s
+úkolem (Zrušit = nic se neuloží, okno zůstane), úprava úseku (zúžení,
+změna stavu), úprava jen poznámky bez opakovaného hlášení kolize, smazání
+dne/úseku, kontroly (do < od, > 93 dní, chybí SPZ), Esc, klik mimo okno,
+formulář od–do i jednodenní. Na **čerstvé kopii živé DB** (2006 úkolů,
+16 rezervací): úseky rozpoznány správně (6Z5 6405 „JK“ 12.–15. 8.,
+26.–27. 9., 16.–18. 10.; 13. a 14. 10. různé poznámky = dva záznamy);
+úprava poznámky úseku, nový třídenní servis, smazání úseku a smazání
+jednoho dne z úseku — každý PUT mění přesně zamýšlené denní záznamy,
+všech 2006 úkolů a zbytek DB shodné. Bez chyb v konzoli, CRLF zachované.
+Kopie živých dat po testu smazány.
+
 ## Kalendář aut ve Správě úkolů (2026-10-15, NASAZENO — commit `2588a09`)
 
 **✅ Nahráno JK 2026-10-15 08:40** (`sprava_ukolu_linked.html` +

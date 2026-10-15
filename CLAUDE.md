@@ -189,6 +189,9 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
   kalendář jako v SPA: rezervace a servis / úkoly s autem / oboje,
   2026-10-15, viz `HISTORIE_ZMEN.md`; víc úkolů jednoho člověka se
   stejným autem v den = jeden štítek „(N×)“, ⚠ i u nich — JK, neměnit);
+  rezervace a servis se zadávají od–do (okno z kalendáře klikem nebo
+  tažením myší, jako SPA), ale **ukládají se den po dni** — datový model
+  `auta_rezervace` se nemění (JK);
   styly jsou sdílená komponenta
   `.month-cal-*` v `components.css` 1.3.0 (`Esperanto/INTEGRACE.md`)
 - Nastavení zobrazení lidí (pořadí, L/P strana, skrytí) — sdílené přes
