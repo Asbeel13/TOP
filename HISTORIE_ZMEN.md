@@ -9,6 +9,54 @@ Novější záznamy (od 2026-09-08) jsou nahoře, nejnovější první — nový
 přidej nahoru. Starší chronologický changelog (2026-07-29 až 2026-09-18) je
 na konci, od nejstaršího.
 
+## Úprava vozidel a oprávnění `auta` (2026-10-15, NASAZENO — commit `56c9706`)
+
+**✅ Nahráno JK 2026-10-15 09:59.** `git fetch` + `cmp`: GitHub bajtově
+shodný s otestovanou verzí; GitHub Pages: SHA-256 sedí (10:00). Příznak
+`auta` v `users.json` byl přidán už předtím (viz níž, `a450fd3`).
+
+Dřív šlo existující auto jen vyřadit nebo obnovit — zařazení, zodpovědného,
+popis ani trvalý stav změnit nešlo (znovupřidání se stejnou SPZ formulář
+odmítne), jen ručně v `database.json`. Jen `sprava_ukolu_linked.html`.
+- **Upravit** u každého vozidla (aktivního i vyřazeného) ve Správě
+  vozidel → okno: SPZ jen pro čtení (navázané úkoly a rezervace),
+  Popis (povinný), Zodpovědný (**volný text**, JK), Zařazení, Trvalý stav
+  (volné / rezervované / servis / používané). Hodnota mimo nabídku ze
+  starších dat se do nabídky přidá, ať ji úprava tiše nezmění. Uložení
+  beze změny nic nezapíše; změna mutuje objekt auta na místě (pořadí a
+  ostatní pole zůstanou, nic nepřibude). V řádku vozidla je nově vidět
+  zodpovědný a zařazení.
+- **Oprávnění (JK):** TOP nemá role admin / vedoucí — jen plánovač,
+  nahlížeč, operátor (Správu úkolů otevře jen plánovač). Proto nový
+  příznak `"auta"` v `users.json` → `opravneni` (stejně jako
+  `projekty`/`sablony`), čtený přes `FTLoader.hasOpravneni("auta")`.
+  Platí pro **celou Správu vozidel**: přidat, upravit, vyřadit, obnovit.
+  Bez příznaku jsou seznamy jen ke čtení s vysvětlující větou. Kontrola
+  je i uvnitř každé zapisující funkce (společné poučení v
+  `INTEGRACE.md`). Rezervace a servisy dál zadávají všichni plánovači.
+  Omezení je jen v UI, jako u role Operátor.
+- **Příznak přidán 2026-10-15 před nahráním HTML** (JK vybral všechny
+  plánovače): `JK`, `LJ`, `JaM`, `Mha` — `top-data` commit `a450fd3`,
+  jen `users.json` (+7 −4), jen pole `opravneni` těchto 4 záznamů
+  (u JK k `projekty`, `sablony`), formát souboru zachován (pole na jednom
+  řádku), otisky, zkratky a role beze změny, ověřeno na GitHubu.
+  `AI-Asistent` příznak nemá; nahlížeči (`Read-Only`, `DH`) a operátoři
+  (`RS`, `PL`) Správu úkolů neotevřou. Bez příznaku nemůže vozidla
+  spravovat nikdo — nový plánovač ho musí dostat při registraci.
+- Tlačítka v seznamu vozidel: `background:white` → `var(--panel)`
+  (ve světlém režimu stejné, v tmavém už ne bílá tlačítka).
+
+**Ověřeno** mockem GitHub API: bez příznaku žádná tlačítka, formulář
+přidání skrytý, všech 5 zapisujících funkcí volaných napřímo odmítnuto
+bez zápisu, rezervace dál fungují; s příznakem Upravit/Vyřadit/Obnovit i
+přidání, úprava zodpovědného/zařazení/trvalého stavu (PUT mění jen to
+auto), uložení beze změny bez zápisu, prázdný popis odmítnut, starší
+hodnoty zachovány, nová hodnota hned v nabídce aut u úkolu a ve filtru
+kalendáře, Esc. Na **čerstvé kopii živé DB** (2006 úkolů, 21 aut):
+úprava zodpovědného a zařazení → PUT mění jen to jedno auto (bez nového
+pole), úkoly a zbytek DB shodné. Bez chyb v konzoli, CRLF zachované.
+Kopie živých dat smazány.
+
 ## Rezervace a servis aut od–do, okno v kalendáři (2026-10-15, NASAZENO — commit `98bc95a`)
 
 **✅ Nahráno JK 2026-10-15 09:17.** `git fetch` + `cmp`: GitHub bajtově

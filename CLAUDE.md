@@ -20,6 +20,9 @@ nebo aktuální stav.
   na tmavém pozadí nepoužívat — nemá tmavou variantu.
 - Auto smí mít ve stejný den víc lidí: kolize se jen hlásí (u nové kolize
   dotaz před uložením), nikdy neblokuje.
+- Správa vozidel (přidat, upravit, vyřadit, obnovit) jen s příznakem
+  oprávnění `auta` v `users.json` (admin a vedoucí, přiděluje JK);
+  rezervace a servisy aut dál zadávají všichni plánovači (2026-10-15).
 - Řízení výroby: programuje se jen etapa, kterou JK výslovně schválí; etapy
   1–5 nasazeny, etapa 6 (zpětné přiřazení) se nedělá (`RIZENI_VYROBY_navrh.md`).
 - Spoluřešitelé (`coOwners`) jen u `tasks[]` — u opakujících se pravidel zatím
@@ -150,7 +153,8 @@ generování ID, ne ruční textové pole.
 
 **users.json** (v `top-data`) obsahuje whitelist: `{tokenHash, zkratka,
 role, registeredAt, opravneni}`. `opravneni` jsou volitelné příznaky
-(`"projekty"` = zápis v Řízení výroby, `"sablony"` = úprava šablon), čte je
+(`"projekty"` = zápis v Řízení výroby, `"sablony"` = úprava šablon,
+`"auta"` = Správa vozidel ve Správě úkolů), čte je
 `FTLoader.hasOpravneni()`. `tokenHash` = SHA-256 hash GitHub tokenu (NIKDY se
 neukládá surový token). Žádná samoregistrace — JK dostane od uživatele
 token, spočítá hash, přidá záznam ručně (skriptem).
@@ -191,7 +195,8 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
   stejným autem v den = jeden štítek „(N×)“, ⚠ i u nich — JK, neměnit);
   rezervace a servis se zadávají od–do (okno z kalendáře klikem nebo
   tažením myší, jako SPA), ale **ukládají se den po dni** — datový model
-  `auta_rezervace` se nemění (JK);
+  `auta_rezervace` se nemění (JK); úprava vozidla (popis, zodpovědný jako
+  volný text, zařazení, trvalý stav; SPZ ne) jen s příznakem `auta`;
   styly jsou sdílená komponenta
   `.month-cal-*` v `components.css` 1.3.0 (`Esperanto/INTEGRACE.md`)
 - Nastavení zobrazení lidí (pořadí, L/P strana, skrytí) — sdílené přes
