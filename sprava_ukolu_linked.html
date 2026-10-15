@@ -844,6 +844,46 @@ initDarkMode();
     </div>
   </div>
 
+  <!-- Okno rezervace / servisu auta z kalendáře (2026-10-15), viz openRezModal -->
+  <div id="rezModal" class="modal">
+    <div class="modal-card" style="width:min(560px,100%);">
+      <div class="modal-head">
+        <div>
+          <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Rezervace a servis aut</div>
+          <h2 id="rezModalTitle" style="margin:4px 0 0;font-size:20px;">Nová rezervace / servis</h2>
+        </div>
+        <div class="actions-row">
+          <button onclick="closeRezModal()">Zavřít</button>
+          <button id="rezModalSave" class="primary" onclick="saveRezModal()">Přidat</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="grid">
+          <div class="field field-required"><label>SPZ</label><input id="rm_spz" list="rmAutaList" placeholder="SPZ nebo ručně" autocomplete="off" /><datalist id="rmAutaList"></datalist></div>
+        </div>
+        <div class="grid two">
+          <div class="field field-required"><label>Od</label><input id="rm_od" type="date" /></div>
+          <div class="field field-optional"><label>Do (prázdné = jen jeden den)</label><input id="rm_do" type="date" /></div>
+        </div>
+        <div class="grid two">
+          <div class="field field-required"><label>Stav</label>
+            <select id="rm_stav">
+              <option value="rezervované">Rezervované</option>
+              <option value="servis">Servis</option>
+              <option value="používané">Používané</option>
+              <option value="volné">Volné</option>
+            </select></div>
+          <div class="field field-optional"><label>Poznámka</label><input id="rm_poznamka" placeholder="volitelná poznámka" /></div>
+        </div>
+        <div id="rm_warning" style="display:none;white-space:pre-line;font-size:12px;margin-top:4px;"></div>
+        <div id="rm_delete_row" class="actions-row" style="display:none;margin-top:16px;">
+          <button class="danger" onclick="smazatRezUsek()">Smazat celý úsek</button>
+          <button id="rm_delete_day" class="danger" onclick="smazatRezDen()">Smazat jen tento den</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 const SHEET_NAME = "ALLDATBASE";
 const DEFAULT_FILENAME = "0_SEZNAM_UKOLU-GLOBAL.xlsx";
@@ -2000,8 +2040,10 @@ function renderAutaTable() {
         <input id="rez_spz" list="autaListRez" placeholder="SPZ nebo ručně" style="width:160px;" autocomplete="off" />
         <datalist id="autaListRez">${activeAuta.map(a => `<option value="${escapeHtml(a.spz)}">${escapeHtml(a.popis)}</option>`).join("")}</datalist>
       </div>
-      <div><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Datum</label>
-        <input id="rez_datum" type="date" style="width:160px;" value="${today}" /></div>
+      <div><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Od</label>
+        <input id="rez_od" type="date" style="width:160px;" value="${today}" /></div>
+      <div><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Do (prázdné = jen jeden den)</label>
+        <input id="rez_do" type="date" style="width:160px;" /></div>
       <div><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Stav</label>
         <select id="rez_stav" style="width:140px;">
           <option value="rezervované">Rezervované</option>
@@ -2133,23 +2175,81 @@ function addNewAuto() {
   autoSaveIfPossible();
 }
 
+// Formulář "Rezervace a servis" pod kalendářem / v seznamu (od–do od
+// 2026-10-15, dřív jen jeden den) — stejné ukládání jako okno v kalendáři.
 function addRezervace() {
-  const spz = (document.getElementById("rez_spz")?.value || "").trim();
-  const datum = document.getElementById("rez_datum")?.value || "";
-  const stav = document.getElementById("rez_stav")?.value || "rezervované";
-  const poznamka = (document.getElementById("rez_poznamka")?.value || "").trim();
-  if (!spz || !datum) { alert("Vyplňte SPZ a datum."); return; }
-  // Kontrola duplicity
-  const existing = autaRezervace.find(r => r.spz === spz && r.datum === datum);
-  if (existing) {
-    if (!confirm(`Pro auto ${spz} na ${datum} již existuje záznam (${existing.stav}). Přepsat?`)) return;
-    existing.stav = stav;
-    existing.poznamka = poznamka;
-  } else {
-    autaRezervace.push({ spz, datum, stav, poznamka });
+  ulozitRezervaci({
+    spz: (document.getElementById("rez_spz")?.value || "").trim(),
+    od: document.getElementById("rez_od")?.value || "",
+    do: document.getElementById("rez_do")?.value || "",
+    stav: document.getElementById("rez_stav")?.value || "rezervované",
+    poznamka: (document.getElementById("rez_poznamka")?.value || "").trim(),
+  }, null);
+}
+
+// ── Rezervace a servis po dnech (od–do, 2026-10-15) ───────────────────
+// Rozsah od–do se ukládá DEN PO DNI (JK): za každý den včetně víkendů a
+// svátků jeden záznam { spz, datum, stav, poznamka } jako dřív, takže
+// hlídání kolizí v ft_loader.js, Dashboard i tabulka fungují beze změny.
+// Prázdné "do" = jen den "od". Souvislé dny téhož auta se stejným stavem a
+// poznámkou kalendář bere jako jednu rezervaci (rezUsek).
+const REZ_MAX_DNI = 93;
+
+function rezPosun(iso, n) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return formatDateISO(new Date(y, m - 1, d + n));
+}
+
+function rezDny(od, doDatum) {
+  const out = [];
+  for (let iso = od; iso <= doDatum && out.length <= REZ_MAX_DNI; iso = rezPosun(iso, 1)) out.push(iso);
+  return out;
+}
+
+function rezDen(iso) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  return `${d}. ${m}. ${y}`;
+}
+
+// Úsek = { spz, stav, poznamka, od, do }; patří do něj záznam téhož auta se
+// stejným stavem a poznámkou v rozsahu od–do.
+function rezVUseku(u) {
+  return x => !!u && x.spz === u.spz && (x.stav || "") === u.stav && (x.poznamka || "") === u.poznamka && x.datum >= u.od && x.datum <= u.do;
+}
+
+function rezUsek(r) {
+  const u = { spz: r.spz, stav: r.stav || "", poznamka: r.poznamka || "", od: r.datum, do: r.datum };
+  const ma = iso => autaRezervace.some(rezVUseku({ ...u, od: iso, do: iso }));
+  while (ma(rezPosun(u.od, -1))) u.od = rezPosun(u.od, -1);
+  while (ma(rezPosun(u.do, 1))) u.do = rezPosun(u.do, 1);
+  return u;
+}
+
+// Uloží rozsah; puvodni = upravovaný úsek (nahradí se), null = nový. Vrací
+// true po uložení, false když chybí údaje nebo uživatel zrušil potvrzení.
+function ulozitRezervaci(z, puvodni) {
+  if (!z.spz || !z.od) { alert("Vyplňte SPZ a datum od."); return false; }
+  const doDatum = z.do || z.od;
+  if (doDatum < z.od) { alert("Datum do nesmí být dřív než datum od."); return false; }
+  const dny = rezDny(z.od, doDatum);
+  if (dny.length > REZ_MAX_DNI) { alert(`Rozsah může mít nejvýš ${REZ_MAX_DNI} dní.`); return false; }
+  const ostatni = autaRezervace.filter(x => !rezVUseku(puvodni)(x));
+  const prepis = ostatni.filter(x => x.spz === z.spz && dny.includes(x.datum));
+  if (prepis.length && !confirm(`Auto ${z.spz} už má v ${prepis.length === 1 ? "tento den" : "těchto dnech"} záznam:\n`
+    + prepis.slice(0, 8).map(x => `• ${rezDen(x.datum)}: ${x.stav}${x.poznamka ? " — " + x.poznamka : ""}`).join("\n")
+    + (prepis.length > 8 ? `\n… a další ${prepis.length - 8}×` : "") + "\n\nPřepsat?")) return false;
+  // Kolize s úkoly se jen hlásí, nikdy neblokuje (JK), a jen NOVÁ — dny, kdy
+  // auto obsazoval už upravovaný úsek, se znovu nehlásí.
+  if (z.stav !== "volné" && FTLoader.getAutoConflicts) {
+    const drive = new Set(puvodni && puvodni.spz === z.spz && puvodni.stav !== "volné" ? rezDny(puvodni.od, puvodni.do) : []);
+    const kolize = FTLoader.getAutoConflicts(z.spz, dny.filter(d => !drive.has(d)), { tasks, auta, autaRezervace: [] }).filter(c => c.typ === "ukol");
+    if (kolize.length && !confirm(`Auto ${z.spz} je v rozsahu přiřazené k úkolům:\n\n${FTLoader.describeAutoConflicts(z.spz, kolize)}\n\nPřesto uložit?\n(OK = uložit, Zrušit = zpět k úpravě)`)) return false;
   }
+  autaRezervace = ostatni.filter(x => !(x.spz === z.spz && dny.includes(x.datum)));
+  dny.forEach(datum => autaRezervace.push({ spz: z.spz, datum, stav: z.stav, poznamka: z.poznamka }));
   renderAutaTable();
   autoSaveIfPossible();
+  return true;
 }
 
 function deleteRezervace(idx) {
@@ -2163,9 +2263,9 @@ function deleteRezervace(idx) {
 // jako v SPA (7 týdnů od pondělí týdne, ve kterém je 1. den měsíce).
 // Zobrazuje záznamy z "Rezervace a servis" (výchozí), úkoly s autem (každý
 // den vícedenního úkolu) nebo obojí — rozhodnutí JK. Klik na úkol = úprava
-// úkolu, na rezervaci = nabídka smazání, na volné místo dne = předvyplní
-// datum nové rezervace. Kalendář sám nic neukládá — jen volá stávající
-// deleteRezervace / formulář rezervace / modal úkolu.
+// úkolu; klik nebo tažení myší přes dny = okno nové rezervace, klik na
+// rezervaci = okno úpravy jejího úseku (od 2026-10-15 jako v SPA, viz
+// openRezModal). Ukládá se jen přes ulozitRezervaci / deleteRezervace.
 const AUTA_KAL_VIEW_KEY = "ftAutaKalendarActive";
 const AUTA_KAL_FILTR_KEY = "ftAutaKalendarFiltr";
 const AUTA_KAL_DNY = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
@@ -2185,7 +2285,7 @@ let autaKalFiltr = (() => {
   const def = { zobrazit: "rezervace", spz: "", zarazeni: "" };
   try { return { ...def, ...(JSON.parse(localStorage.getItem(AUTA_KAL_FILTR_KEY) || "null") || {}) }; } catch (e) { return def; }
 })();
-let autaKalVybranyDen = "";
+let autaKalVyber = null; // { od, do } — dny označené tažením / v okně rezervace
 
 function toggleAutaKalendar() {
   autaKalendarActive = !autaKalendarActive;
@@ -2249,7 +2349,7 @@ function autaKalendarKostraHtml() {
     </div>
     <div class="month-cal-legend">${legenda}
       <span>⚠ = auto má ten den víc záznamů · (N×) = víc úkolů jednoho člověka s tímto autem</span>
-      <span>Klik na den = nová rezervace · na úkol = úprava úkolu · na rezervaci = smazání</span>
+      <span>Klik nebo tažení myší přes dny = nová rezervace / servis · klik na rezervaci = úprava · klik na úkol = úprava úkolu</span>
     </div>
     <div class="month-cal-scroll">
       <table class="month-cal-grid">
@@ -2367,7 +2467,7 @@ function renderAutaKalendar() {
             return autaKalChipHtml(label, z.stav, title, ` data-row="${t.rowIndex}"`, kolize);
           }
           const label = `${kolize ? "⚠ " : ""}${z.spz} – ${z.stav || "?"}`;
-          const title = `${nazevAuta} – ${z.stav}${z.rez.poznamka ? "\nPoznámka: " + z.rez.poznamka : ""}${kolizeText}\n\nKlik = smazat záznam`;
+          const title = `${nazevAuta} – ${z.stav}${z.rez.poznamka ? "\nPoznámka: " + z.rez.poznamka : ""}${kolizeText}\n\nKlik = upravit / smazat`;
           return autaKalChipHtml(label, z.stav, title, ` data-rez-spz="${escapeHtml(z.rez.spz)}" data-rez-datum="${escapeHtml(z.rez.datum)}"`, kolize);
         }).join("");
       const cls = ["month-cal-day"];
@@ -2376,7 +2476,7 @@ function renderAutaKalendar() {
       if (iso === dnes) cls.push("today");
       if (iso < dnes) cls.push("past");
       if (datum.getMonth() !== autaKalMesic.getMonth()) cls.push("other-month");
-      if (iso === autaKalVybranyDen) cls.push("selected");
+      if (autaKalVyber && iso >= autaKalVyber.od && iso <= autaKalVyber.do) cls.push("selected");
       const svatek = svatky.get(iso);
       html += `<td class="${cls.join(" ")}" data-date="${iso}"${svatek ? ` title="${escapeHtml(svatek)}"` : ""}><div class="month-cal-daynum">${datum.getDate()}</div>${chips}</td>`;
     }
@@ -2401,39 +2501,153 @@ function autaKalFiltrZmena() {
   renderAutaKalendar();
 }
 
-// Klik na volné místo dne: datum (a vybrané auto z filtru) do formuláře
-// "Rezervace a servis" pod kalendářem; uloží se až tlačítkem + Přidat.
-function autaKalNovaRezervace(datum) {
-  const datumEl = document.getElementById("rez_datum");
-  const spzEl = document.getElementById("rez_spz");
-  if (!datumEl || !spzEl) return;
-  datumEl.value = datum;
-  if (autaKalFiltr.spz) spzEl.value = autaKalFiltr.spz;
-  autaKalVybranyDen = datum;
-  document.querySelectorAll("#autaCalBody td.selected").forEach(td => td.classList.remove("selected"));
-  document.querySelector(`#autaCalBody td[data-date="${datum}"]`)?.classList.add("selected");
-  spzEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  spzEl.focus({ preventScroll: true });
+// Označí dny a–b (v libovolném pořadí) v kalendáři; null = zrušit výběr.
+// Výběr přežije překreslení mřížky (renderAutaKalendar čte autaKalVyber).
+function autaKalOznacit(a, b) {
+  autaKalVyber = a ? (a <= b ? { od: a, do: b } : { od: b, do: a }) : null;
+  document.querySelectorAll("#autaCalBody td[data-date]").forEach(td => {
+    const d = td.dataset.date;
+    td.classList.toggle("selected", !!autaKalVyber && d >= autaKalVyber.od && d <= autaKalVyber.do);
+  });
 }
 
-// Rezervace se dohledá až při kliku podle SPZ + data (ne podle indexu z
-// doby vykreslení) — data se mezitím mohla přenačíst.
-function autaKalSmazatRezervaci(spz, datum) {
-  const idx = autaRezervace.findIndex(r => r.spz === spz && r.datum === datum);
-  if (idx < 0) return;
-  const r = autaRezervace[idx];
-  const [y, m, d] = String(datum).split("-");
-  if (!confirm(`Auto ${spz}, ${Number(d)}. ${Number(m)}. ${y}: ${r.stav}${r.poznamka ? " — " + r.poznamka : ""}\n\nSmazat tento záznam?`)) return;
-  deleteRezervace(idx);
+// ── Okno rezervace / servisu (2026-10-15, jako "Nový záznam" v SPA) ────
+// Nové: klik nebo tažení myší přes dny kalendáře → od–do předvyplněné, auto
+// z filtru. Úprava: klik na rezervaci → celý souvislý úsek (rezUsek);
+// Uložit ho nahradí, Smazat celý úsek / jen kliknutý den.
+let rezUprava = null; // upravovaný úsek + den: { spz, stav, poznamka, od, do, den }
+
+function openRezModal({ od, doDatum = "", rez = null }) {
+  const el = id => document.getElementById(id);
+  el("rmAutaList").innerHTML = auta.filter(a => !a.vyrazen)
+    .map(a => `<option value="${escapeHtml(a.spz)}">${escapeHtml(a.popis)}</option>`).join("");
+  const stavSel = el("rm_stav");
+  // Neobvyklý stav ze starých dat přidat do nabídky, ať ho úprava tiše nezmění.
+  const stav = rez ? (rez.stav || "") : "rezervované";
+  if (stav && !Array.from(stavSel.options).some(o => o.value === stav)) stavSel.add(new Option(stav, stav));
+  if (rez) {
+    rezUprava = { ...rezUsek(rez), den: rez.datum };
+    el("rm_spz").value = rez.spz;
+    el("rm_od").value = rezUprava.od;
+    el("rm_do").value = rezUprava.do !== rezUprava.od ? rezUprava.do : "";
+    el("rm_poznamka").value = rez.poznamka || "";
+    el("rezModalTitle").textContent = "Upravit rezervaci / servis";
+    el("rezModalSave").textContent = "Uložit";
+    el("rm_delete_row").style.display = "flex";
+    el("rm_delete_day").style.display = rezUprava.od !== rezUprava.do ? "" : "none";
+    el("rm_delete_day").textContent = `Smazat jen ${rezDen(rez.datum)}`;
+  } else {
+    rezUprava = null;
+    el("rm_spz").value = autaKalFiltr.spz || "";
+    el("rm_od").value = od;
+    el("rm_do").value = doDatum && doDatum !== od ? doDatum : "";
+    el("rm_poznamka").value = "";
+    el("rezModalTitle").textContent = "Nová rezervace / servis";
+    el("rezModalSave").textContent = "Přidat";
+    el("rm_delete_row").style.display = "none";
+  }
+  stavSel.value = stav;
+  rezModalZmena();
+  el("rezModal").classList.add("open");
+  (el("rm_spz").value ? stavSel : el("rm_spz")).focus();
 }
 
+function closeRezModal() {
+  document.getElementById("rezModal").classList.remove("open");
+  rezUprava = null;
+  autaKalOznacit(null);
+}
+
+// Při každé změně v okně: označit dny v kalendáři a ukázat kolize auta
+// (úkoly, jiné rezervace, trvalý stav) — stejný text jako u pole Auto v
+// úkolu. Upravovaný úsek se za kolizi nepočítá.
+function rezModalZmena() {
+  const spz = (document.getElementById("rm_spz").value || "").trim();
+  const od = document.getElementById("rm_od").value;
+  const doDatum = document.getElementById("rm_do").value || od;
+  const warn = document.getElementById("rm_warning");
+  autaKalOznacit(od && doDatum >= od ? od : null, doDatum);
+  warn.style.display = "none";
+  if (!od) return;
+  if (doDatum < od) {
+    warn.textContent = "Datum do je dřív než datum od.";
+    warn.style.color = "var(--danger)";
+    warn.style.display = "block";
+    return;
+  }
+  if (!spz || !FTLoader.getAutoConflicts) return;
+  const dny = rezDny(od, doDatum);
+  const conflicts = FTLoader.getAutoConflicts(spz, dny, { tasks, auta, autaRezervace: autaRezervace.filter(x => !rezVUseku(rezUprava)(x)) });
+  const level = FTLoader.autoConflictLevel(conflicts);
+  if (!level) return;
+  warn.textContent = FTLoader.describeAutoConflicts(spz, conflicts);
+  warn.style.color = level === "kolize" ? "var(--auto-kolize)" : "var(--auto-kolize-stav)";
+  warn.style.display = "block";
+}
+
+function saveRezModal() {
+  const v = id => (document.getElementById(id).value || "").trim();
+  const ok = ulozitRezervaci({ spz: v("rm_spz"), od: v("rm_od"), do: v("rm_do"), stav: v("rm_stav"), poznamka: v("rm_poznamka") }, rezUprava);
+  if (ok) closeRezModal();
+}
+
+function smazatRezUsek() {
+  const u = rezUprava;
+  if (!u) return;
+  const n = autaRezervace.filter(rezVUseku(u)).length;
+  if (n > 1 && !confirm(`Smazat ${u.stav || "záznam"} auta ${u.spz}, ${rezDen(u.od)} – ${rezDen(u.do)} (${n} ${n < 5 ? "dny" : "dní"})?`)) return;
+  autaRezervace = autaRezervace.filter(x => !rezVUseku(u)(x));
+  closeRezModal();
+  renderAutaTable();
+  autoSaveIfPossible();
+}
+
+function smazatRezDen() {
+  const u = rezUprava;
+  if (!u) return;
+  const idx = autaRezervace.findIndex(x => rezVUseku(u)(x) && x.datum === u.den);
+  closeRezModal();
+  if (idx >= 0) deleteRezervace(idx);
+}
+
+["rm_spz", "rm_od", "rm_do", "rm_stav"].forEach(id => document.getElementById(id)?.addEventListener("input", rezModalZmena));
+document.getElementById("rezModal")?.addEventListener("click", e => { if (e.target.id === "rezModal") closeRezModal(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("rezModal")?.classList.contains("open")) closeRezModal();
+});
+
+// Klik na štítek: úkol → úprava úkolu, rezervace → okno úpravy. Rezervace
+// se dohledá až při kliku podle SPZ + data (data se mohla přenačíst).
 document.getElementById("autaTableWrap")?.addEventListener("click", e => {
   if (!e.target.closest("#autaCalBody")) return;
   const chip = e.target.closest(".month-cal-chip");
   if (chip && chip.dataset.row) { editTask(Number(chip.dataset.row)); return; }
-  if (chip && chip.dataset.rezSpz !== undefined) { autaKalSmazatRezervaci(chip.dataset.rezSpz, chip.dataset.rezDatum); return; }
+  if (chip && chip.dataset.rezSpz !== undefined) {
+    const r = autaRezervace.find(x => x.spz === chip.dataset.rezSpz && x.datum === chip.dataset.rezDatum);
+    if (r) openRezModal({ rez: r });
+  }
+});
+
+// Výběr dne / dnů myší jako v SPA: stisk na dni (mimo štítek), tažení přes
+// další dny, puštění = okno nové rezervace. Jen jeden den = "do" prázdné.
+let rezTazeniOd = null;
+document.getElementById("autaTableWrap")?.addEventListener("mousedown", e => {
+  if (e.button !== 0 || !e.target.closest("#autaCalBody") || e.target.closest(".month-cal-chip")) return;
   const td = e.target.closest("td[data-date]");
-  if (td) autaKalNovaRezervace(td.dataset.date);
+  if (!td) return;
+  e.preventDefault();
+  rezTazeniOd = td.dataset.date;
+  autaKalOznacit(rezTazeniOd, rezTazeniOd);
+});
+document.getElementById("autaTableWrap")?.addEventListener("mouseover", e => {
+  if (rezTazeniOd === null) return;
+  const td = e.target.closest("#autaCalBody td[data-date]");
+  if (td) autaKalOznacit(rezTazeniOd, td.dataset.date);
+});
+document.addEventListener("mouseup", () => {
+  if (rezTazeniOd === null) return;
+  rezTazeniOd = null;
+  if (autaKalVyber) openRezModal({ od: autaKalVyber.od, doDatum: autaKalVyber.do });
 });
 
 // ── URL PARAMS ─────────────────────────────────────────────────────────
