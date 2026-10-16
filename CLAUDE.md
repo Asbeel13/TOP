@@ -196,7 +196,9 @@ Chybějící `role` pole ve starém záznamu = zpětně kompatibilní jako
   rezervace a servis se zadávají od–do (okno z kalendáře klikem nebo
   tažením myší, jako SPA), ale **ukládají se den po dni** — datový model
   `auta_rezervace` se nemění (JK); úprava vozidla (popis, zodpovědný jako
-  volný text, zařazení, trvalý stav; SPZ ne) jen s příznakem `auta`;
+  volný text, zařazení, trvalý stav a od 2026-10-16 i SPZ — změna SPZ se
+  přepíše všude, u všech úkolů `auto` i rezervací, JK) jen s příznakem
+  `auta`;
   styly jsou sdílená komponenta
   `.month-cal-*` v `components.css` 1.3.0 (`Esperanto/INTEGRACE.md`)
 - Nastavení zobrazení lidí (pořadí, L/P strana, skrytí) — sdílené přes

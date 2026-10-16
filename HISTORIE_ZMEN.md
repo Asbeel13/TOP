@@ -9,6 +9,37 @@ Novější záznamy (od 2026-09-08) jsou nahoře, nejnovější první — nový
 přidej nahoru. Starší chronologický changelog (2026-07-29 až 2026-09-18) je
 na konci, od nejstaršího.
 
+## Změna SPZ vozidla (2026-10-16, NASAZENO — commit `67b28a4`)
+
+**✅ Nahráno JK 2026-10-16 06:15.** `git fetch` + `cmp`: GitHub bajtově
+shodný s otestovanou verzí; GitHub Pages: SHA-256 sedí (06:16).
+
+V okně Upravit vozidlo (Správa vozidel, příznak `auta`) jde nově změnit i
+SPZ. Jen `sprava_ukolu_linked.html`. SPZ je klíč, přes který jsou na auto
+navázané úkoly (`auto`) i rezervace (`auta_rezervace.spz`), proto se
+změna přepíše **všude** (rozhodnutí JK): u všech úkolů s tímto autem
+včetně dokončených a zrušených a u všech rezervací a servisů, minulých i
+budoucích. Úkoly se porovnávají oříznuté (starší data mívala mezery navíc
+kolem SPZ). Mění se jen pole `auto` / `spz` — `lastUpdated` úkolů ne (jde
+o přejmenování auta, ne úpravu úkolu); historie úprav zaznamená změnu u
+každého úkolu (nad 200 najednou jen souhrn, `HISTORY_MAX_EVENTS`).
+- Před uložením dotaz s počty („u 36 úkolů (z toho 30 dokončených nebo
+  zrušených) a u 3 rezervací a servisů“); SPZ jiného vozidla (i
+  vyřazeného) odmítne; prázdnou odmítne; je-li nová SPZ už ručně zadaná u
+  úkolů či rezervací, dotaz upozorní, že budou patřit k tomuto vozidlu.
+- Uložený filtr kalendáře na přejmenované auto přejde na novou SPZ.
+- Nahradit auto jiným vozidlem = přidat nové + vyřadit staré, ne změna SPZ.
+
+**Ověřeno** mockem GitHub API: odmítnutí duplicitní a prázdné SPZ,
+Zrušit = nic se nezmění; přejmenování → PUT mění jen `spz` auta, `auto`
+dotčených úkolů a `spz` rezervací, stará SPZ nikde nezůstane, kalendář i
+Databáze úkolů ukazují novou SPZ, zapíše se historie; SPZ s mezerami;
+sloučení s ručně zadanou SPZ. Na **čerstvé kopii živé DB** (2021 úkolů):
+5Z4 3012 → 5Z4 3013 změnilo přesně 36 úkolů (stejné indexy jako nezávislý
+výpočet ze surových dat, jen pole `auto`) a 3 rezervace; ostatní úkoly a
+zbytek DB shodné. Bez chyb v konzoli, CRLF zachované, kopie živých dat
+smazány.
+
 ## Úprava vozidel a oprávnění `auta` (2026-10-15, NASAZENO — commit `56c9706`)
 
 **✅ Nahráno JK 2026-10-15 09:59.** `git fetch` + `cmp`: GitHub bajtově
