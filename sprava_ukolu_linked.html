@@ -899,7 +899,7 @@ initDarkMode();
       </div>
       <div class="modal-body">
         <div class="grid two">
-          <div class="field field-readonly"><label>SPZ (nelze změnit)</label><input id="am_spz" readonly /></div>
+          <div class="field field-required"><label>SPZ (změna se přepíše u všech úkolů a rezervací)</label><input id="am_spz" autocomplete="off" /></div>
           <div class="field field-required"><label>Popis</label><input id="am_popis" /></div>
         </div>
         <div class="grid two">
@@ -2205,8 +2205,12 @@ function renderAutaManagementLists() {
 }
 
 // ── Úprava vozidla (2026-10-15) ───────────────────────────────────────
-// Popis, zodpovědný (volný text, JK), zařazení a trvalý stav. SPZ se
-// nemění — podle ní jsou na auto navázané úkoly i rezervace.
+// Popis, zodpovědný (volný text, JK), zařazení, trvalý stav a od
+// 2026-10-16 i SPZ. Podle SPZ jsou na auto navázané úkoly (`auto`) i
+// rezervace — změna ji proto přepíše VŠUDE (JK: i dokončené a zrušené
+// úkoly, minulé i budoucí rezervace; auto je pořád stejné).
+let autoUpravaSpz = null; // SPZ upravovaného auta při otevření okna
+
 function openAutoModal(spz) {
   if (!overitSpravuAut()) return;
   const auto = auta.find(a => a.spz === spz);
@@ -2217,6 +2221,7 @@ function openAutoModal(spz) {
     if (!Array.from(sel.options).some(o => o.value === value)) sel.add(new Option(label || value, value));
     sel.value = value;
   };
+  autoUpravaSpz = auto.spz;
   el("am_spz").value = auto.spz;
   el("am_popis").value = auto.popis || "";
   el("am_zodpovedna").value = auto.zodpovedna || "";
@@ -2234,16 +2239,42 @@ function closeAutoModal() {
 function saveAutoModal() {
   if (!overitSpravuAut()) return;
   const v = id => (document.getElementById(id).value || "").trim();
-  const spz = document.getElementById("am_spz").value;
+  const staraSpz = autoUpravaSpz;
   // Dohledat až teď — data se mohla mezitím přenačíst.
-  const auto = auta.find(a => a.spz === spz);
-  if (!auto) { alert(`Vozidlo ${spz} už v datech není. Zavři okno a zkus to znovu.`); return; }
-  const nove = { popis: v("am_popis"), zodpovedna: v("am_zodpovedna"), zarazeni: v("am_zarazeni"), dostupnost: v("am_dostupnost") };
+  const auto = auta.find(a => a.spz === staraSpz);
+  if (!auto) { alert(`Vozidlo ${staraSpz} už v datech není. Zavři okno a zkus to znovu.`); return; }
+  const nove = { spz: v("am_spz"), popis: v("am_popis"), zodpovedna: v("am_zodpovedna"), zarazeni: v("am_zarazeni"), dostupnost: v("am_dostupnost") };
+  if (!nove.spz) { alert("Vyplň SPZ vozidla."); return; }
   if (!nove.popis) { alert("Vyplň popis vozidla."); return; }
-  const puvodni = { popis: auto.popis || "", zodpovedna: auto.zodpovedna || "", zarazeni: auto.zarazeni || "", dostupnost: auto.dostupnost || "volné" };
+  const puvodni = { spz: auto.spz, popis: auto.popis || "", zodpovedna: auto.zodpovedna || "", zarazeni: auto.zarazeni || "", dostupnost: auto.dostupnost || "volné" };
+  if (Object.keys(nove).every(k => nove[k] === puvodni[k])) { closeAutoModal(); return; }
+  // Změna SPZ: úkoly porovnávat oříznuté (starší data mívala mezery navíc).
+  const zmenaSpz = nove.spz !== staraSpz;
+  const maSpz = (t, spz) => String(t.auto || "").trim() === spz;
+  if (zmenaSpz) {
+    if (auta.some(a => a !== auto && a.spz === nove.spz)) { alert(`Vozidlo se SPZ "${nove.spz}" už existuje.`); return; }
+    const ukoly = tasks.filter(t => maSpz(t, staraSpz));
+    const uzavrene = ukoly.filter(t => t.cancelled || String(t.state || "").toLowerCase().includes("dokončeno")).length;
+    const rez = autaRezervace.filter(r => r.spz === staraSpz).length;
+    // Nová SPZ už ručně zadaná u úkolů / rezervací → sloučí se s tímto autem.
+    const rucne = tasks.filter(t => maSpz(t, nove.spz)).length + autaRezervace.filter(r => r.spz === nove.spz).length;
+    const u = (n, jeden, vic) => `${n} ${n === 1 ? jeden : vic}`; // 2. pád po "u"
+    if (!confirm(`Změnit SPZ ${staraSpz} → ${nove.spz}?\n\nStará SPZ se přepíše všude: u ${u(ukoly.length, "úkolu", "úkolů")}`
+      + (uzavrene ? ` (z toho ${u(uzavrene, "dokončeného nebo zrušeného", "dokončených nebo zrušených")})` : "")
+      + ` a u ${u(rez, "rezervace nebo servisu", "rezervací a servisů")}.`
+      + (rucne ? `\n\nPozor: SPZ ${nove.spz} je už ručně zadaná u ${u(rucne, "záznamu", "záznamů")} — bude patřit k tomuto vozidlu.` : ""))) return;
+  }
   closeAutoModal();
-  if (Object.keys(nove).every(k => nove[k] === puvodni[k])) return;
   Object.assign(auto, nove);
+  if (zmenaSpz) {
+    tasks.forEach(t => { if (maSpz(t, staraSpz)) t.auto = nove.spz; });
+    autaRezervace.forEach(r => { if (r.spz === staraSpz) r.spz = nove.spz; });
+    if (autaKalFiltr.spz === staraSpz) {
+      autaKalFiltr.spz = nove.spz;
+      try { localStorage.setItem(AUTA_KAL_FILTR_KEY, JSON.stringify(autaKalFiltr)); } catch (e) {}
+    }
+    applyFilters(); // sloupec Auto v Databázi úkolů
+  }
   renderAutaTable();
   buildAutaDatalist();
   autoSaveIfPossible();
